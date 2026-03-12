@@ -81,6 +81,11 @@
 #  define EM_AARCH64 183
 #endif
 
+// Old Linux header doesn't define EM_LOONGARCH.
+#ifndef EM_LOONGARCH
+#  define EM_LOONGARCH 258
+#endif
+
 // This namespace contains helper functions.
 namespace {
 
@@ -172,6 +177,9 @@ bool DwarfCFIRegisterNames(const typename ElfClass::Ehdr* elf_header,
       return true;
     case EM_AARCH64:
       *num_dw_regnames = DwarfCFIToModule::RegisterNames::ARM64();
+      return true;
+    case EM_LOONGARCH:
+      *num_dw_regnames = DwarfCFIToModule::RegisterNames::LOONGARCH();
       return true;
     default:
       MOZ_ASSERT(0);
@@ -458,6 +466,8 @@ const char* ElfArchitecture(const typename ElfClass::Ehdr* elf_header) {
       return "sparcv9";
     case EM_X86_64:
       return "x86_64";
+    case EM_LOONGARCH:
+      return "loongarch";
     default:
       return nullptr;
   }
