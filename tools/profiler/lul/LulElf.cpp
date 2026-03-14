@@ -81,6 +81,11 @@
 #  define EM_AARCH64 183
 #endif
 
+// Old Linux header doesn't define EM_RISCV.
+#ifndef EM_RISCV
+#  define EM_RISCV 243
+#endif
+
 // Old Linux header doesn't define EM_LOONGARCH.
 #ifndef EM_LOONGARCH
 #  define EM_LOONGARCH 258
@@ -180,6 +185,9 @@ bool DwarfCFIRegisterNames(const typename ElfClass::Ehdr* elf_header,
       return true;
     case EM_LOONGARCH:
       *num_dw_regnames = DwarfCFIToModule::RegisterNames::LOONGARCH();
+      return true;
+    case EM_RISCV:
+      *num_dw_regnames = DwarfCFIToModule::RegisterNames::RISCV();
       return true;
     default:
       MOZ_ASSERT(0);
@@ -468,6 +476,8 @@ const char* ElfArchitecture(const typename ElfClass::Ehdr* elf_header) {
       return "x86_64";
     case EM_LOONGARCH:
       return "loongarch";
+    case EM_RISCV:
+      return "riscv";
     default:
       return nullptr;
   }
