@@ -220,11 +220,12 @@ BOOL WINAPI GetThreadInformation(
 #endif
 
 // Linux/BSD builds use LUL, which uses DWARF info to unwind stacks.
-#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||       \
-    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||   \
-    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||    \
-    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) || \
-    defined(GP_PLAT_arm64_freebsd) || defined(GP_PLAT_loongarch64_linux)
+#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||           \
+    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||       \
+    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||        \
+    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) ||     \
+    defined(GP_PLAT_arm64_freebsd) || defined(GP_PLAT_loongarch64_linux) || \
+    defined(GP_PLAT_riscv64_linux)
 #  define HAVE_NATIVE_UNWIND
 #  define USE_LUL_STACKWALK
 #  include "lul/LulMain.h"
@@ -2190,7 +2191,7 @@ static const char* const kMainThreadName = "GeckoMain";
     defined(GP_PLAT_arm64_freebsd) || defined(GP_ARCH_arm64) ||         \
     defined(__aarch64__)
 #  define UNWINDING_REGS_HAVE_LR_R11
-#elif defined(GP_PLAT_loongarch64_linux)
+#elif defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
 #  define UNWINDING_REGS_HAVE_RA
 #endif
 
@@ -2910,6 +2911,11 @@ static void DoLULBacktrace(
   startRegs.fp = lul::TaggedUWord(mc->__gregs[22]);
   startRegs.s0 = lul::TaggedUWord(mc->__gregs[23]);
   startRegs.pc = lul::TaggedUWord(mc->__pc);
+#  elif defined(GP_PLAT_riscv64_linux)
+  startRegs.ra = lul::TaggedUWord(mc->__gregs[1]);
+  startRegs.sp = lul::TaggedUWord(mc->__gregs[2]);
+  startRegs.fp = lul::TaggedUWord(mc->__gregs[8]);
+  startRegs.pc = lul::TaggedUWord(mc->__gregs[0]);  // REG_PC
 #  else
 #    error "Unknown plat"
 #  endif
@@ -2966,6 +2972,9 @@ static void DoLULBacktrace(
     uintptr_t REDZONE_SIZE = 0;
     uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
 #  elif defined(GP_PLAT_loongarch64_linux)
+    uintptr_t REDZONE_SIZE = 0;
+    uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
+#  elif defined(GP_PLAT_riscv64_linux)
     uintptr_t REDZONE_SIZE = 0;
     uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
 #  else

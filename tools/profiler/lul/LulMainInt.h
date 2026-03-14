@@ -69,6 +69,10 @@ enum DW_REG_NUMBER {
   DW_REG_LOONGARCH_FP = 22,
   // Used as base in xpcom/reflect/xptcall/md/unix/xptcinvoke_asm_loongarch64.S
   DW_REG_LOONGARCH_S0 = 23,
+#elif defined(GP_ARCH_riscv64)
+  DW_REG_RISCV_RA = 1,
+  DW_REG_RISCV_SP = 2,
+  DW_REG_RISCV_FP = 8,
 #else
 #  error "Unknown arch"
 #endif
@@ -334,6 +338,10 @@ class RuleSet {
   LExpr mSPexpr;
   LExpr mFPexpr;
   LExpr mS0expr;
+#elif defined(GP_ARCH_riscv64)
+  LExpr mRAexpr;
+  LExpr mSPexpr;
+  LExpr mFPexpr;
 #else
 #  error "Unknown arch"
 #endif
@@ -367,6 +375,10 @@ class RuleSet {
     h = mozilla::AddToHash(h, rs.mSPexpr.hash());
     h = mozilla::AddToHash(h, rs.mFPexpr.hash());
     h = mozilla::AddToHash(h, rs.mS0expr.hash());
+#elif defined(GP_ARCH_riscv64)
+    h = mozilla::AddToHash(h, rs.mRAexpr.hash());
+    h = mozilla::AddToHash(h, rs.mSPexpr.hash());
+    h = mozilla::AddToHash(h, rs.mFPexpr.hash());
 #else
 #  error "Unknown arch"
 #endif
@@ -394,6 +406,9 @@ class RuleSet {
 #elif defined(GP_ARCH_loongarch64)
            rs1.mRAexpr.equals(rs2.mRAexpr) && rs1.mSPexpr.equals(rs2.mSPexpr) &&
            rs1.mFPexpr.equals(rs2.mFPexpr) && rs1.mS0expr.equals(rs2.mS0expr);
+#elif defined(GP_ARCH_riscv64)
+           rs1.mRAexpr.equals(rs2.mRAexpr) && rs1.mSPexpr.equals(rs2.mSPexpr) &&
+           rs1.mFPexpr.equals(rs2.mFPexpr);
 #else
 #  error "Unknown arch"
 #endif
@@ -432,6 +447,11 @@ static inline bool registerIsTracked(DW_REG_NUMBER reg) {
     case DW_REG_LOONGARCH_SP:
     case DW_REG_LOONGARCH_FP:
     case DW_REG_LOONGARCH_S0:
+      return true;
+#elif defined(GP_ARCH_riscv64)
+    case DW_REG_RISCV_RA:
+    case DW_REG_RISCV_SP:
+    case DW_REG_RISCV_FP:
       return true;
 #else
 #  error "Unknown arch"
