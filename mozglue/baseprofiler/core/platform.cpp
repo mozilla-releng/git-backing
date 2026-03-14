@@ -1139,7 +1139,7 @@ static const char* const kMainThreadName = "GeckoMain";
     defined(GP_PLAT_arm64_freebsd) || defined(GP_ARCH_arm64) ||         \
     defined(__aarch64__)
 #  define UNWINDING_REGS_HAVE_LR_R11
-#elif defined(GP_PLAT_loongarch64_linux)
+#elif defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
 #  define UNWINDING_REGS_HAVE_RA
 #endif
 

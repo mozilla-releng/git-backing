@@ -2528,6 +2528,9 @@ TEST_F(LulDwarfExpr, ExpressionOverrun) {
 #elif defined(GP_ARCH_loongarch64)
 #  define TESTED_REG_STRUCT_NAME fp
 #  define TESTED_REG_DWARF_NAME DW_REG_LOONGARCH_FP
+#elif defined(GP_ARCH_riscv64)
+#  define TESTED_REG_STRUCT_NAME fp
+#  define TESTED_REG_DWARF_NAME DW_REG_RISCV_FP
 #else
 #  error "Unknown plat"
 #endif
