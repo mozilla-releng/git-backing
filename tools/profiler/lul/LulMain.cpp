@@ -98,6 +98,13 @@ static const char* NameOf_DW_REG(int16_t aReg) {
       return "fp";
     case DW_REG_LOONGARCH_S0:
       return "s0";
+#elif defined(GP_ARCH_riscv64)
+    case DW_REG_RISCV_RA:
+      return "ra";
+    case DW_REG_RISCV_SP:
+      return "sp";
+    case DW_REG_RISCV_FP:
+      return "fp";
 #else
 #  error "Unsupported arch"
 #endif
@@ -165,6 +172,10 @@ void RuleSet::Print(uintptr_t avma, uintptr_t len,
   res += mSPexpr.ShowRule(" SP");
   res += mFPexpr.ShowRule(" FP");
   res += mS0expr.ShowRule(" S0");
+#elif defined(GP_ARCH_riscv64)
+  res += mRAexpr.ShowRule(" RA");
+  res += mSPexpr.ShowRule(" SP");
+  res += mFPexpr.ShowRule(" FP");
 #else
 #  error "Unsupported arch"
 #endif
@@ -218,6 +229,13 @@ LExpr* RuleSet::ExprForRegno(DW_REG_NUMBER aRegno) {
       return &mFPexpr;
     case DW_REG_LOONGARCH_S0:
       return &mS0expr;
+#elif defined(GP_ARCH_riscv64)
+    case DW_REG_RISCV_RA:
+      return &mRAexpr;
+    case DW_REG_RISCV_SP:
+      return &mSPexpr;
+    case DW_REG_RISCV_FP:
+      return &mFPexpr;
 #else
 #  error "Unknown arch"
 #endif
@@ -1082,6 +1100,13 @@ static TaggedUWord EvaluateReg(int16_t aReg, const UnwindRegs* aOldRegs,
       return aOldRegs->fp;
     case DW_REG_LOONGARCH_S0:
       return aOldRegs->s0;
+#elif defined(GP_ARCH_riscv64)
+    case DW_REG_RISCV_RA:
+      return aOldRegs->ra;
+    case DW_REG_RISCV_SP:
+      return aOldRegs->sp;
+    case DW_REG_RISCV_FP:
+      return aOldRegs->fp;
 #else
 #  error "Unsupported arch"
 #endif
@@ -1291,6 +1316,11 @@ static void UseRuleSet(/*MOD*/ UnwindRegs* aRegs, const StackImage* aStackImg,
   aRegs->fp = TaggedUWord();
   aRegs->s0 = TaggedUWord();
   aRegs->pc = TaggedUWord();
+#elif defined(GP_ARCH_riscv64)
+  aRegs->ra = TaggedUWord();
+  aRegs->sp = TaggedUWord();
+  aRegs->fp = TaggedUWord();
+  aRegs->pc = TaggedUWord();
 #else
 #  error "Unsupported arch"
 #endif
@@ -1341,6 +1371,10 @@ static void UseRuleSet(/*MOD*/ UnwindRegs* aRegs, const StackImage* aStackImg,
   aRegs->sp = aRS->mSPexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
   aRegs->fp = aRS->mFPexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
   aRegs->s0 = aRS->mS0expr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
+#elif defined(GP_ARCH_riscv64)
+  aRegs->ra = aRS->mRAexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
+  aRegs->sp = aRS->mSPexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
+  aRegs->fp = aRS->mFPexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
 #else
 #  error "Unsupported arch"
 #endif
@@ -1422,6 +1456,15 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
           (int)regs.s0.Valid(), (unsigned long long int)regs.s0.Value());
       buf[sizeof(buf) - 1] = 0;
       mLog(buf);
+#elif defined(GP_ARCH_riscv64)
+      SprintfLiteral(
+          buf, "LoopTop: pc %d/%llx  ra %d/%llx  sp %d/%llx  fp %d/%llx\n",
+          (int)regs.pc.Valid(), (unsigned long long int)regs.pc.Value(),
+          (int)regs.ra.Valid(), (unsigned long long int)regs.ra.Value(),
+          (int)regs.sp.Valid(), (unsigned long long int)regs.sp.Value(),
+          (int)regs.fp.Valid(), (unsigned long long int)regs.fp.Value());
+      buf[sizeof(buf) - 1] = 0;
+      mLog(buf);
 #else
 #  error "Unsupported arch"
 #endif
@@ -1440,6 +1483,9 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
     TaggedUWord ia = regs.pc;
     TaggedUWord sp = regs.sp;
 #elif defined(GP_ARCH_loongarch64)
+    TaggedUWord ia = (*aFramesUsed == 0 ? regs.pc : regs.ra);
+    TaggedUWord sp = regs.sp;
+#elif defined(GP_ARCH_riscv64)
     TaggedUWord ia = (*aFramesUsed == 0 ? regs.pc : regs.ra);
     TaggedUWord sp = regs.sp;
 #else
@@ -1863,6 +1909,24 @@ static __attribute__((noinline)) bool GetAndCheckStackTrace(
   startRegs.fp = TaggedUWord(block[2]);
   startRegs.s0 = TaggedUWord(block[3]);
   startRegs.pc = TaggedUWord(block[4]);
+  const uintptr_t REDZONE_SIZE = 0;
+  uintptr_t start = block[1] - REDZONE_SIZE;
+#elif defined(GP_ARCH_riscv64)
+  volatile uintptr_t block[4];
+  static_assert(sizeof(block) == 32);
+  __asm__ __volatile__(
+      "auipc  t0, 0       \n"
+      "sd     ra, 0(%0)   \n"
+      "sd     sp, 8(%0)   \n"
+      "sd     fp, 16(%0)  \n"
+      "sd     t0, 24(%0)  \n"
+      :
+      : "r"(block)
+      : "memory", "t0");
+  startRegs.ra = TaggedUWord(block[0]);
+  startRegs.sp = TaggedUWord(block[1]);
+  startRegs.fp = TaggedUWord(block[2]);
+  startRegs.pc = TaggedUWord(block[3]);
   const uintptr_t REDZONE_SIZE = 0;
   uintptr_t start = block[1] - REDZONE_SIZE;
 #else
