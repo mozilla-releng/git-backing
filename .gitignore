@@ -429,6 +429,9 @@ CLAUDE.local.md
 **/.claude/worktrees/
 .worktreeinclude
 
+# Ignore remember files
+.remember/
+
 # Ignore .json.gz (typically profiles) in the root directory
 # lint-ignore-next-line: git-only
 /*.json.gz
