@@ -419,3 +419,6 @@ toolkit/themes/shared/design-system/dist/token-audit
 # Ignore Claude Code worktrees
 \.claude/worktrees/
 \.worktreeinclude
+
+# Ignore remember files
+\.remember/
