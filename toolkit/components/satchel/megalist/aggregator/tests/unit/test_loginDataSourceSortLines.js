@@ -19,8 +19,7 @@ const gBrowserGlue = Cc["@mozilla.org/browser/browserglue;1"].getService(
 );
 
 ChromeUtils.defineESModuleGetters(this, {
-  LoginBreaches:
-    "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs",
+  BreachAlertsData: "resource://gre/modules/BreachAlertsData.sys.mjs",
 });
 
 const LOGINS = [
@@ -71,14 +70,14 @@ async function addBreach() {
     schema: "1541615609018",
   };
   async function emitSync() {
-    await RemoteSettings(LoginBreaches.REMOTE_SETTINGS_COLLECTION).emit(
+    await RemoteSettings(BreachAlertsData.REMOTE_SETTINGS_COLLECTION).emit(
       "sync",
       { data: { current: [breach] } }
     );
   }
 
   gBrowserGlue.observe(null, "browser-glue-test", "add-breaches-sync-handler");
-  const db = RemoteSettings(LoginBreaches.REMOTE_SETTINGS_COLLECTION).db;
+  const db = RemoteSettings(BreachAlertsData.REMOTE_SETTINGS_COLLECTION).db;
   await db.importChanges({}, Date.now(), [breach]);
   await emitSync();
 }
