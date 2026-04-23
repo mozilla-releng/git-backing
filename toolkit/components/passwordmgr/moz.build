@@ -27,6 +27,7 @@ XPIDL_MODULE = "loginmgr"
 
 EXTRA_JS_MODULES += [
     "BreachAlertStore.sys.mjs",
+    "BreachAlertsData.sys.mjs",
     "crypto-SDR.sys.mjs",
     "InsecurePasswordUtils.sys.mjs",
     "LoginAutoComplete.sys.mjs",

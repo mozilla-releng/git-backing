@@ -4,6 +4,9 @@
 let { LoginBreaches } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs"
 );
+let { BreachAlertsData } = ChromeUtils.importESModule(
+  "resource://gre/modules/BreachAlertsData.sys.mjs"
+);
 let { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
 );
@@ -102,7 +105,7 @@ async function addLogin(login) {
 let EXPECTED_BREACH = null;
 let EXPECTED_ERROR_MESSAGE = null;
 add_setup(async function setup_head() {
-  const db = RemoteSettings(LoginBreaches.REMOTE_SETTINGS_COLLECTION).db;
+  const db = RemoteSettings(BreachAlertsData.REMOTE_SETTINGS_COLLECTION).db;
   if (EXPECTED_BREACH) {
     await db.create(EXPECTED_BREACH, {
       useRecordId: true,
@@ -110,7 +113,7 @@ add_setup(async function setup_head() {
   }
   await db.importChanges({}, Date.now());
   if (EXPECTED_BREACH) {
-    await RemoteSettings(LoginBreaches.REMOTE_SETTINGS_COLLECTION).emit(
+    await RemoteSettings(BreachAlertsData.REMOTE_SETTINGS_COLLECTION).emit(
       "sync",
       { data: { current: [EXPECTED_BREACH] } }
     );
