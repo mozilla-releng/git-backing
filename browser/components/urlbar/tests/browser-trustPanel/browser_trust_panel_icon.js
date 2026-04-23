@@ -33,11 +33,19 @@ const TEST_BREACH = {
   schema: "1541615609018",
 };
 
+async function syncBreaches() {
+  const current = await RemoteSettings("fxmonitor-breaches").get();
+  await RemoteSettings("fxmonitor-breaches").emit("sync", {
+    data: { current },
+  });
+}
+
 add_setup(async function setup() {
   const db = RemoteSettings("fxmonitor-breaches").db;
   await db.clear();
   await db.create(TEST_BREACH, { useRecordId: true });
   await db.importChanges({}, Date.now());
+  await syncBreaches();
 
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -78,6 +86,7 @@ add_setup(async function setup() {
     Services.prefs.clearUserPref("browser.urlbar.trackerCountShown");
     await db.clear();
     await db.importChanges({}, Date.now());
+    await syncBreaches();
   });
 });
 
@@ -188,6 +197,7 @@ add_task(async function test_breached_urlbar_icon_animation_logic() {
       { useRecordId: true }
     );
     await db.importChanges({}, Date.now());
+    await syncBreaches();
 
     tab3 = await BrowserTestUtils.openNewForegroundTab({
       gBrowser,
@@ -243,6 +253,7 @@ add_task(async function test_breached_idn_site() {
     { useRecordId: true }
   );
   await db.importChanges({}, Date.now());
+  await syncBreaches();
 
   const tab = await BrowserTestUtils.openNewForegroundTab({
     gBrowser,

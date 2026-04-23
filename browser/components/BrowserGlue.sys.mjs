@@ -1413,11 +1413,7 @@ BrowserGlue.prototype = {
         false
       )
     ) {
-      lazy
-        .RemoteSettings(lazy.LoginBreaches.REMOTE_SETTINGS_COLLECTION)
-        .on("sync", async event => {
-          await lazy.LoginBreaches.update(event.data.current);
-        });
+      lazy.LoginBreaches.subscribeToBreachUpdates();
     }
   },
 
