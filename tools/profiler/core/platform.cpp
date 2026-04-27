@@ -2192,7 +2192,7 @@ static const char* const kMainThreadName = "GeckoMain";
     defined(__aarch64__)
 #  define UNWINDING_REGS_HAVE_LR_R11
 #elif defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
-#  define UNWINDING_REGS_HAVE_RA
+#  define UNWINDING_REGS_HAVE_RA_T3
 #endif
 
 // The registers used for stack unwinding and a few other sampling purposes.
@@ -2221,8 +2221,9 @@ class Registers {
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
   Address mLR{nullptr};   // ARM link register, or temp for return address.
   Address mR11{nullptr};  // Temp for frame pointer.
-#elif defined(UNWINDING_REGS_HAVE_RA)
+#elif defined(UNWINDING_REGS_HAVE_RA_T3)
   Address mRA{nullptr};  // Return address register.
+  Address mT3{nullptr};  // Temp for frame pointer.
 #endif
 
 #if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
@@ -2370,6 +2371,9 @@ static uint32_t ExtractJsFrames(
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
       registerState.lr = aRegs.mLR;
       registerState.tempFP = aRegs.mR11;
+#elif defined(UNWINDING_REGS_HAVE_RA_T3)
+      registerState.tempRA = aRegs.mRA;
+      registerState.tempFP = aRegs.mT3;
 #endif
 
       // Non-periodic sampling passes Nothing() as the buffer write position to
@@ -3244,7 +3248,7 @@ static inline void DoPeriodicSample(
 #undef UNWINDING_REGS_HAVE_R10_R12
 #undef UNWINDING_REGS_HAVE_LR_R7
 #undef UNWINDING_REGS_HAVE_LR_R11
-#undef UNWINDING_REGS_HAVE_RA
+#undef UNWINDING_REGS_HAVE_RA_T3
 
 // END sampling/unwinding code
 ////////////////////////////////////////////////////////////////////////
