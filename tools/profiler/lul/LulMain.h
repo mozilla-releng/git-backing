@@ -167,13 +167,19 @@ struct UnwindRegs {
 #endif
 };
 
-// The maximum number of bytes in a stack snapshot.  This value can be increased
-// if necessary, but testing showed that 160k is enough to obtain good
-// backtraces on x86_64 Linux.  Most backtraces fit comfortably into 4-8k of
-// stack space, but we do have some very deep stacks occasionally.  Please see
-// the comments in DoNativeBacktrace as to why it's OK to have this value be so
-// large.
+// The maximum number of bytes in a stack snapshot.
+#if defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
+// On loongarch64-linux and riscv64-linux, stacks are generally larger, perhaps
+// due to there being more registers to save and the alignment requirement.
+static const size_t N_STACK_BYTES = 256 * 1024;
+#else
+// This value can be increased if necessary, but testing showed that 160k is
+// enough to obtain good backtraces on x86_64 Linux.  Most backtraces fit
+// comfortably into 4-8k of stack space, but we do have some very deep stacks
+// occasionally.  Please see the comments in DoNativeBacktrace as to why it's
+// OK to have this value be so large.
 static const size_t N_STACK_BYTES = 160 * 1024;
+#endif  // defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
 
 // The stack chunk image that will be unwound.
 struct StackImage {
