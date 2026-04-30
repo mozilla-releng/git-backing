@@ -2452,6 +2452,10 @@ const UniqueString* DwarfCFIToModule::RegisterName(int i) {
 }
 
 bool DwarfCFIToModule::UndefinedRule(uint64 address, int reg) {
+  if (registerIsTracked(static_cast<DW_REG_NUMBER>(reg))) {
+    summ_->UndefineRule(address, reg);
+    return true;
+  }
   reporter_->UndefinedNotSupported(entry_offset_, RegisterName(reg));
   // Treat this as a non-fatal error.
   return true;
