@@ -539,6 +539,10 @@ SamplerThread::SamplerThread(PSLockRef aLock, uint32_t aActivityGeneration,
   }
 #endif
 
+#if defined(USE_PREINIT_LUL_STACK_IMAGE)
+  mLulStackImage = MakeUnique<lul::StackImage>();
+#endif
+
   // Start the sampling thread. It repeatedly sends a SIGPROF signal. Sending
   // the signal ourselves instead of relying on itimer provides much better
   // accuracy.
