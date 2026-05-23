@@ -4,6 +4,8 @@
 
 #include "jit/loong64/MacroAssembler-loong64.h"
 
+#include <utility>
+
 #include "jit/Bailouts.h"
 #include "jit/BaselineFrame.h"
 #include "jit/JitFrames.h"
@@ -1036,14 +1038,11 @@ void MacroAssemblerLOONG64::ma_b(Address addr, ImmGCPtr imm, Label* label,
 
 void MacroAssemblerLOONG64::ma_bl(Label* label) {
   LabelDoc target = refLabel(label);
+  UseScratchRegisterScope temps(asMasm());
+  Register scratch = temps.Acquire();
+
   if (label->bound()) {
-    // Generate the long jump for calls because return address has to be
-    // the address after the reserved block.
-    addLongJump(nextOffset(), BufferOffset(label->offset()));
-    UseScratchRegisterScope temps(asMasm());
-    Register scratch = temps.Acquire();
-    ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-    as_jirl(ra, scratch, BOffImm16(0), target);
+    ma_call36(label->offset() - nextOffset().getOffset(), scratch);
     return;
   }
 
@@ -1051,19 +1050,31 @@ void MacroAssemblerLOONG64::ma_bl(Label* label) {
   uint32_t nextInChain =
       label->used() ? label->offset() : LabelBase::INVALID_OFFSET;
 
-  // Make the whole branch continous in the buffer. The '5'
+  // Make the whole branch continuous in the buffer. The '2'
   // instructions are writing at below.
-  m_buffer.ensureSpace(5 * sizeof(uint32_t));
+  m_buffer.ensureSpace(2 * sizeof(uint32_t));
 
-  BufferOffset bo = emit(getBranchCode(BranchIsCall).encode(), target);
+  // The first word is a tag that will be checked against by
+  // Assembler::bind(InstImm*, uintptr_t, uintptr_t) and patched with real
+  // offsets.
+  BufferOffset bo =
+      emit(InstImm(op_pcaddu18i, 0, scratch, false).encode(), target);
   writeInst(nextInChain);
   if (!oom()) {
     label->use(bo.getOffset());
   }
-  // Leave space for long jump.
-  as_nop();
-  as_nop();
-  as_nop();
+}
+
+void MacroAssemblerLOONG64::ma_jump36(int32_t offset, Register scratch) {
+  const auto [si20, offs16] = SplitJump36Offset(offset);
+  as_pcaddu18i(scratch, si20);
+  as_jirl(zero, scratch, BOffImm16(offs16));
+}
+
+void MacroAssemblerLOONG64::ma_call36(int32_t offset, Register scratch) {
+  const auto [si20, offs16] = SplitJump36Offset(offset);
+  as_pcaddu18i(scratch, si20);
+  as_jirl(ra, scratch, BOffImm16(offs16));
 }
 
 void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
@@ -1097,36 +1108,19 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
     // LongJump
     if (code.encode() == inst_beq.encode()) {
       // Handle long jump
-      addLongJump(nextOffset(), BufferOffset(label->offset()));
-      if (scratch == Register::Invalid()) {
-        UseScratchRegisterScope temps(asMasm());
-        Register scratch = temps.Acquire();
-        ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-        as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-      } else {
-        ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-        as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-      }
-      as_nop();
+      UseScratchRegisterScope temps(asMasm());
+      ma_jump36(offset,
+                scratch != Register::Invalid() ? scratch : temps.Acquire());
       return;
     }
 
     // OpenLongJump
     // Handle long conditional branch, the target offset is based on self,
-    // point to next instruction of nop at below.
-    InstImm code_r = invertBranch(code, BOffImm16(5 * sizeof(uint32_t)));
-    emit(code_r.encode());
-    addLongJump(nextOffset(), BufferOffset(label->offset()));
-    if (scratch == Register::Invalid()) {
-      UseScratchRegisterScope temps(asMasm());
-      Register scratch = temps.Acquire();
-      ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-      as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-    } else {
-      ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-      as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-    }
-    as_nop();
+    // point to next instruction at below.
+    emit(invertBranch(code, BOffImm16(3 * sizeof(uint32_t))).encode());
+    UseScratchRegisterScope temps(asMasm());
+    ma_jump36(label->offset() - nextOffset().getOffset(),
+              scratch != Register::Invalid() ? scratch : temps.Acquire());
     return;
   }
 
@@ -1137,7 +1131,7 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
       label->used() ? label->offset() : LabelBase::INVALID_OFFSET;
 
   if (jumpKind == ShortJump) {
-    // Make the whole branch continous in the buffer.
+    // Make the whole branch continuous in the buffer.
     m_buffer.ensureSpace(2 * sizeof(uint32_t));
 
     // Indicate that this is short jump with offset 4.
@@ -1152,18 +1146,15 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
 
   bool conditional = code.encode() != inst_beq.encode();
 
-  // Make the whole branch continous in the buffer. The '5'
-  // instructions are writing at below (contain conditional nop).
-  m_buffer.ensureSpace(5 * sizeof(uint32_t));
+  // Make the whole branch continuous in the buffer, the jump36 pair plus 1 for
+  // the conditional inverted-branch skip.
+  m_buffer.ensureSpace((conditional ? 3 : 2) * sizeof(uint32_t));
 
-  BufferOffset bo = emit(code.encode(), target);  // invert
+  BufferOffset bo = emit(code.encode(), target);
   writeInst(nextInChain);
   if (!oom()) {
     label->use(bo.getOffset());
   }
-  // Leave space for potential long jump.
-  as_nop();
-  as_nop();
   if (conditional) {
     as_nop();
   }
@@ -2584,7 +2575,9 @@ void MacroAssemblerLOONG64Compat::wasmStoreI64Impl(
 
 void MacroAssemblerLOONG64::outOfLineWasmTruncateToInt32Check(
     FloatRegister input, Register output, MIRType fromType, TruncFlags flags,
-    Label* rejoin, const wasm::TrapSiteDesc& trapSiteDesc) {
+    Label* rejoin, const wasm::TrapSiteDesc& trapSiteDesc,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
   bool isUnsigned = flags & TRUNC_UNSIGNED;
   bool isSaturating = flags & TRUNC_SATURATING;
 
@@ -2646,14 +2639,24 @@ void MacroAssemblerLOONG64::outOfLineWasmTruncateToInt32Check(
     asMasm().branchFloat(Assembler::DoubleUnordered, input, input, &inputIsNaN);
   }
 
-  asMasm().wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      asMasm().wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   asMasm().bind(&inputIsNaN);
-  asMasm().wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr2 =
+      asMasm().wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssemblerLOONG64::outOfLineWasmTruncateToInt64Check(
     FloatRegister input, Register64 output_, MIRType fromType, TruncFlags flags,
-    Label* rejoin, const wasm::TrapSiteDesc& trapSiteDesc) {
+    Label* rejoin, const wasm::TrapSiteDesc& trapSiteDesc,
+    wasm::StackMap* stackMapForTraps,
+    wasm::StackMapRegistry* stackMapRegistry) {
   bool isUnsigned = flags & TRUNC_UNSIGNED;
   bool isSaturating = flags & TRUNC_SATURATING;
 
@@ -2717,9 +2720,17 @@ void MacroAssemblerLOONG64::outOfLineWasmTruncateToInt64Check(
     asMasm().branchFloat(Assembler::DoubleUnordered, input, input, &inputIsNaN);
   }
 
-  asMasm().wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  FaultingCodeRange fcr1 =
+      asMasm().wasmTrap(wasm::Trap::IntegerOverflow, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr1));
+  }
   asMasm().bind(&inputIsNaN);
-  asMasm().wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  FaultingCodeRange fcr2 =
+      asMasm().wasmTrap(wasm::Trap::InvalidConversionToInteger, trapSiteDesc);
+  if (stackMapRegistry) {
+    propagateOOM(stackMapRegistry->addMap(stackMapForTraps, fcr2));
+  }
 }
 
 void MacroAssemblerLOONG64Compat::profilerEnterFrame(Register framePtr,
@@ -3001,10 +3012,10 @@ void MacroAssembler::call(ImmPtr target) {
 void MacroAssembler::call(JitCode* c) {
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
-  BufferOffset bo = m_buffer.nextOffset();
-  addPendingJump(bo, ImmPtr(c->raw()), RelocationKind::JITCODE);
-  ma_liPatchable(scratch, ImmPtr(c->raw()));
-  callJitNoProfiler(scratch);
+  addPendingJump(m_buffer.nextOffset(), ImmPtr(c->raw()),
+                 RelocationKind::JITCODE);
+  as_pcaddu18i(scratch, 0);
+  as_jirl(ra, scratch, BOffImm16(0));
 }
 
 CodeOffset MacroAssembler::nopPatchableToCall() {
@@ -3546,9 +3557,9 @@ void MacroAssembler::oolWasmTruncateCheckF32ToI32(
     const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
     wasm::StackMap* stackMapForTraps,
     wasm::StackMapRegistry* stackMapRegistry) {
-  // FIXME
   outOfLineWasmTruncateToInt32Check(input, output, MIRType::Float32, flags,
-                                    rejoin, trapSiteDesc);
+                                    rejoin, trapSiteDesc, stackMapForTraps,
+                                    stackMapRegistry);
 }
 
 void MacroAssembler::oolWasmTruncateCheckF64ToI32(
@@ -3556,9 +3567,9 @@ void MacroAssembler::oolWasmTruncateCheckF64ToI32(
     const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
     wasm::StackMap* stackMapForTraps,
     wasm::StackMapRegistry* stackMapRegistry) {
-  // FIXME
   outOfLineWasmTruncateToInt32Check(input, output, MIRType::Double, flags,
-                                    rejoin, trapSiteDesc);
+                                    rejoin, trapSiteDesc, stackMapForTraps,
+                                    stackMapRegistry);
 }
 
 void MacroAssembler::oolWasmTruncateCheckF32ToI64(
@@ -3566,9 +3577,9 @@ void MacroAssembler::oolWasmTruncateCheckF32ToI64(
     const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
     wasm::StackMap* stackMapForTraps,
     wasm::StackMapRegistry* stackMapRegistry) {
-  // FIXME
   outOfLineWasmTruncateToInt64Check(input, output, MIRType::Float32, flags,
-                                    rejoin, trapSiteDesc);
+                                    rejoin, trapSiteDesc, stackMapForTraps,
+                                    stackMapRegistry);
 }
 
 void MacroAssembler::oolWasmTruncateCheckF64ToI64(
@@ -3576,9 +3587,9 @@ void MacroAssembler::oolWasmTruncateCheckF64ToI64(
     const wasm::TrapSiteDesc& trapSiteDesc, Label* rejoin,
     wasm::StackMap* stackMapForTraps,
     wasm::StackMapRegistry* stackMapRegistry) {
-  // FIXME
   outOfLineWasmTruncateToInt64Check(input, output, MIRType::Double, flags,
-                                    rejoin, trapSiteDesc);
+                                    rejoin, trapSiteDesc, stackMapForTraps,
+                                    stackMapRegistry);
 }
 
 void MacroAssembler::wasmLoad(const wasm::MemoryAccessDesc& access,
@@ -6241,11 +6252,11 @@ CodeOffset MacroAssemblerLOONG64Compat::toggledCall(JitCode* target,
   BufferOffset bo = nextOffset();
   CodeOffset offset(bo.getOffset());  // first instruction location,not changed.
   addPendingJump(bo, ImmPtr(target->raw()), RelocationKind::JITCODE);
-  ma_liPatchable(scratch, ImmPtr(target->raw()));
+  as_pcaddu18i(scratch, 0);
   if (enabled) {
     as_jirl(ra, scratch, BOffImm16(0));
   } else {
-    as_nop();
+    emit(InstImm(op_bne, BOffImm16(0), zero, zero).encode());
   }
   MOZ_ASSERT_IF(!oom(), nextOffset().getOffset() - offset.offset() ==
                             ToggledCallSize(nullptr));

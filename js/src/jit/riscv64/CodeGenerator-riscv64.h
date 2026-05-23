@@ -5,6 +5,8 @@
 #ifndef jit_riscv64_CodeGenerator_riscv64_h
 #define jit_riscv64_CodeGenerator_riscv64_h
 
+#include <type_traits>
+
 #include "jit/riscv64/Assembler-riscv64.h"
 #include "jit/riscv64/MacroAssembler-riscv64.h"
 #include "jit/shared/CodeGenerator-shared.h"
@@ -17,6 +19,29 @@ class OutOfLineTableSwitch;
 
 using OutOfLineWasmTruncateCheck =
     OutOfLineWasmTruncateCheckBase<CodeGeneratorRiscv64>;
+
+// NOTE: The conditions must match the "// No code needs to be emitted" arm in
+// MacroAssemblerRiscv64::ma_branch().
+template <typename T1, typename T2>
+static constexpr bool IsSameRegCmpBranchElided(Assembler::Condition c, T1 lhs,
+                                               T2 rhs) {
+  if constexpr (std::is_same_v<T1, Register> && std::is_same_v<T2, Register>) {
+    if (lhs != rhs) {
+      return false;
+    }
+    switch (c) {
+      case Assembler::NotEqual:
+      case Assembler::GreaterThan:
+      case Assembler::LessThan:
+      case Assembler::Above:
+      case Assembler::Below:
+        return true;
+      default:
+        return false;
+    }
+  }
+  return false;
+}
 
 class CodeGeneratorRiscv64 : public CodeGeneratorShared {
   friend class MoveResolverLA;
@@ -32,6 +57,9 @@ class CodeGeneratorRiscv64 : public CodeGeneratorShared {
   template <typename T1, typename T2>
   void bailoutCmp32(Assembler::Condition c, T1 lhs, T2 rhs,
                     LSnapshot* snapshot) {
+    if (IsSameRegCmpBranchElided(c, lhs, rhs)) {
+      return;
+    }
     Label bail;
     masm.branch32(c, lhs, rhs, &bail);
     bailoutFrom(&bail, snapshot);
@@ -46,6 +74,9 @@ class CodeGeneratorRiscv64 : public CodeGeneratorShared {
   template <typename T1, typename T2>
   void bailoutCmpPtr(Assembler::Condition c, T1 lhs, T2 rhs,
                      LSnapshot* snapshot) {
+    if (IsSameRegCmpBranchElided(c, lhs, rhs)) {
+      return;
+    }
     Label bail;
     masm.branchPtr(c, lhs, rhs, &bail);
     bailoutFrom(&bail, snapshot);
