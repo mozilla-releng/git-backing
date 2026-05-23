@@ -5,6 +5,8 @@
 #ifndef MOZILLA_GFX_SIMD_H_
 #define MOZILLA_GFX_SIMD_H_
 
+#include "mozilla/Casting.h"
+
 /**
  * Consumers of this file need to #define SIMD_COMPILE_SSE2 before including it
  * if they want access to the SSE2 functions.
@@ -12,6 +14,10 @@
 
 #ifdef SIMD_COMPILE_SSE2
 #  include <xmmintrin.h>
+#endif
+
+#ifdef SIMD_COMPILE_LSX
+#  include <lsxintrin.h>
 #endif
 
 #include <cmath>
@@ -1031,6 +1037,355 @@ inline __m128 SplatF32(__m128 m) {
 inline __m128i F32ToI32(__m128 m) { return _mm_cvtps_epi32(m); }
 
 #endif  // SIMD_COMPILE_SSE2
+
+#ifdef SIMD_COMPILE_LSX
+
+// LSX
+
+template <>
+inline __m128i Load8<__m128i>(const uint8_t* aSource) {
+  return __lsx_vld(aSource, 0);
+}
+
+inline void Store8(uint8_t* aTarget, __m128i aM) { __lsx_vst(aM, aTarget, 0); }
+
+template <>
+inline __m128i FromZero8<__m128i>() {
+  return __lsx_vldi(0);
+}
+
+template <>
+inline __m128i From8<__m128i>(uint8_t a, uint8_t b, uint8_t c, uint8_t d,
+                              uint8_t e, uint8_t f, uint8_t g, uint8_t h,
+                              uint8_t i, uint8_t j, uint8_t k, uint8_t l,
+                              uint8_t m, uint8_t n, uint8_t o, uint8_t p) {
+  alignas(16)
+      const uint8_t v[16] = {a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p};
+  return __lsx_vld(v, 0);
+}
+
+template <>
+inline __m128i FromI16<__m128i>(int16_t a, int16_t b, int16_t c, int16_t d,
+                                int16_t e, int16_t f, int16_t g, int16_t h) {
+  alignas(16) const int16_t v[8] = {a, b, c, d, e, f, g, h};
+  return __lsx_vld(v, 0);
+}
+
+template <>
+inline __m128i FromU16<__m128i>(uint16_t a, uint16_t b, uint16_t c, uint16_t d,
+                                uint16_t e, uint16_t f, uint16_t g,
+                                uint16_t h) {
+  alignas(16) const uint16_t v[8] = {a, b, c, d, e, f, g, h};
+  return __lsx_vld(v, 0);
+}
+
+template <>
+inline __m128i FromI16<__m128i>(int16_t a) {
+  return __lsx_vreplgr2vr_h(a);
+}
+
+template <>
+inline __m128i FromU16<__m128i>(uint16_t a) {
+  return __lsx_vreplgr2vr_h(static_cast<int16_t>(a));
+}
+
+template <>
+inline __m128i From32<__m128i>(int32_t a, int32_t b, int32_t c, int32_t d) {
+  alignas(16) const int32_t v[4] = {a, b, c, d};
+  return __lsx_vld(v, 0);
+}
+
+template <>
+inline __m128i From32<__m128i>(int32_t a) {
+  return __lsx_vreplgr2vr_w(a);
+}
+
+template <int32_t aNumberOfBits>
+inline __m128i ShiftRight16(__m128i aM) {
+  return __lsx_vsrli_h(aM, aNumberOfBits);
+}
+
+template <int32_t aNumberOfBits>
+inline __m128i ShiftRight32(__m128i aM) {
+  return __lsx_vsrai_w(aM, aNumberOfBits);
+}
+
+inline __m128i Add16(__m128i aM1, __m128i aM2) {
+  return __lsx_vadd_h(aM1, aM2);
+}
+
+inline __m128i Add32(__m128i aM1, __m128i aM2) {
+  return __lsx_vadd_w(aM1, aM2);
+}
+
+inline __m128i Sub16(__m128i aM1, __m128i aM2) {
+  return __lsx_vsub_h(aM1, aM2);
+}
+
+inline __m128i Sub32(__m128i aM1, __m128i aM2) {
+  return __lsx_vsub_w(aM1, aM2);
+}
+
+inline __m128i Min8(__m128i aM1, __m128i aM2) {
+  return __lsx_vmin_bu(aM1, aM2);
+}
+
+inline __m128i Max8(__m128i aM1, __m128i aM2) {
+  return __lsx_vmax_bu(aM1, aM2);
+}
+
+inline __m128i Min32(__m128i aM1, __m128i aM2) {
+  return __lsx_vmin_w(aM1, aM2);
+}
+
+inline __m128i Max32(__m128i aM1, __m128i aM2) {
+  return __lsx_vmax_w(aM1, aM2);
+}
+
+inline __m128i Mul16(__m128i aM1, __m128i aM2) {
+  return __lsx_vmul_h(aM1, aM2);
+}
+
+inline __m128i MulU16(__m128i aM1, __m128i aM2) {
+  return __lsx_vmul_h(aM1, aM2);
+}
+
+// The even/odd lanes of vmulwev/vmulwod hold the full 32-bit products of the
+// even and odd 16-bit lanes. vilvl/vilvh recombine them per lane pair.
+inline void Mul16x4x2x2To32x4x2(__m128i aFactorsA1B1, __m128i aFactorsA2B2,
+                                __m128i& aProductA, __m128i& aProductB) {
+  __m128i mulWev = __lsx_vmulwev_w_h(aFactorsA1B1, aFactorsA2B2);
+  __m128i mulWod = __lsx_vmulwod_w_h(aFactorsA1B1, aFactorsA2B2);
+  aProductA = __lsx_vilvl_w(mulWod, mulWev);
+  aProductB = __lsx_vilvh_w(mulWod, mulWev);
+}
+
+inline __m128i MulAdd16x8x2To32x4(__m128i aFactorsA, __m128i aFactorsB) {
+  return __lsx_vadd_w(__lsx_vmulwev_w_h(aFactorsA, aFactorsB),
+                      __lsx_vmulwod_w_h(aFactorsA, aFactorsB));
+}
+
+template <int8_t aIndex>
+inline __m128i Splat32(__m128i aM) {
+  static_assert(0 <= aIndex && aIndex <= 3);
+  // 0b01010101 * aIndex replicates lane aIndex.
+  return __lsx_vshuf4i_w(aM, 0b01010101 * aIndex);
+}
+
+template <int8_t aIndex>
+inline __m128i Splat32On8(__m128i aM) {
+  static_assert(0 <= aIndex && aIndex <= 3);
+  return __lsx_vshuf4i_w(aM, 0b01010101 * aIndex);
+}
+
+// vshuf4i.h applies the same 2-bit-per-lane selectors to both 4-lane halves.
+template <int8_t aIndexLo, int8_t aIndexHi>
+inline __m128i Splat16(__m128i aM) {
+  static_assert(0 <= aIndexLo && aIndexLo <= 3, "invalid index");
+  static_assert(0 <= aIndexHi && aIndexHi <= 3, "invalid index");
+  if constexpr (aIndexLo == aIndexHi) {
+    return __lsx_vshuf4i_h(
+        aM, aIndexLo | (aIndexLo << 2) | (aIndexLo << 4) | (aIndexLo << 6));
+  } else {
+    alignas(16) static constexpr uint8_t mask[16] = {
+        2 * aIndexLo,           2 * aIndexLo + 1,       2 * aIndexLo,
+        2 * aIndexLo + 1,       2 * aIndexLo,           2 * aIndexLo + 1,
+        2 * aIndexLo,           2 * aIndexLo + 1,       2 * (4 + aIndexHi),
+        2 * (4 + aIndexHi) + 1, 2 * (4 + aIndexHi),     2 * (4 + aIndexHi) + 1,
+        2 * (4 + aIndexHi),     2 * (4 + aIndexHi) + 1, 2 * (4 + aIndexHi),
+        2 * (4 + aIndexHi) + 1};
+    return __lsx_vshuf_b(aM, aM, __lsx_vld(mask, 0));
+  }
+}
+
+template <int8_t i0, int8_t i1, int8_t i2, int8_t i3>
+inline __m128i Shuffle32(__m128i aM) {
+  return __lsx_vshuf4i_w(aM, (i0 << 6) | (i1 << 4) | (i2 << 2) | i3);
+}
+
+template <int8_t i0, int8_t i1, int8_t i2, int8_t i3>
+inline __m128i ShuffleLo16(__m128i aM) {
+  // _mm_shuffle order puts i3 in the lowest lane, which is the first byte
+  // pair of the vshuf_b mask.
+  alignas(16) static constexpr uint8_t mask[16] = {
+      static_cast<uint8_t>(2 * i3),
+      static_cast<uint8_t>(2 * i3 + 1),
+      static_cast<uint8_t>(2 * i2),
+      static_cast<uint8_t>(2 * i2 + 1),
+      static_cast<uint8_t>(2 * i1),
+      static_cast<uint8_t>(2 * i1 + 1),
+      static_cast<uint8_t>(2 * i0),
+      static_cast<uint8_t>(2 * i0 + 1),
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15};
+  return __lsx_vshuf_b(aM, aM, __lsx_vld(mask, 0));
+}
+
+template <int8_t i0, int8_t i1, int8_t i2, int8_t i3>
+inline __m128i ShuffleHi16(__m128i aM) {
+  alignas(16) static constexpr uint8_t mask[16] = {
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      static_cast<uint8_t>(2 * (4 + i3)),
+      static_cast<uint8_t>(2 * (4 + i3) + 1),
+      static_cast<uint8_t>(2 * (4 + i2)),
+      static_cast<uint8_t>(2 * (4 + i2) + 1),
+      static_cast<uint8_t>(2 * (4 + i1)),
+      static_cast<uint8_t>(2 * (4 + i1) + 1),
+      static_cast<uint8_t>(2 * (4 + i0)),
+      static_cast<uint8_t>(2 * (4 + i0) + 1)};
+  return __lsx_vshuf_b(aM, aM, __lsx_vld(mask, 0));
+}
+
+// vilvl/vilvh place the b operand at the even (first) positions, so the SSE2
+// unpack operand order is reversed here.
+inline __m128i InterleaveLo8(__m128i m1, __m128i m2) {
+  return __lsx_vilvl_b(m2, m1);
+}
+
+inline __m128i InterleaveHi8(__m128i m1, __m128i m2) {
+  return __lsx_vilvh_b(m2, m1);
+}
+
+inline __m128i InterleaveLo16(__m128i m1, __m128i m2) {
+  return __lsx_vilvl_h(m2, m1);
+}
+
+inline __m128i InterleaveHi16(__m128i m1, __m128i m2) {
+  return __lsx_vilvh_h(m2, m1);
+}
+
+inline __m128i InterleaveLo32(__m128i m1, __m128i m2) {
+  return __lsx_vilvl_w(m2, m1);
+}
+
+inline __m128i UnpackLo8x8ToI16x8(__m128i m) {
+  return __lsx_vsllwil_hu_bu(m, 0);
+}
+
+inline __m128i UnpackHi8x8ToI16x8(__m128i m) { return __lsx_vexth_hu_bu(m); }
+
+inline __m128i UnpackLo8x8ToU16x8(__m128i m) {
+  return __lsx_vsllwil_hu_bu(m, 0);
+}
+
+inline __m128i UnpackHi8x8ToU16x8(__m128i m) { return __lsx_vexth_hu_bu(m); }
+
+// vssrani.*(a, b, 0) stores b in the low half.
+inline __m128i PackAndSaturate32To16(__m128i m1, __m128i m2) {
+  return __lsx_vssrani_h_w(m2, m1, 0);
+}
+
+inline __m128i PackAndSaturate32ToU16(__m128i m1, __m128i m2) {
+  return __lsx_vssrani_h_w(m2, m1, 0);
+}
+
+inline __m128i PackAndSaturate16To8(__m128i m1, __m128i m2) {
+  return __lsx_vssrarni_bu_h(m2, m1, 0);
+}
+
+inline __m128i PackAndSaturate32To8(__m128i m1, __m128i m2, __m128i m3,
+                                    const __m128i& m4) {
+  __m128i m12 = __lsx_vssrani_h_w(m2, m1, 0);
+  __m128i m34 = __lsx_vssrani_h_w(m4, m3, 0);
+  return __lsx_vssrarni_bu_h(m34, m12, 0);
+}
+
+inline __m128i FastDivideBy255(__m128i m) {
+  // v = m << 8
+  __m128i v = __lsx_vslli_w(m, 8);
+  // v = v + (m + (255,255,255,255))
+  v = __lsx_vadd_w(v, __lsx_vadd_w(m, __lsx_vldi(-0xf01)));
+  // v = v >> 16
+  return __lsx_vsrai_w(v, 16);
+}
+
+inline __m128i FastDivideBy255_16(__m128i m) {
+  const __m128i zero = __lsx_vldi(0);
+  __m128i lo = __lsx_vilvl_h(zero, m);
+  __m128i hi = __lsx_vilvh_h(zero, m);
+  return __lsx_vssrani_h_w(FastDivideBy255(hi), FastDivideBy255(lo), 0);
+}
+
+// vbitsel.v(a, b, c) = (a & ~c) | (b & c).
+inline __m128i Pick(__m128i mask, __m128i a, __m128i b) {
+  return __lsx_vbitsel_v(a, b, mask);
+}
+
+// Rotate the 32-byte concatenation of a1234 and a5678 left by aNumBytes.
+// vshuf_b picks from its b operand for indices < 16 and from its a operand
+// for indices >= 16.
+template <uint8_t aNumBytes>
+inline __m128i Rotate8(__m128i a1234, __m128i a5678) {
+  static_assert(aNumBytes == 4 || aNumBytes == 8 || aNumBytes == 12,
+                "unsupported rotation");
+  alignas(16) static constexpr uint8_t mask[16] = {
+      aNumBytes + 0,  aNumBytes + 1,  aNumBytes + 2,  aNumBytes + 3,
+      aNumBytes + 4,  aNumBytes + 5,  aNumBytes + 6,  aNumBytes + 7,
+      aNumBytes + 8,  aNumBytes + 9,  aNumBytes + 10, aNumBytes + 11,
+      aNumBytes + 12, aNumBytes + 13, aNumBytes + 14, aNumBytes + 15};
+  return __lsx_vshuf_b(a5678, a1234, __lsx_vld(mask, 0));
+}
+
+// Float ops. LSX float intrinsics operate on __m128 (float vector_size(16)),
+// the same type the SSE2 section uses for f32x4_t.
+
+template <>
+inline __m128 FromF32<__m128>(float a, float b, float c, float d) {
+  alignas(16) const float v[4] = {a, b, c, d};
+  return (__m128)__lsx_vld(v, 0);
+}
+
+template <>
+inline __m128 FromF32<__m128>(float a) {
+  return (__m128)__lsx_vreplgr2vr_w(mozilla::BitwiseCast<int32_t>(a));
+}
+
+inline __m128 MixF32(__m128 a, __m128 b, float t) {
+  return __lsx_vfadd_s(a, __lsx_vfmul_s(__lsx_vfsub_s(b, a),
+                                        (__m128)__lsx_vreplgr2vr_w(
+                                            mozilla::BitwiseCast<int32_t>(t))));
+}
+
+inline __m128 WSumF32(__m128 a, __m128 b, float wa, float wb) {
+  return __lsx_vfadd_s(
+      __lsx_vfmul_s(
+          a, (__m128)__lsx_vreplgr2vr_w(mozilla::BitwiseCast<int32_t>(wa))),
+      __lsx_vfmul_s(
+          b, (__m128)__lsx_vreplgr2vr_w(mozilla::BitwiseCast<int32_t>(wb))));
+}
+
+inline __m128 AbsF32(__m128 a) {
+  return __lsx_vfmax_s(__lsx_vfsub_s((__m128)__lsx_vreplgr2vr_w(0), a), a);
+}
+
+inline __m128 AddF32(__m128 a, __m128 b) { return __lsx_vfadd_s(a, b); }
+
+inline __m128 MulF32(__m128 a, __m128 b) { return __lsx_vfmul_s(a, b); }
+
+inline __m128 DivF32(__m128 a, __m128 b) { return __lsx_vfdiv_s(a, b); }
+
+template <uint8_t aIndex>
+inline __m128 SplatF32(__m128 m) {
+  static_assert(0 <= aIndex && aIndex <= 3);
+  return (__m128)__lsx_vshuf4i_w((__m128i)m, 0b01010101 * aIndex);
+}
+
+inline __m128i F32ToI32(__m128 m) { return __lsx_vftint_w_s(m); }
+
+#endif  // SIMD_COMPILE_LSX
 
 }  // namespace simd
 
