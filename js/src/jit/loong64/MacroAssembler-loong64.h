@@ -41,8 +41,16 @@ struct ImmShiftedTag : public ImmWord {
   }
 };
 
-struct ImmTag : public Imm32 {
-  explicit ImmTag(JSValueTag mask) : Imm32(int32_t(mask)) {}
+struct ImmTagSignExt : public Imm32 {
+  static constexpr int32_t signExtend(JSValueTag mask) {
+    int64_t tag =
+        static_cast<int64_t>(static_cast<uint64_t>(mask) << JSVAL_TAG_SHIFT) >>
+        JSVAL_TAG_SHIFT;
+    MOZ_ASSERT(is_intN(tag, 12));
+    return static_cast<int32_t>(tag);
+  }
+
+  explicit ImmTagSignExt(JSValueTag mask) : Imm32(signExtend(mask)) {}
 };
 
 static const int defaultShift = 3;
@@ -708,16 +716,18 @@ class MacroAssemblerLOONG64Compat : public MacroAssemblerLOONG64 {
 
   void jump(TrampolinePtr code) { jump(ImmPtr(code.value)); }
 
-  void splitTag(Register src, Register dest) {
-    as_srli_d(dest, src, JSVAL_TAG_SHIFT);
+  // See splitSignExtTag(Register, Register) in MacroAssembler-riscv64.h for
+  // rationale.
+  void splitSignExtTag(Register src, Register dest) {
+    as_srai_d(dest, src, JSVAL_TAG_SHIFT);
   }
 
-  void splitTag(const ValueOperand& operand, Register dest) {
-    splitTag(operand.valueReg(), dest);
+  void splitSignExtTag(const ValueOperand& operand, Register dest) {
+    splitSignExtTag(operand.valueReg(), dest);
   }
 
   void splitTagForTest(const ValueOperand& value, ScratchTagScope& tag) {
-    splitTag(value, tag);
+    splitSignExtTag(value, tag);
   }
 
   // unboxing code
@@ -864,7 +874,7 @@ class MacroAssemblerLOONG64Compat : public MacroAssemblerLOONG64 {
   [[nodiscard]] Register extractTag(const BaseIndex& address, Register scratch);
   [[nodiscard]] Register extractTag(const ValueOperand& value,
                                     Register scratch) {
-    splitTag(value, scratch);
+    splitSignExtTag(value, scratch);
     return scratch;
   }
 
