@@ -25,16 +25,22 @@ UNIFIED_SOURCES += [
     "TestQcms.cpp",
     "TestRegion.cpp",
     "TestSkipChars.cpp",
-    "TestSwizzle.cpp",
     "TestTextures.cpp",
     "TestTreeTraversal.cpp",
     "TestVsync.cpp",
     "TestYUVtoRGB32.cpp",
 ]
 
-SOURCES += [
-    "SwizzleGeneric.cpp",
-]
+# Only enable SwizzleGeneric and TestSwizzle on Tier-1 targets. Others are
+# potentially unsupported by xsimd, and can thus lead to compilation failures
+# by xsimd::unavailable.
+if CONFIG["TARGET_CPU"] in ("x86", "x86_64", "arm", "aarch64"):
+    UNIFIED_SOURCES += [
+        "TestSwizzle.cpp",
+    ]
+    SOURCES += [
+        "SwizzleGeneric.cpp",
+    ]
 
 if CONFIG["OS_TARGET"] != "Android":
     UNIFIED_SOURCES += [
