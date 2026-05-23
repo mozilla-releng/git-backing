@@ -219,11 +219,12 @@ BOOL WINAPI GetThreadInformation(
 #endif
 
 // Linux/BSD builds use LUL, which uses DWARF info to unwind stacks.
-#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||       \
-    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||   \
-    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||    \
-    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) || \
-    defined(GP_PLAT_arm64_freebsd)
+#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||           \
+    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||       \
+    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||        \
+    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) ||     \
+    defined(GP_PLAT_arm64_freebsd) || defined(GP_PLAT_loongarch64_linux) || \
+    defined(GP_PLAT_riscv64_linux)
 #  define HAVE_NATIVE_UNWIND
 #  define USE_LUL_STACKWALK
 #  include "lul/LulMain.h"
@@ -249,6 +250,13 @@ BOOL WINAPI GetThreadInformation(
 // which can be expensive.
 #if defined(USE_FRAME_POINTER_STACK_WALK) || defined(USE_MOZ_STACK_WALK)
 #  define HAVE_FASTINIT_NATIVE_UNWIND
+#endif
+
+// On these platforms, lul::StackImage is large, and the compiler support for
+// -fstack-clash-protection is poor. We need to alloc it beforehand.
+#if defined(USE_LUL_STACKWALK) && \
+    (defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux))
+#  define USE_PREINIT_LUL_STACK_IMAGE
 #endif
 
 #ifdef MOZ_VALGRIND
@@ -2128,6 +2136,8 @@ static const char* const kMainThreadName = "GeckoMain";
     defined(GP_PLAT_arm64_freebsd) || defined(GP_ARCH_arm64) ||         \
     defined(__aarch64__)
 #  define UNWINDING_REGS_HAVE_LR_R11
+#elif defined(GP_PLAT_loongarch64_linux) || defined(GP_PLAT_riscv64_linux)
+#  define UNWINDING_REGS_HAVE_RA_T3
 #endif
 
 // The registers used for stack unwinding and a few other sampling purposes.
@@ -2156,6 +2166,9 @@ class Registers {
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
   Address mLR{nullptr};   // ARM link register, or temp for return address.
   Address mR11{nullptr};  // Temp for frame pointer.
+#elif defined(UNWINDING_REGS_HAVE_RA_T3)
+  Address mRA{nullptr};  // Return address register.
+  Address mT3{nullptr};  // Temp for frame pointer.
 #endif
 
 #if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
@@ -2303,6 +2316,9 @@ static uint32_t ExtractJsFrames(
 #elif defined(UNWINDING_REGS_HAVE_LR_R11)
       registerState.lr = aRegs.mLR;
       registerState.tempFP = aRegs.mR11;
+#elif defined(UNWINDING_REGS_HAVE_RA_T3)
+      registerState.tempRA = aRegs.mRA;
+      registerState.tempFP = aRegs.mT3;
 #endif
 
       // Non-periodic sampling passes Nothing() as the buffer write position to
@@ -2793,7 +2809,8 @@ MOZ_ASAN_IGNORE static void ASAN_memcpy(void* aDst, const void* aSrc,
 static void DoLULBacktrace(
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const Registers& aRegs, NativeStack& aNativeStack,
-    StackWalkControl* aStackWalkControlIfSupported) {
+    StackWalkControl* aStackWalkControlIfSupported,
+    lul::StackImage* aStackImg) {
   // WARNING: this function runs within the profiler's "critical section".
   // WARNING: this function might be called while the profiler is inactive, and
   //          cannot rely on ActivePS.
@@ -2838,6 +2855,17 @@ static void DoLULBacktrace(
   startRegs.pc = lul::TaggedUWord(mc->pc);
   startRegs.sp = lul::TaggedUWord(mc->gregs[29]);
   startRegs.fp = lul::TaggedUWord(mc->gregs[30]);
+#  elif defined(GP_PLAT_loongarch64_linux)
+  startRegs.ra = lul::TaggedUWord(mc->__gregs[1]);
+  startRegs.sp = lul::TaggedUWord(mc->__gregs[3]);
+  startRegs.fp = lul::TaggedUWord(mc->__gregs[22]);
+  startRegs.s0 = lul::TaggedUWord(mc->__gregs[23]);
+  startRegs.pc = lul::TaggedUWord(mc->__pc);
+#  elif defined(GP_PLAT_riscv64_linux)
+  startRegs.ra = lul::TaggedUWord(mc->__gregs[1]);
+  startRegs.sp = lul::TaggedUWord(mc->__gregs[2]);
+  startRegs.fp = lul::TaggedUWord(mc->__gregs[8]);
+  startRegs.pc = lul::TaggedUWord(mc->__gregs[0]);  // REG_PC
 #  else
 #    error "Unknown plat"
 #  endif
@@ -2861,7 +2889,7 @@ static void DoLULBacktrace(
   // function (DoNativeBacktrace)'s frame reasonable.  Most stacks observed in
   // practice are small, 4KB or less, and so the copy costs are insignificant
   // compared to other profiler overhead.
-  //
+#  if !defined(USE_PREINIT_LUL_STACK_IMAGE)
   // |stackImg| is allocated on this (the sampling thread's) stack.  That
   // implies that the frame for this function is at least N_STACK_BYTES large.
   // In general it would be considered unacceptable to have such a large frame
@@ -2872,8 +2900,16 @@ static void DoLULBacktrace(
   // thread safe, which would be a problem if we ever allow multiple sampler
   // threads.  Hence allocating it on the stack seems to be the least-worst
   // option.
-
-  lul::StackImage stackImg;
+  lul::StackImage stackImgOnStack;
+  lul::StackImage* const stackImg = &stackImgOnStack;
+#  else
+  // |stackImg| is allocated by the sampling thread, but on the heap.  This
+  // works around the potential guard page skip and the inability of Clang to
+  // to generate appropriate instructions for `-fstack-clash-protection` on
+  // some Tier-3 platforms.
+  MOZ_ASSERT(aStackImg != nullptr);
+  lul::StackImage* const stackImg = aStackImg;
+#  endif
 
   {
 #  if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_amd64_android) || \
@@ -2891,6 +2927,12 @@ static void DoLULBacktrace(
     uintptr_t REDZONE_SIZE = 0;
     uintptr_t start = startRegs.xsp.Value() - REDZONE_SIZE;
 #  elif defined(GP_PLAT_mips64_linux)
+    uintptr_t REDZONE_SIZE = 0;
+    uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
+#  elif defined(GP_PLAT_loongarch64_linux)
+    uintptr_t REDZONE_SIZE = 0;
+    uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
+#  elif defined(GP_PLAT_riscv64_linux)
     uintptr_t REDZONE_SIZE = 0;
     uintptr_t start = startRegs.sp.Value() - REDZONE_SIZE;
 #  else
@@ -2913,8 +2955,8 @@ static void DoLULBacktrace(
       }
     }
     MOZ_ASSERT(nToCopy <= lul::N_STACK_BYTES);
-    stackImg.mLen = nToCopy;
-    stackImg.mStartAvma = start;
+    stackImg->mLen = nToCopy;
+    stackImg->mStartAvma = start;
     if (nToCopy > 0) {
       // If this is a vanilla memcpy(), ASAN makes the following complaint:
       //
@@ -2926,11 +2968,11 @@ static void DoLULBacktrace(
       // This code is very much a custom stack unwind mechanism! So we use an
       // alternative memcpy() implementation that is ignored by ASAN.
 #  if defined(MOZ_HAVE_ASAN_IGNORE)
-      ASAN_memcpy(&stackImg.mContents[0], (void*)start, nToCopy);
+      ASAN_memcpy(&stackImg->mContents[0], (void*)start, nToCopy);
 #  else
-      memcpy(&stackImg.mContents[0], (void*)start, nToCopy);
+      memcpy(&stackImg->mContents[0], (void*)start, nToCopy);
 #  endif
-      (void)VALGRIND_MAKE_MEM_DEFINED(&stackImg.mContents[0], nToCopy);
+      (void)VALGRIND_MAKE_MEM_DEFINED(&stackImg->mContents[0], nToCopy);
     }
   }
 
@@ -2940,7 +2982,7 @@ static void DoLULBacktrace(
   lul->Unwind(reinterpret_cast<uintptr_t*>(aNativeStack.mPCs),
               reinterpret_cast<uintptr_t*>(aNativeStack.mSPs),
               &aNativeStack.mCount, &framePointerFramesAcquired,
-              MAX_NATIVE_FRAMES, &startRegs, &stackImg);
+              MAX_NATIVE_FRAMES, &startRegs, stackImg);
 
   // Update stats in the LUL stats object.  Unfortunately this requires
   // three global memory operations.
@@ -2955,15 +2997,15 @@ static void DoLULBacktrace(
 static void DoNativeBacktrace(
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const Registers& aRegs, NativeStack& aNativeStack,
-    StackWalkControl* aStackWalkControlIfSupported) {
+    StackWalkControl* aStackWalkControlIfSupported, void* aStackImg = nullptr) {
   // This method determines which stackwalker is used for periodic and
   // synchronous samples. (Backtrace samples are treated differently, see
   // profiler_suspend_and_sample_thread() for details). The only part of the
   // ordering that matters is that LUL must precede FRAME_POINTER, because on
   // Linux they can both be present.
 #  if defined(USE_LUL_STACKWALK)
-  DoLULBacktrace(aThreadData, aRegs, aNativeStack,
-                 aStackWalkControlIfSupported);
+  DoLULBacktrace(aThreadData, aRegs, aNativeStack, aStackWalkControlIfSupported,
+                 reinterpret_cast<lul::StackImage*>(aStackImg));
 #  elif defined(USE_EHABI_STACKWALK)
   DoEHABIBacktrace(aThreadData, aRegs, aNativeStack,
                    aStackWalkControlIfSupported);
@@ -3055,7 +3097,8 @@ static inline void DoSharedSample(
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     JsFrame* aJsFrames, const Registers& aRegs, uint64_t aSamplePos,
     uint64_t aBufferRangeStart, ProfileBuffer& aBuffer,
-    StackCaptureOptions aCaptureOptions = StackCaptureOptions::Full) {
+    StackCaptureOptions aCaptureOptions = StackCaptureOptions::Full,
+    void* aStackImg = nullptr) {
   // WARNING: this function runs within the profiler's "critical section".
 
   MOZ_ASSERT(!aBuffer.IsThreadSafe(),
@@ -3081,7 +3124,7 @@ static inline void DoSharedSample(
 #if defined(HAVE_NATIVE_UNWIND)
   if (captureNative) {
     DoNativeBacktrace(aThreadData, aRegs, nativeStack,
-                      stackWalkControlIfSupported);
+                      stackWalkControlIfSupported, aStackImg);
 
     MergeStacks(aIsSynchronous, aThreadData, nativeStack, collector, aJsFrames,
                 jsFramesCount);
@@ -3103,7 +3146,7 @@ static void DoSyncSample(
     uint32_t aFeatures,
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const TimeStamp& aNow, const Registers& aRegs, ProfileBuffer& aBuffer,
-    StackCaptureOptions aCaptureOptions) {
+    StackCaptureOptions aCaptureOptions, void* aStackImg = nullptr) {
   // WARNING: this function runs within the profiler's "critical section".
 
   MOZ_ASSERT(aCaptureOptions != StackCaptureOptions::NoStack,
@@ -3121,7 +3164,7 @@ static void DoSyncSample(
     // No JSContext, there is no JS frame buffer (and no need for it).
     DoSharedSample(/* aIsSynchronous = */ true, aFeatures, aThreadData,
                    /* aJsFrames = */ nullptr, aRegs, samplePos,
-                   bufferRangeStart, aBuffer, aCaptureOptions);
+                   bufferRangeStart, aBuffer, aCaptureOptions, aStackImg);
   } else {
     // JSContext is present, we need to lock the thread data to access the JS
     // frame buffer.
@@ -3132,7 +3175,7 @@ static void DoSyncSample(
             DoSharedSample(/* aIsSynchronous = */ true, aFeatures, aThreadData,
                            aLockedThreadData.GetJsFrameBuffer(), aRegs,
                            samplePos, bufferRangeStart, aBuffer,
-                           aCaptureOptions);
+                           aCaptureOptions, aStackImg);
           });
     });
   }
@@ -3145,7 +3188,7 @@ static inline void DoPeriodicSample(
     PSLockRef aLock,
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
     const Registers& aRegs, uint64_t aSamplePos, uint64_t aBufferRangeStart,
-    ProfileBuffer& aBuffer) {
+    ProfileBuffer& aBuffer, void* aStackImg = nullptr) {
   // WARNING: this function runs within the profiler's "critical section".
 
   MOZ_RELEASE_ASSERT(ActivePS::Exists(aLock));
@@ -3153,13 +3196,14 @@ static inline void DoPeriodicSample(
   JsFrameBuffer& jsFrames = CorePS::JsFrames(aLock);
   DoSharedSample(/* aIsSynchronous = */ false, ActivePS::Features(aLock),
                  aThreadData, jsFrames, aRegs, aSamplePos, aBufferRangeStart,
-                 aBuffer);
+                 aBuffer, StackCaptureOptions::Full, aStackImg);
 }
 
 #undef UNWINDING_REGS_HAVE_ECX_EDX
 #undef UNWINDING_REGS_HAVE_R10_R12
 #undef UNWINDING_REGS_HAVE_LR_R7
 #undef UNWINDING_REGS_HAVE_LR_R11
+#undef UNWINDING_REGS_HAVE_RA_T3
 
 // END sampling/unwinding code
 ////////////////////////////////////////////////////////////////////////
@@ -4553,6 +4597,10 @@ class SamplerThread {
   // The interval between samples, measured in microseconds.
   const int mIntervalMicroseconds;
 
+#if defined(USE_PREINIT_LUL_STACK_IMAGE)
+  UniquePtr<lul::StackImage> mLulStackImage;
+#endif
+
   // The OS-specific handle for the sampler thread.
 #if defined(GP_OS_windows)
   HANDLE mThread;
@@ -5031,7 +5079,13 @@ void SamplerThread::Run() {
                   [&](const Registers& aRegs, const TimeStamp& aNow) {
                     DoPeriodicSample(lock, lockedThreadData.DataCRef(), aRegs,
                                      samplePos, bufferRangeStart,
-                                     localProfileBuffer);
+                                     localProfileBuffer,
+#if defined(USE_PREINIT_LUL_STACK_IMAGE)
+                                     mLulStackImage.get()
+#else
+                                     nullptr
+#endif
+                    );
 
                     // For "eventDelay", we want the input delay - but if
                     // there are no events in the input queue (or even if there
@@ -8096,6 +8150,10 @@ bool profiler_capture_backtrace_into(ProfileChunkedBuffer& aChunkedBuffer,
 
         ProfileBuffer profileBuffer(aChunkedBuffer);
 
+#if defined(USE_PREINIT_LUL_STACK_IMAGE)
+        static thread_local lul::StackImage sLulStackImage;
+#endif
+
         Registers regs;
 #if defined(HAVE_NATIVE_UNWIND)
         REGISTERS_SYNC_POPULATE(regs);
@@ -8105,7 +8163,13 @@ bool profiler_capture_backtrace_into(ProfileChunkedBuffer& aChunkedBuffer,
 
         DoSyncSample(*maybeFeatures,
                      aOnThreadRef.UnlockedReaderAndAtomicRWOnThreadCRef(),
-                     TimeStamp::Now(), regs, profileBuffer, aCaptureOptions);
+                     TimeStamp::Now(), regs, profileBuffer, aCaptureOptions,
+#if defined(USE_PREINIT_LUL_STACK_IMAGE)
+                     &sLulStackImage
+#else
+                     nullptr
+#endif
+        );
 
         return true;
       },
