@@ -463,8 +463,7 @@ void CodeGenerator::visitWasmAtomicBinopI64(LWasmAtomicBinopI64* ins) {
   MOZ_ASSERT(output.low == eax);
   MOZ_ASSERT(output.high == edx);
 
-  masm.Push(ecx);
-  masm.Push(ebx);
+  masm.PushRegs(ecx, ebx);
 
   Address valueAddr(esp, 0);
 
@@ -472,8 +471,7 @@ void CodeGenerator::visitWasmAtomicBinopI64(LWasmAtomicBinopI64* ins) {
   masm.wasmAtomicFetchOp64(ins->access(), ins->operation(), valueAddr, srcAddr,
                            value, output);
 
-  masm.Pop(ebx);
-  masm.Pop(ecx);
+  masm.PopRegs(ebx, ecx);
 }
 
 namespace js {
