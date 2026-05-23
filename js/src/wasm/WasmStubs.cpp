@@ -2648,9 +2648,10 @@ static const LiveRegisterSet RegsToPreserve(
                          (uint32_t(1) << Registers::fp) |
                          (uint32_t(1) << Registers::sp) |
                          (uint32_t(1) << Registers::zero))),
-    FloatRegisterSet(FloatRegisters::AllDoubleMask));
 #  ifdef ENABLE_JIT_SIMD
-#    error "high lanes of SIMD registers need to be saved too."
+    FloatRegisterSet(FloatRegisters::AllSimd128Mask));
+#  else
+    FloatRegisterSet(FloatRegisters::AllDoubleMask));
 #  endif
 #elif defined(JS_CODEGEN_RISCV64)
 static const LiveRegisterSet RegsToPreserve(

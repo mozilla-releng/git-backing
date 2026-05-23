@@ -6,6 +6,7 @@
 
 #include "Logging.h"
 #include "Swizzle.h"
+#include "mozilla/LSX.h"
 #include "mozilla/SSE.h"
 
 namespace mozilla {
@@ -35,6 +36,10 @@ already_AddRefed<DataSourceSurface> FilterProcessing::ExtractAlpha(
 #ifdef USE_SSE2
     ExtractAlpha_SSE2(size, sourceData, sourceStride, alphaData, alphaStride);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    ExtractAlpha_LSX(size, sourceData, sourceStride, alphaData, alphaStride);
+#endif
   } else {
     ExtractAlpha_Scalar(size, sourceData, sourceStride, alphaData, alphaStride);
   }
@@ -48,6 +53,10 @@ already_AddRefed<DataSourceSurface> FilterProcessing::ConvertToB8G8R8A8(
 #ifdef USE_SSE2
     return ConvertToB8G8R8A8_SSE2(aSurface);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    return ConvertToB8G8R8A8_LSX(aSurface);
+#endif
   }
   return ConvertToB8G8R8A8_Scalar(aSurface);
 }
@@ -58,6 +67,10 @@ already_AddRefed<DataSourceSurface> FilterProcessing::ApplyBlending(
   if (mozilla::supports_sse2()) {
 #ifdef USE_SSE2
     return ApplyBlending_SSE2(aInput1, aInput2, aBlendMode);
+#endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    return ApplyBlending_LSX(aInput1, aInput2, aBlendMode);
 #endif
   }
   return nullptr;
@@ -71,6 +84,11 @@ void FilterProcessing::ApplyMorphologyHorizontal(
 #ifdef USE_SSE2
     ApplyMorphologyHorizontal_SSE2(aSourceData, aSourceStride, aDestData,
                                    aDestStride, aDestRect, aRadius, aOp);
+#endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    ApplyMorphologyHorizontal_LSX(aSourceData, aSourceStride, aDestData,
+                                  aDestStride, aDestRect, aRadius, aOp);
 #endif
   } else {
     ApplyMorphologyHorizontal_Scalar(aSourceData, aSourceStride, aDestData,
@@ -87,6 +105,11 @@ void FilterProcessing::ApplyMorphologyVertical(
     ApplyMorphologyVertical_SSE2(aSourceData, aSourceStride, aDestData,
                                  aDestStride, aDestRect, aRadius, aOp);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    ApplyMorphologyVertical_LSX(aSourceData, aSourceStride, aDestData,
+                                aDestStride, aDestRect, aRadius, aOp);
+#endif
   } else {
     ApplyMorphologyVertical_Scalar(aSourceData, aSourceStride, aDestData,
                                    aDestStride, aDestRect, aRadius, aOp);
@@ -99,6 +122,10 @@ already_AddRefed<DataSourceSurface> FilterProcessing::ApplyColorMatrix(
 #ifdef USE_SSE2
     return ApplyColorMatrix_SSE2(aInput, aMatrix);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    return ApplyColorMatrix_LSX(aInput, aMatrix);
+#endif
   }
   return ApplyColorMatrix_Scalar(aInput, aMatrix);
 }
@@ -109,6 +136,10 @@ void FilterProcessing::ApplyComposition(DataSourceSurface* aSource,
   if (mozilla::supports_sse2()) {
 #ifdef USE_SSE2
     ApplyComposition_SSE2(aSource, aDest, aOperator);
+#endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    ApplyComposition_LSX(aSource, aDest, aOperator);
 #endif
   } else {
     ApplyComposition_Scalar(aSource, aDest, aOperator);
@@ -137,6 +168,11 @@ void FilterProcessing::DoOpacityCalculation(
     DoOpacityCalculation_SSE2(aSize, aTargetData, aTargetStride, aSourceData,
                               aSourceStride, aValue);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    DoOpacityCalculation_LSX(aSize, aTargetData, aTargetStride, aSourceData,
+                             aSourceStride, aValue);
+#endif
   } else {
     DoOpacityCalculation_Scalar(aSize, aTargetData, aTargetStride, aSourceData,
                                 aSourceStride, aValue);
@@ -159,6 +195,11 @@ already_AddRefed<DataSourceSurface> FilterProcessing::RenderTurbulence(
     return RenderTurbulence_SSE2(aSize, aOffset, aBaseFrequency, aSeed,
                                  aNumOctaves, aType, aStitch, aTileRect);
 #endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    return RenderTurbulence_LSX(aSize, aOffset, aBaseFrequency, aSeed,
+                                aNumOctaves, aType, aStitch, aTileRect);
+#endif
   }
   return RenderTurbulence_Scalar(aSize, aOffset, aBaseFrequency, aSeed,
                                  aNumOctaves, aType, aStitch, aTileRect);
@@ -170,6 +211,10 @@ already_AddRefed<DataSourceSurface> FilterProcessing::ApplyArithmeticCombine(
   if (mozilla::supports_sse2()) {
 #ifdef USE_SSE2
     return ApplyArithmeticCombine_SSE2(aInput1, aInput2, aK1, aK2, aK3, aK4);
+#endif
+  } else if (mozilla::supports_lsx()) {
+#ifdef USE_LSX
+    return ApplyArithmeticCombine_LSX(aInput1, aInput2, aK1, aK2, aK3, aK4);
 #endif
   }
   return ApplyArithmeticCombine_Scalar(aInput1, aInput2, aK1, aK2, aK3, aK4);
