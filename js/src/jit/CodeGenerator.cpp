@@ -14002,8 +14002,16 @@ static void ConcatInlineString(MacroAssembler& masm, Register lhs, Register rhs,
 
 #if defined(JS_64BIT) && defined(ENABLE_JIT_SIMD)
   Label fastPath, done;
-  masm.branchTest32(Assembler::NonZero, andedFlags,
-                    Imm32(StringFlags::INLINE_CHARS_BIT), &fastPath);
+
+  bool useVectorizedCopy = true;
+#  if defined(JS_CODEGEN_LOONG64)
+  useVectorizedCopy = Assembler::HasLSX();
+#  endif
+
+  if (useVectorizedCopy) {
+    masm.branchTest32(Assembler::NonZero, andedFlags,
+                      Imm32(StringFlags::INLINE_CHARS_BIT), &fastPath);
+  }
 #endif
 
   Register temp1 = andedFlags;

@@ -2,35 +2,40 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <functional>
+#include <random>
+#include <vector>
+
 #include "SkConvolver.h"
 #include "gtest/gtest.h"
+#include "mozilla/LSX.h"
 #include "mozilla/SSE.h"
-
-// The horizontal convolution kernels are SIMD-specialized only on x86; this
-// mirrors the CONFIG["INTEL_ARCHITECTURE"] guard that compiles them.
-#if defined(MOZILLA_MAY_SUPPORT_SSE2)
-
-#  include <algorithm>
-#  include <array>
-#  include <cstdint>
-#  include <functional>
-#  include <random>
-#  include <vector>
 
 using skia::SkConvolutionFilter1D;
 
 // These have external linkage but are not declared in a public header; the
 // dispatcher in SkConvolver.cpp forward-declares them the same way.
 namespace skia {
+#if defined(MOZILLA_MAY_SUPPORT_SSE2)
 void convolve_horizontally_sse2(const unsigned char* srcData,
                                 const SkConvolutionFilter1D& filter,
                                 unsigned char* outRow, bool hasAlpha);
 void convolve_horizontally_avx2(const unsigned char* srcData,
                                 const SkConvolutionFilter1D& filter,
                                 unsigned char* outRow, bool hasAlpha);
+#elif defined(MOZILLA_MAY_SUPPORT_LSX)
+void convolve_horizontally_lsx(const unsigned char* srcData,
+                               const SkConvolutionFilter1D& filter,
+                               unsigned char* outRow, bool hasAlpha);
+#endif
 }  // namespace skia
 
 namespace {
+
+#if defined(MOZILLA_MAY_SUPPORT_SSE2) || defined(MOZILLA_MAY_SUPPORT_LSX)
 
 // A straightforward scalar reference that reproduces the fixed-point
 // arithmetic, rounding and saturation performed by the SIMD kernels.
@@ -93,7 +98,12 @@ std::vector<uint8_t> RandomPixels(int aNumPixels, std::mt19937& aRng) {
   return buf;
 }
 
+#endif /* defined(MOZILLA_MAY_SUPPORT_SSE2) || \
+          defined(MOZILLA_MAY_SUPPORT_LSX) */
+
 }  // namespace
+
+#if defined(MOZILLA_MAY_SUPPORT_SSE2)
 
 // Verifies that the SSE2 and AVX2 horizontal convolution kernels produce
 // bit-identical results to a scalar reference across a range of filter lengths,
@@ -142,4 +152,41 @@ TEST(Moz2D, ConvolveHorizontallySIMDMatchesReference)
   }
 }
 
-#endif  // MOZILLA_MAY_SUPPORT_SSE2
+#elif defined(MOZILLA_MAY_SUPPORT_LSX)
+
+// Verifies that the LSX horizontal convolution kernel produces bit-identical
+// results to a scalar reference across the same range of filter lengths.
+TEST(Moz2D, ConvolveHorizontallySIMDMatchesReference)
+{
+  std::mt19937 rng(0x5eed5eed);
+
+  const std::vector<std::function<int(int)>> lengthFns = {
+      [](int) { return 1; },  [](int) { return 2; },
+      [](int) { return 3; },  [](int) { return 7; },
+      [](int) { return 8; },  [](int) { return 9; },
+      [](int) { return 12; }, [](int) { return 15; },
+      [](int) { return 16; }, [](int) { return 17; },
+      [](int) { return 24; }, [](int x) { return 1 + (x % 23); },
+  };
+
+  constexpr int kNumValues = 41;
+  constexpr size_t kOutBytes = size_t(kNumValues) * 4;
+
+  for (const auto& lengthFor : lengthFns) {
+    int srcWidth = 0;
+    SkConvolutionFilter1D filter;
+    BuildFilter(filter, kNumValues, lengthFor, rng, &srcWidth);
+    std::vector<uint8_t> src = RandomPixels(srcWidth, rng);
+
+    std::array<uint8_t, kOutBytes> ref{};
+    ConvolveHorizontallyReference(src.data(), filter, ref.data());
+
+    std::array<uint8_t, kOutBytes> outLsx;
+    outLsx.fill(0xEF);
+    skia::convolve_horizontally_lsx(src.data(), filter, outLsx.data(),
+                                    /* hasAlpha */ true);
+    EXPECT_EQ(ref, outLsx);
+  }
+}
+
+#endif
