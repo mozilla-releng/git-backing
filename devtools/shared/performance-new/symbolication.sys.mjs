@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 // @ts-check
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 /** @type {any} */
 const lazy = {};
 
@@ -32,10 +34,11 @@ ChromeUtils.defineESModuleGetters(
 const global = globalThis;
 
 // This module obtains symbol tables for binaries.
-// It does so with the help of a WASM module which gets pulled in from the
-// internet on demand. We're doing this purely for the purposes of saving on
-// code size. The contents of the WASM module are expected to be static, they
-// are checked against the hash specified below.
+// When the profiler's native ELF parser is available, it is tried first.
+// Other builds and native failures use a WASM module which gets pulled in
+// from the internet on demand. We're doing this purely for the purposes of
+// saving on code size. The contents of the WASM module are expected to be
+// static, they are checked against the hash specified below.
 // The WASM code is run on a ChromeWorker thread. It takes the raw byte
 // contents of the to-be-dumped binary (and of an additional optional pdb file
 // on Windows) as its input, and returns a set of typed arrays which make up
@@ -214,9 +217,40 @@ class LocalSymbolicationService {
   /**
    * @param {string} debugName
    * @param {string} breakpadId
+   * @returns {Promise<SymbolTableAsTuple | null>}
+   */
+  async #getSymbolTableFromNative(debugName, breakpadId) {
+    if (!AppConstants.MOZ_GECKO_PROFILER_PARSE_ELF) {
+      return null;
+    }
+
+    const key = `${debugName}:${breakpadId}`;
+    const lib = this._libInfoMap.get(key);
+    if (!lib) {
+      return null;
+    }
+
+    try {
+      return await Services.profiler.getSymbolTable(lib.debugPath, breakpadId);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * @param {string} debugName
+   * @param {string} breakpadId
    * @returns {Promise<SymbolTableAsTuple>}
    */
   async getSymbolTable(debugName, breakpadId) {
+    const nativeSymbolTable = await this.#getSymbolTableFromNative(
+      debugName,
+      breakpadId
+    );
+    if (nativeSymbolTable) {
+      return nativeSymbolTable;
+    }
+
     const module = await getWASMProfilerGetSymbolsModule();
     /** @type {SymbolicationWorkerInitialMessage} */
     const initialMessage = {

@@ -3894,6 +3894,9 @@ void CodeGenerator::visitWasmMoveLaneSimd128(LWasmMoveLaneSimd128* ins) {
     case wasm::SimdOp::I32x4ReplaceLane:
       masm.Mov(dest.V4S(), laneIndex, src.V4S(), srcLaneIndex);
       break;
+    case wasm::SimdOp::I64x2ReplaceLane:
+      masm.Mov(dest.V2D(), laneIndex, src.V2D(), srcLaneIndex);
+      break;
     default:
       MOZ_CRASH("MoveLane SimdOp not implemented");
   }

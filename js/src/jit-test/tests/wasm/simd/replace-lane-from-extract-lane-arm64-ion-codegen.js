@@ -9,6 +9,7 @@ for (const [replace, extract, expected] of [
   ["i8x16.replace_lane 7", "i8x16.extract_lane_u 9", "mov     v0\\.b\\[7\\], v1\\.b\\[9\\]"],
   ["i16x8.replace_lane 1", "i32x4.extract_lane 2", "mov     v0\\.h\\[1\\], v1\\.h\\[4\\]"],
   ["i32x4.replace_lane 0", "i32x4.extract_lane 3", "mov     v0\\.s\\[0\\], v1\\.s\\[3\\]"],
+  ["i64x2.replace_lane 1", "i64x2.extract_lane 0", "mov     v0\\.d\\[1\\], v1\\.d\\[0\\]"],
 ]) {
   codegenTestARM64_adhoc(
     `(module
