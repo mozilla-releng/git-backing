@@ -1007,9 +1007,8 @@ bool FallbackICCodeCompiler::emit_SetElem() {
   // (pushed for the decompiler) with the rhs.
   masm.computeEffectiveAddress(
       Address(masm.getStackPointer(), 3 * sizeof(Value)), R0.scratchReg());
-  masm.push(R0.scratchReg());
 
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
   pushStubPayload(masm, R0.scratchReg());
 
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICFallbackStub*, Value*,
@@ -1193,8 +1192,7 @@ bool FallbackICCodeCompiler::emit_GetName() {
 
   EmitRestoreTailCallReg(masm);
 
-  masm.push(R0.scratchReg());
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
   pushStubPayload(masm, R0.scratchReg());
 
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICFallbackStub*, HandleObject,
@@ -1243,8 +1241,7 @@ bool FallbackICCodeCompiler::emit_BindName() {
 
   EmitRestoreTailCallReg(masm);
 
-  masm.push(R0.scratchReg());
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
   pushStubPayload(masm, R0.scratchReg());
 
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICFallbackStub*, HandleObject,
@@ -1604,9 +1601,8 @@ bool FallbackICCodeCompiler::emit_SetProp() {
   // (pushed for the decompiler) with the RHS.
   masm.computeEffectiveAddress(
       Address(masm.getStackPointer(), 2 * sizeof(Value)), R0.scratchReg());
-  masm.push(R0.scratchReg());
 
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
   pushStubPayload(masm, R0.scratchReg());
 
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICFallbackStub*, Value*,
@@ -1895,8 +1891,7 @@ bool FallbackICCodeCompiler::emitCall(bool isSpread, bool isConstructing) {
   pushCallArguments(masm, regs, R0.scratchReg(), isConstructing);
 
   masm.push(masm.getStackPointer());
-  masm.push(R0.scratchReg());
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
 
   PushStubPayload(masm, R0.scratchReg());
 
@@ -2649,8 +2644,7 @@ bool DoCloseIterFallback(JSContext* cx, BaselineFrame* frame,
 bool FallbackICCodeCompiler::emit_CloseIter() {
   EmitRestoreTailCallReg(masm);
 
-  masm.push(R0.scratchReg());
-  masm.push(ICStubReg);
+  masm.pushRegs(R0.scratchReg(), ICStubReg);
   pushStubPayload(masm, R0.scratchReg());
 
   using Fn =

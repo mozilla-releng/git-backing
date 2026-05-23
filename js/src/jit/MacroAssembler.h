@@ -564,6 +564,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void PopStackPtr()
       DEFINED_ON(arm, mips64, x86_shared, loong64, riscv64, wasm32);
 
+  // Push |regs| with one stack adjustment, the first at the highest address.
+  template <typename... Regs>
+  inline void PushRegs(const Regs&... regs);
+  // Pop |regs| with one stack adjustment, the first from the lowest address.
+  template <typename... Regs>
+  inline void PopRegs(const Regs&... regs);
+
   // Move the stack pointer based on the requested amount.
   void adjustStack(int amount);
   void freeStack(uint32_t amount);
