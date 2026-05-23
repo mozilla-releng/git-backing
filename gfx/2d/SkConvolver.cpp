@@ -14,6 +14,10 @@
 #  include "mozilla/arm.h"
 #endif
 
+#ifdef USE_LSX
+#  include "mozilla/LSX.h"
+#endif
+
 namespace skia {
 
 using mozilla::gfx::BytesPerPixel;
@@ -238,6 +242,13 @@ void convolve_horizontally_neon(const unsigned char* srcData,
 void convolve_vertically_neon(const int16_t* filter, int filterLen,
                               uint8_t* const* srcRows, int width, uint8_t* out,
                               bool hasAlpha);
+#elif defined(USE_LSX)
+void convolve_horizontally_lsx(const unsigned char* srcData,
+                               const SkConvolutionFilter1D& filter,
+                               unsigned char* outRow, bool hasAlpha);
+void convolve_vertically_lsx(const int16_t* filter, int filterLen,
+                             uint8_t* const* srcRows, int width, uint8_t* out,
+                             bool hasAlpha);
 #endif
 
 void convolve_horizontally(const unsigned char* srcData,
@@ -261,6 +272,11 @@ void convolve_horizontally(const unsigned char* srcData,
 #elif defined(USE_NEON)
   if (mozilla::supports_neon()) {
     convolve_horizontally_neon(srcData, filter, outRow, hasAlpha);
+    return;
+  }
+#elif defined(USE_LSX)
+  if (mozilla::supports_lsx()) {
+    convolve_horizontally_lsx(srcData, filter, outRow, hasAlpha);
     return;
   }
 #endif
@@ -297,6 +313,12 @@ void convolve_vertically(
   if (mozilla::supports_neon()) {
     convolve_vertically_neon(filterValues, filterLength, sourceDataRows,
                              pixelWidth, outRow, hasAlpha);
+    return;
+  }
+#elif defined(USE_LSX)
+  if (mozilla::supports_lsx()) {
+    convolve_vertically_lsx(filterValues, filterLength, sourceDataRows,
+                            pixelWidth, outRow, hasAlpha);
     return;
   }
 #endif

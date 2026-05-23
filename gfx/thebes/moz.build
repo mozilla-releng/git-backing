@@ -185,6 +185,12 @@ if CONFIG["INTEL_ARCHITECTURE"]:
     # compilers.
     SOURCES["gfxAlphaRecoverySSE2.cpp"].flags += CONFIG["SSE2_FLAGS"]
 
+# Are we targeting ARM with NEON capabilities? If so, build gfxAlphaRecoveryNeon.cpp.
+# The conditions mirror those of MOZILLA_MAY_SUPPORT_NEON.
+if CONFIG["TARGET_CPU"] == "arm" and CONFIG["HAVE_ARM_NEON"]:
+    SOURCES += ["gfxAlphaRecoveryNeon.cpp"]
+    SOURCES["gfxAlphaRecoveryNeon.cpp"].flags += CONFIG["NEON_FLAGS"]
+
 SOURCES += [
     # Includes mac system header conflicting with point/size,
     # and includes glxXlibSurface.h which drags in Xrender.h
