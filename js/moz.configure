@@ -805,7 +805,7 @@ def default_jit_simd(jit_enabled, simulator, target):
     if simulator and (simulator[0] != "arm64"):
         return
 
-    if target.cpu in ("x86_64", "x86", "aarch64"):
+    if target.cpu in ("x86_64", "x86", "aarch64", "loongarch64"):
         return True
 
 
@@ -832,10 +832,12 @@ def jit_simd(value, jit_enabled, simulator, target):
     if simulator and (simulator[0] != "arm64"):
         die("--enable-jit-simd is not supported for simulators, except arm64")
 
-    if target.cpu in ("x86_64", "x86", "aarch64"):
+    if target.cpu in ("x86_64", "x86", "aarch64", "loongarch64"):
         return True
 
-    die("--enable-jit-simd only possible when targeting the x86_64/x86/arm64 jits")
+    die(
+        "--enable-jit-simd only possible when targeting the x86_64/x86/arm64/loongarch64 jits"
+    )
 
 
 set_config("ENABLE_JIT_SIMD", jit_simd)
