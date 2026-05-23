@@ -217,6 +217,23 @@ if CONFIG["TARGET_CPU"] == "aarch64" or CONFIG["BUILD_ARM_NEON"]:
         "SwizzleNEON.h",
     ]
 
+if CONFIG["TARGET_CPU"] == "loongarch64":
+    SOURCES += [
+        "ConvolutionFilterLSX.cpp",
+        "FilterProcessingLSX.cpp",
+        "ImageScalingLSX.cpp",
+        "LuminanceLSX.cpp",
+    ]
+    DEFINES["USE_LSX"] = True
+    SOURCES["ConvolutionFilterLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+    SOURCES["FilterProcessingLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+    SOURCES["ImageScalingLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+    SOURCES["LuminanceLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+
+    SOURCE_HEADERS += [
+        "LuminanceLSX.h",
+    ]
+
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
