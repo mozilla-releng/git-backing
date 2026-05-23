@@ -720,6 +720,44 @@ static int32_t Bitmask(const T& v) {
   return result;
 }
 
+static bool IntegerLaneSizeLog2(wasm::SimdOp op, uint32_t* sizeLog2) {
+  switch (op) {
+    case wasm::SimdOp::I8x16ExtractLaneS:
+    case wasm::SimdOp::I8x16ExtractLaneU:
+    case wasm::SimdOp::I8x16ReplaceLane:
+      *sizeLog2 = 0;
+      return true;
+    case wasm::SimdOp::I16x8ExtractLaneS:
+    case wasm::SimdOp::I16x8ExtractLaneU:
+    case wasm::SimdOp::I16x8ReplaceLane:
+      *sizeLog2 = 1;
+      return true;
+    case wasm::SimdOp::I32x4ExtractLane:
+    case wasm::SimdOp::I32x4ReplaceLane:
+      *sizeLog2 = 2;
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool MWasmReplaceLaneSimd128::replacesFromExtractedLane(
+    uint32_t* sizeLog2, uint32_t* srcIndex) const {
+  if (!rhs()->isWasmReduceSimd128()) {
+    return false;
+  }
+  const MWasmReduceSimd128* extract = rhs()->toWasmReduceSimd128();
+  uint32_t dstLog2;
+  uint32_t srcLog2;
+  if (!IntegerLaneSizeLog2(simdOp(), &dstLog2) ||
+      !IntegerLaneSizeLog2(extract->simdOp(), &srcLog2) || srcLog2 < dstLog2) {
+    return false;
+  }
+  *sizeLog2 = dstLog2;
+  *srcIndex = extract->imm() << (srcLog2 - dstLog2);
+  return true;
+}
+
 MDefinition* MWasmReduceSimd128::foldsTo(TempAllocator& alloc) {
 #  ifdef DEBUG
   auto logging = mozilla::MakeScopeExit([&] {

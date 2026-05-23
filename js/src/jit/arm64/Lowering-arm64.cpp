@@ -618,22 +618,27 @@ bool LIRGeneratorARM64::canEmitWasmReduceSimd128AtUses(
   if (ins->type() != MIRType::Int32) {
     return false;
   }
-  if (!canFoldReduceSimd128AndBranch(ins->simdOp())) {
-    return false;
-  }
   // If never used then defer (it will be removed).
   MUseIterator iter(ins->usesBegin());
   if (iter == ins->usesEnd()) {
-    return true;
-  }
-  // We require an MTest consumer.
-  MNode* node = iter->consumer();
-  if (!node->isDefinition() || !node->toDefinition()->isTest()) {
-    return false;
+    return canFoldReduceSimd128AndBranch(ins->simdOp());
   }
   // Defer only if there's only one use.
+  MNode* node = iter->consumer();
   iter++;
-  return iter == ins->usesEnd();
+  if (iter != ins->usesEnd() || !node->isDefinition()) {
+    return false;
+  }
+  MDefinition* consumer = node->toDefinition();
+  if (consumer->isTest()) {
+    return canFoldReduceSimd128AndBranch(ins->simdOp());
+  }
+  // An extract_lane feeding a replace_lane becomes one lane-to-lane move.
+  uint32_t sizeLog2;
+  uint32_t srcIndex;
+  return consumer->isWasmReplaceLaneSimd128() &&
+         consumer->toWasmReplaceLaneSimd128()->replacesFromExtractedLane(
+             &sizeLog2, &srcIndex);
 }
 
 #endif
@@ -1316,6 +1321,12 @@ void LIRGenerator::visitWasmReplaceLaneSimd128(MWasmReplaceLaneSimd128* ins) {
   if (ins->rhs()->type() == MIRType::Int64) {
     auto* lir = new (alloc())
         LWasmReplaceInt64LaneSimd128(lhs, useInt64Register(ins->rhs()));
+    defineReuseInput(lir, ins, 0);
+  } else if (ins->rhs()->isWasmReduceSimd128() &&
+             ins->rhs()->isEmittedAtUses()) {
+    // The rhs is an extract_lane; read its vector input directly.
+    MDefinition* src = ins->rhs()->toWasmReduceSimd128()->input();
+    auto* lir = new (alloc()) LWasmReplaceLaneSimd128(lhs, useRegister(src));
     defineReuseInput(lir, ins, 0);
   } else {
     LAllocation rhsAlloc = useRegisterOrZero(ins->rhs());

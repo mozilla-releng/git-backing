@@ -3870,6 +3870,30 @@ void CodeGenerator::visitWasmReplaceLaneSimd128(LWasmReplaceLaneSimd128* ins) {
     return;
   }
 
+  if (ins->mir()->rhs()->isWasmReduceSimd128() &&
+      ins->mir()->rhs()->isEmittedAtUses()) {
+    uint32_t sizeLog2;
+    uint32_t srcIndex;
+    MOZ_ALWAYS_TRUE(
+        ins->mir()->replacesFromExtractedLane(&sizeLog2, &srcIndex));
+    ARMFPRegister dest(lhsDest, 128);
+    ARMFPRegister src(ToFloatRegister(rhs), 128);
+    switch (sizeLog2) {
+      case 0:
+        masm.Mov(dest.V16B(), laneIndex, src.V16B(), srcIndex);
+        break;
+      case 1:
+        masm.Mov(dest.V8H(), laneIndex, src.V8H(), srcIndex);
+        break;
+      case 2:
+        masm.Mov(dest.V4S(), laneIndex, src.V4S(), srcIndex);
+        break;
+      default:
+        MOZ_CRASH();
+    }
+    return;
+  }
+
   switch (ins->mir()->simdOp()) {
     case wasm::SimdOp::I8x16ReplaceLane:
       masm.replaceLaneInt8x16(laneIndex, ToRegister(rhs), lhsDest);

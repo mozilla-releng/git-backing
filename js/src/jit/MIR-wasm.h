@@ -2297,6 +2297,13 @@ class MWasmReplaceLaneSimd128 : public MBinaryInstruction,
   uint32_t laneIndex() const { return laneIndex_; }
   wasm::SimdOp simdOp() const { return simdOp_; }
 
+#ifdef ENABLE_JIT_SIMD
+  // Whether rhs() is an integer extract_lane whose low bits are exactly one
+  // lane of this operation's size. If so, sets |sizeLog2| to that lane size
+  // and |srcIndex| to the source lane's index in units of it.
+  bool replacesFromExtractedLane(uint32_t* sizeLog2, uint32_t* srcIndex) const;
+#endif
+
   ALLOW_CLONE(MWasmReplaceLaneSimd128)
 };
 
