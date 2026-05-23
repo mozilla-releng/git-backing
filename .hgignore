@@ -415,3 +415,14 @@ toolkit/themes/shared/design-system/node_modules/
 # Ignore Claude Code worktrees
 \.claude/worktrees/
 \.worktreeinclude
+
+# Ignore remember files
+\.remember/
+
+# Ignore .json.gz (typically profiles) in the root directory
+# lint-ignore-next-line: git-only
+^.*\.json\.gz
+
+# Codex files
+\.codex/
+AGENTS\.local\.md
