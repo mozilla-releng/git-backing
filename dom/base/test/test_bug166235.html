@@ -124,10 +124,10 @@ var clipboardUnicode = [
 var innerHTMLStrings = [
   'This text should be copied.',
   'This text should<span style=\"user-select: none;\"> NOT</span> be copied.',
-  'This<span style=\"user-select: none;\"><span style=\"user-select: text\"> text should</span> NOT</span> be copied.',
+  'This<span style=\"user-select: none;\"><span style=\"user-select: text;\"> text should</span> NOT</span> be copied.',
   'This text should<span style=\"user-select: -moz-none;\"> NOT</span> be copied.',
-  'This<span style=\"user-select: -moz-none;\"><span style=\"user-select: text\"> text should</span> NOT</span> be copied.',
-  'This<span style=\"user-select: all\"> text should</span> be copied.',
+  'This<span style=\"user-select: -moz-none;\"><span style=\"user-select: text;\"> text should</span> NOT</span> be copied.',
+  'This<span style=\"user-select: all;\"> text should</span> be copied.',
 ];
 
 // expected results for pasting into a TEXTAREA
