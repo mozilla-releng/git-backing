@@ -42,8 +42,8 @@ class CommonSchema(Schema, kw_only=True):
     # Architecture to build the package for.
     arch: Optional[str] = None
     # How to clone the upstream repo for the checkout, either "hg" or "git"
-    # (default: "hg")
-    clone_with: Optional[Literal["hg", "git"]] = "hg"
+    # (default: "git")
+    clone_with: Optional[Literal["hg", "git"]] = "git"
     # List of package tasks to get build dependencies from.
     packages: Optional[list[str]] = None
     # What resolver to use to install build dependencies. The default
