@@ -7,6 +7,7 @@ task-defaults:
     worker:
         max-run-time: 1800
     run:
+        clone-with: hg
         using: toolchain-script
         script: build-compiler-rt.sh
 
@@ -16,6 +17,7 @@ wasm32-wasi-compiler-rt-17:
         symbol: TL(wasi-crt-17)
     worker-type: b-linux-docker-xlarge-amd
     run:
+        clone-with: hg
         script: build-compiler-rt-wasi.sh
         arguments:
             - wasi-sdk.patch
@@ -34,6 +36,7 @@ android-aarch64-compiler-rt-20:
     treeherder:
         symbol: TA(aarch64-crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -52,6 +55,7 @@ android-arm-compiler-rt-20:
     treeherder:
         symbol: TA(arm-crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -70,6 +74,7 @@ android-x64-compiler-rt-20:
     treeherder:
         symbol: TA(x64-crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -88,6 +93,7 @@ linux64-x86-compiler-rt-20:
     treeherder:
         symbol: TL32(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -106,6 +112,7 @@ linux64-x64-compiler-rt-20:
     treeherder:
         symbol: TL(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -124,6 +131,7 @@ linux64-aarch64-compiler-rt-20:
     treeherder:
         symbol: TLA64(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -142,6 +150,7 @@ macosx64-x64-compiler-rt-20:
     treeherder:
         symbol: TM(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -160,6 +169,7 @@ macosx64-aarch64-compiler-rt-20:
     treeherder:
         symbol: TMA64(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -178,6 +188,7 @@ win32-compiler-rt-20:
     treeherder:
         symbol: TW32(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -196,6 +207,7 @@ win64-compiler-rt-20:
     treeherder:
         symbol: TW64(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -214,6 +226,7 @@ win64-aarch64-compiler-rt-20:
     treeherder:
         symbol: TWA64(crt-20)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-20.json
         resources:
@@ -233,6 +246,7 @@ wasm32-wasi-compiler-rt-20:
         symbol: TL(wasi-crt-20)
     worker-type: b-linux-docker-xlarge-amd
     run:
+        clone-with: hg
         script: build-compiler-rt-wasi.sh
         arguments:
             - wasi-sdk.patch
@@ -251,6 +265,7 @@ android-aarch64-compiler-rt-21:
     treeherder:
         symbol: TA(aarch64-crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -269,6 +284,7 @@ android-arm-compiler-rt-21:
     treeherder:
         symbol: TA(arm-crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -287,6 +303,7 @@ android-x64-compiler-rt-21:
     treeherder:
         symbol: TA(x64-crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -305,6 +322,7 @@ linux64-x86-compiler-rt-21:
     treeherder:
         symbol: TL32(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -323,6 +341,7 @@ linux64-x64-compiler-rt-21:
     treeherder:
         symbol: TL(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -341,6 +360,7 @@ linux64-aarch64-compiler-rt-21:
     treeherder:
         symbol: TLA64(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -359,6 +379,7 @@ macosx64-x64-compiler-rt-21:
     treeherder:
         symbol: TM(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -377,6 +398,7 @@ macosx64-aarch64-compiler-rt-21:
     treeherder:
         symbol: TMA64(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -395,6 +417,7 @@ win32-compiler-rt-21:
     treeherder:
         symbol: TW32(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -413,6 +436,7 @@ win64-compiler-rt-21:
     treeherder:
         symbol: TW64(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -431,6 +455,7 @@ win64-aarch64-compiler-rt-21:
     treeherder:
         symbol: TWA64(crt-21)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-21.json
         resources:
@@ -450,6 +475,7 @@ wasm32-wasi-compiler-rt-21:
         symbol: TL(wasi-crt-21)
     worker-type: b-linux-docker-xlarge-amd
     run:
+        clone-with: hg
         script: build-compiler-rt-wasi.sh
         arguments:
             - wasi-sdk.patch
@@ -468,6 +494,7 @@ android-aarch64-compiler-rt-22:
     treeherder:
         symbol: TA(aarch64-crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -486,6 +513,7 @@ android-arm-compiler-rt-22:
     treeherder:
         symbol: TA(arm-crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -504,6 +532,7 @@ android-x64-compiler-rt-22:
     treeherder:
         symbol: TA(x64-crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -522,6 +551,7 @@ linux64-x86-compiler-rt-22:
     treeherder:
         symbol: TL32(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -540,6 +570,7 @@ linux64-x64-compiler-rt-22:
     treeherder:
         symbol: TL(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -558,6 +589,7 @@ linux64-aarch64-compiler-rt-22:
     treeherder:
         symbol: TLA64(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -576,6 +608,7 @@ macosx64-x64-compiler-rt-22:
     treeherder:
         symbol: TM(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -594,6 +627,7 @@ macosx64-aarch64-compiler-rt-22:
     treeherder:
         symbol: TMA64(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -612,6 +646,7 @@ win32-compiler-rt-22:
     treeherder:
         symbol: TW32(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -630,6 +665,7 @@ win64-compiler-rt-22:
     treeherder:
         symbol: TW64(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -648,6 +684,7 @@ win64-aarch64-compiler-rt-22:
     treeherder:
         symbol: TWA64(crt-22)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-22.json
         resources:
@@ -667,6 +704,7 @@ wasm32-wasi-compiler-rt-22:
         symbol: TL(wasi-crt-22)
     worker-type: b-linux-docker-xlarge-amd
     run:
+        clone-with: hg
         script: build-compiler-rt-wasi.sh
         arguments:
             - wasi-sdk.patch
@@ -687,6 +725,7 @@ android-aarch64-compiler-rt-trunk:
     treeherder:
         symbol: TA(aarch64-crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -707,6 +746,7 @@ android-arm-compiler-rt-trunk:
     treeherder:
         symbol: TA(arm-crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -727,6 +767,7 @@ android-x64-compiler-rt-trunk:
     treeherder:
         symbol: TA(x64-crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -747,6 +788,7 @@ linux64-x86-compiler-rt-trunk:
     treeherder:
         symbol: TL32(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -767,6 +809,7 @@ linux64-x64-compiler-rt-trunk:
     treeherder:
         symbol: TL(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -787,6 +830,7 @@ linux64-aarch64-compiler-rt-trunk:
     treeherder:
         symbol: TLA64(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -807,6 +851,7 @@ macosx64-x64-compiler-rt-trunk:
     treeherder:
         symbol: TM(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -827,6 +872,7 @@ macosx64-aarch64-compiler-rt-trunk:
     treeherder:
         symbol: TMA64(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -847,6 +893,7 @@ win32-compiler-rt-trunk:
     treeherder:
         symbol: TW32(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -867,6 +914,7 @@ win64-compiler-rt-trunk:
     treeherder:
         symbol: TW64(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -887,6 +935,7 @@ win64-aarch64-compiler-rt-trunk:
     treeherder:
         symbol: TWA64(crt-trunk)
     run:
+        clone-with: hg
         arguments:
             - build/build-clang/clang-trunk.json
         resources:
@@ -908,6 +957,7 @@ wasm32-wasi-compiler-rt-trunk:
         symbol: TL(wasi-crt-trunk)
     worker-type: b-linux-docker-xlarge-amd
     run:
+        clone-with: hg
         script: build-compiler-rt-wasi.sh
         arguments:
             - wasi-sdk.patch
