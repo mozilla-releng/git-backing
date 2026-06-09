@@ -4,6 +4,7 @@
 ---
 task-defaults:
     run:
+        clone-with: hg
         using: debian-package
         dist: jessie
 
@@ -12,6 +13,7 @@ deb12-mercurial:
     treeherder:
         symbol: Deb12(hg)
     run:
+        clone-with: hg
         using: debian-package
         dist: bookworm
         tarball:
@@ -28,6 +30,7 @@ deb12-valgrind:
     treeherder:
         symbol: Deb12(valgrind)
     run:
+        clone-with: hg
         dist: bookworm
         dsc:
             url: http://snapshot.debian.org/archive/debian/20230111T213757Z/pool/main/v/valgrind/valgrind_3.20.0-1.dsc
@@ -39,6 +42,7 @@ deb12-python-zstandard:
     treeherder:
         symbol: Deb12(python-zstandard)
     run:
+        clone-with: hg
         using: debian-package
         dist: bookworm
         tarball:
@@ -58,6 +62,7 @@ deb8-gcc-8:
             WITH_BOOTSTRAP: 'off'
             WITHOUT_LANG: ada brig cilkrts fortran d go objc obj-c++ asan lsan tsan ubsan jit nvptx
     run:
+        clone-with: hg
         using: debian-package
         dist: jessie
         dsc:
@@ -92,6 +97,7 @@ deb8-gcc-10:
             WITH_BOOTSTRAP: 'off'
             WITHOUT_LANG: ada brig cilkrts fortran d go objc obj-c++ asan lsan tsan ubsan jit nvptx
     run:
+        clone-with: hg
         using: debian-package
         dist: jessie
         dsc:
@@ -142,6 +148,7 @@ deb8-32-gcc-8:
             WITH_BOOTSTRAP: 'off'
             WITHOUT_LANG: ada biarch brig cilkrts fortran d go objc obj-c++ asan lsan tsan ubsan jit nvptx
     run:
+        clone-with: hg
         using: debian-package
         dist: jessie
         dsc:
@@ -169,6 +176,7 @@ deb8-32-gcc-10:
             WITH_BOOTSTRAP: 'off'
             WITHOUT_LANG: ada biarch brig cilkrts fortran d go objc obj-c++ asan lsan tsan ubsan jit nvptx
     run:
+        clone-with: hg
         using: debian-package
         dist: jessie
         dsc:
@@ -203,6 +211,7 @@ deb10-arm64-gcc-10:
             WITH_BOOTSTRAP: 'off'
             WITHOUT_LANG: ada biarch brig cilkrts fortran d go objc obj-c++ asan lsan tsan ubsan jit nvptx
     run:
+        clone-with: hg
         using: debian-package
         dist: buster
         dsc:
@@ -226,6 +235,7 @@ deb8-gtk3:
         env:
             DEB_BUILD_OPTIONS: nocheck
     run:
+        clone-with: hg
         dist: jessie
         dsc:
             url: http://snapshot.debian.org/archive/debian/20150819T212910Z/pool/main/g/gtk+3.0/gtk+3.0_3.14.5-1+deb8u1.dsc

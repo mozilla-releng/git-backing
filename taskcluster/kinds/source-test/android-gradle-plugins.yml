@@ -25,6 +25,7 @@ task-defaults:
             - linux64-embedded-uniffi-bindgen
             - linux64-nimbus-fml
     run:
+        clone-with: hg
         using: mach-gradle
 
 apilint:
@@ -32,6 +33,7 @@ apilint:
     treeherder:
         symbol: android(apilint)
     run:
+        clone-with: hg
         gradle-project: mobile/android/gradle/plugins/apilint
         gradle-args:
             - test
@@ -46,6 +48,7 @@ ac-dependencies:
     treeherder:
         symbol: android(ac-deps)
     run:
+        clone-with: hg
         gradle-project: mobile/android/android-components/plugins/dependencies
         gradle-args:
             - test

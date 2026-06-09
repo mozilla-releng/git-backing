@@ -51,6 +51,7 @@ tasks:
                   name: public/build
                   path: /builds/worker/artifacts/
         run:
+            clone-with: hg
             using: run-task
             cwd: '{checkout}'
             command: >
@@ -85,6 +86,7 @@ tasks:
                   name: public/build
                   path: /builds/worker/artifacts/
         run:
+            clone-with: hg
             using: mozharness
             job-script: taskcluster/scripts/tester/test-linux.sh
             script: android_emulator_pgo.py
@@ -127,6 +129,7 @@ tasks:
                   name: public/build
                   path: checkouts/gecko/artifacts/
         run:
+            clone-with: hg
             using: run-task
             checkout: true
             cwd: '{checkout}'
@@ -175,6 +178,7 @@ tasks:
                   name: public/build
                   path: /builds/worker/artifacts/
         run:
+            clone-with: hg
             using: mozharness
             job-script: taskcluster/scripts/tester/test-linux.sh
             script: android_emulator_pgo.py
@@ -216,6 +220,7 @@ tasks:
                   name: public/build
                   path: build/src/artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'
@@ -246,6 +251,7 @@ tasks:
                   name: public/build
                   path: build/src/artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'
@@ -276,6 +282,7 @@ tasks:
                   name: public/build
                   path: build/src/artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'
@@ -306,6 +313,7 @@ tasks:
                   name: public/build
                   path: build/src/artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'
@@ -336,6 +344,7 @@ tasks:
                   name: public/build
                   path: artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'
@@ -366,6 +375,7 @@ tasks:
                   name: public/build
                   path: artifacts/
         run:
+            clone-with: hg
             using: run-task
             sparse-profile: profile-generate
             cwd: '{checkout}'

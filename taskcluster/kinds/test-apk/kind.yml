@@ -32,6 +32,7 @@ task-defaults:
         build-fat-aar:
             - target.maven.zip
     run:
+        clone-with: hg
         using: gradlew
     treeherder:
         kind: test
@@ -47,6 +48,7 @@ tasks:
             build-type: focus-debug
             shipping-product: focus
         run:
+            clone-with: hg
             pre-gradlew:
                 - ["cd", "mobile/android/focus-android"]
             gradlew: ['clean', 'test']
@@ -69,6 +71,7 @@ tasks:
             build-type: fenix-debug
             shipping-product: fenix
         run:
+            clone-with: hg
             pre-gradlew:
                 - ["cd", "mobile/android/fenix"]
                 - ['java', '-version']

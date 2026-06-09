@@ -24,6 +24,7 @@ def add_command(config, jobs):
         ]
         job["run"].update({
             "using": "mach",
+            "clone-with": "hg",
             "mach": command,
         })
         yield job
