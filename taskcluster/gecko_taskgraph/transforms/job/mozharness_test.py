@@ -60,6 +60,9 @@ class MozharnessTestRunSchema(Schema, kw_only=True):
     test: MozharnessTestSchema  # noqa: F821
     # Base work directory used to set up the task.
     workdir: Optional[str] = None
+    # How to clone the upstream repo for the checkout, either "hg" or "git"
+    # (default: "hg")
+    clone_with: Optional[Literal["hg", "git"]] = "hg"
 
 
 def test_packages_url(taskdesc):
@@ -89,7 +92,12 @@ def installer_url(taskdesc):
     return f"<{upstream_task}/{mozharness['build-artifact-name']}>"
 
 
-@run_job_using("docker-worker", "mozharness-test", schema=MozharnessTestRunSchema)
+@run_job_using(
+    "docker-worker",
+    "mozharness-test",
+    schema=MozharnessTestRunSchema,
+    defaults={"clone-with": "hg"},
+)
 def mozharness_test_on_docker(config, job, taskdesc):
     run = job["run"]
     test = taskdesc["run"]["test"]
@@ -248,6 +256,7 @@ def mozharness_test_on_docker(config, job, taskdesc):
     use_caches = test.get("use-caches", ["checkout", "pip", "uv"])
     job["run"] = {
         "workdir": run["workdir"],
+        "clone-with": run["clone-with"],
         "tooltool-downloads": mozharness["tooltool-downloads"],
         "checkout": test["checkout"],
         "command": command,
@@ -257,8 +266,14 @@ def mozharness_test_on_docker(config, job, taskdesc):
     configure_taskdesc_for_run(config, job, taskdesc, worker["implementation"])
 
 
-@run_job_using("generic-worker", "mozharness-test", schema=MozharnessTestRunSchema)
+@run_job_using(
+    "generic-worker",
+    "mozharness-test",
+    schema=MozharnessTestRunSchema,
+    defaults={"clone-with": "hg"},
+)
 def mozharness_test_on_generic_worker(config, job, taskdesc):
+    run = job["run"]
     test = taskdesc["run"]["test"]
     mozharness = test["mozharness"]
     worker = taskdesc["worker"] = job["worker"]
@@ -485,6 +500,7 @@ def mozharness_test_on_generic_worker(config, job, taskdesc):
     use_caches = test.get("use-caches", ["checkout", "pip", "uv"])
     job["run"] = {
         "tooltool-downloads": mozharness["tooltool-downloads"],
+        "clone-with": run["clone-with"],
         "checkout": test["checkout"],
         "command": mh_command,
         "use-caches": use_caches,
