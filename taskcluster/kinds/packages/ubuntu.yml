@@ -4,6 +4,7 @@
 ---
 task-defaults:
     run:
+        clone-with: hg
         using: ubuntu-package
         dist: bionic
 
@@ -12,6 +13,7 @@ ub18-python-psutil:
     treeherder:
         symbol: Ub18(python-psutil)
     run:
+        clone-with: hg
         dsc:
             url: https://snapshot.ubuntu.com/ubuntu/20220601T000000Z/pool/main/p/python-psutil/python-psutil_5.4.2-1ubuntu0.1.dsc
             sha256: a0ca4560d25fcfe5b7407d2cb21318f0635f2c3559898efce1679eef35b61f05
@@ -25,6 +27,7 @@ ub18-python-zstandard:
     treeherder:
         symbol: Ub18(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://github.com/indygreg/python-zstandard/releases/download/0.19.0/zstandard-0.19.0.tar.gz
             sha256: 31d12fcd942dd8dbf52ca5f6b1bbe287f44e5d551a081a983ff3ea2082867863
@@ -39,6 +42,7 @@ ub18-mercurial:
     treeherder:
         symbol: Ub18(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.8.1.tar.gz
             sha256: 030e8a7a6d590e4eaeb403ee25675615cd80d236f3ab8a0b56dcc84181158b05
@@ -56,6 +60,7 @@ ub18-coreutils:
     treeherder:
         symbol: Ub18(coreutils)
     run:
+        clone-with: hg
         dsc:
             url: https://snapshot.ubuntu.com/ubuntu/20220601T000000Z/pool/main/c/coreutils/coreutils_8.32-4.1ubuntu1.dsc
             sha256: ac8f500698cb87284f6f5c750647d8c599866c5e00ff883b7dec76af23c376af
@@ -68,6 +73,7 @@ ub20-python-zstandard:
     treeherder:
         symbol: Ub20(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://files.pythonhosted.org/packages/ed/f6/2ac0287b442160a89d726b17a9184a4c615bb5237db763791a7fd16d9df1/zstandard-0.23.0.tar.gz
             sha256: b2d8c62d08e7255f68f7a740bae85b3c9b8e5466baa9cbf7f57f1cde0ac6bc09
@@ -80,6 +86,7 @@ ub20-mercurial:
     treeherder:
         symbol: Ub20(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.8.1.tar.gz
             sha256: 030e8a7a6d590e4eaeb403ee25675615cd80d236f3ab8a0b56dcc84181158b05
@@ -95,6 +102,7 @@ ub22-python-zstandard:
     treeherder:
         symbol: Ub22(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://files.pythonhosted.org/packages/09/1b/c20b2ef1d987627765dcd5bf1dadb8ef6564f00a87972635099bb76b7a05/zstandard-0.24.0.tar.gz
             sha256: fe3198b81c00032326342d973e526803f183f97aa9e9a98e3f897ebafe21178f
@@ -108,6 +116,7 @@ ub22-arm64-python-zstandard:
     treeherder:
         symbol: Ub22a64(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://files.pythonhosted.org/packages/09/1b/c20b2ef1d987627765dcd5bf1dadb8ef6564f00a87972635099bb76b7a05/zstandard-0.24.0.tar.gz
             sha256: fe3198b81c00032326342d973e526803f183f97aa9e9a98e3f897ebafe21178f
@@ -121,6 +130,7 @@ ub22-mercurial:
     treeherder:
         symbol: Ub22(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.8.1.tar.gz
             sha256: 030e8a7a6d590e4eaeb403ee25675615cd80d236f3ab8a0b56dcc84181158b05
@@ -137,6 +147,7 @@ ub22-arm64-mercurial:
     treeherder:
         symbol: Ub22a64(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.4.3.tar.gz
             sha256: a77fb62d325934a83a00b2fc6db109f44c67b86768fc40490366f513640c7f64
@@ -153,6 +164,7 @@ ub24-python-zstandard:
     treeherder:
         symbol: Ub24(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://files.pythonhosted.org/packages/09/1b/c20b2ef1d987627765dcd5bf1dadb8ef6564f00a87972635099bb76b7a05/zstandard-0.24.0.tar.gz
             sha256: fe3198b81c00032326342d973e526803f183f97aa9e9a98e3f897ebafe21178f
@@ -166,6 +178,7 @@ ub24-arm64-python-zstandard:
     treeherder:
         symbol: Ub24a64(python-zstandard)
     run:
+        clone-with: hg
         tarball:
             url: https://files.pythonhosted.org/packages/09/1b/c20b2ef1d987627765dcd5bf1dadb8ef6564f00a87972635099bb76b7a05/zstandard-0.24.0.tar.gz
             sha256: fe3198b81c00032326342d973e526803f183f97aa9e9a98e3f897ebafe21178f
@@ -179,6 +192,7 @@ ub24-mercurial:
     treeherder:
         symbol: Ub24(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.8.1.tar.gz
             sha256: 030e8a7a6d590e4eaeb403ee25675615cd80d236f3ab8a0b56dcc84181158b05
@@ -195,6 +209,7 @@ ub24-arm64-mercurial:
     treeherder:
         symbol: Ub24a64(hg)
     run:
+        clone-with: hg
         tarball:
             url: https://www.mercurial-scm.org/release/mercurial-6.8.1.tar.gz
             sha256: 030e8a7a6d590e4eaeb403ee25675615cd80d236f3ab8a0b56dcc84181158b05
