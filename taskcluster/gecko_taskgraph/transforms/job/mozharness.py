@@ -65,6 +65,9 @@ class MozharnessRunSchema(Schema, kw_only=True):
     requires_signed_builds: bool
     # Whether or not to use caches.
     use_caches: Optional[Union[bool, list[str]]] = None
+    # How to clone the upstream repo for the checkout, either "hg" or "git"
+    # (default: "hg")
+    clone_with: Optional[Literal["hg", "git"]] = "hg"
     # If false, don't set MOZ_SIMPLE_PACKAGE_NAME
     # Only disableable on windows
     use_simple_package: bool

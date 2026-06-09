@@ -59,6 +59,9 @@ class ToolchainRunSchema(Schema, kw_only=True):
     # Whether the toolchain should be extracted after it is fetched
     # (default: True)
     toolchain_extract: Optional[bool] = None
+    # How to clone the upstream repo for the checkout, either "hg" or "git"
+    # (default: "hg")
+    clone_with: Optional[Literal["hg", "git"]] = "hg"
     # Base work directory used to set up the task.
     workdir: Optional[str] = None
 

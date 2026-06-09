@@ -7,6 +7,8 @@ worker implementation they operate on, and take the same three parameters, for
 consistency.
 """
 
+import dataclasses
+
 from taskgraph.transforms.run.common import CACHES, add_cache
 from taskgraph.util import json
 from taskgraph.util.keyed_by import evaluate_keyed_by
@@ -40,10 +42,16 @@ def generic_worker_add_artifacts(config, job, taskdesc):
     add_artifacts(config, job, taskdesc, path=path)
 
 
+def clone_type(config, job):
+    if config.params["repository_type"] == "git" or job["run"]["clone-with"] == "git":
+        return "git"
+    return "hg"
+
+
 def get_cache_name(config, job):
     cache_name = "checkouts"
 
-    if config.params["repository_type"] == "git":
+    if clone_type(config, job) == "git":
         # Ensure tasks cloning git don't try to use an hg cache or vice versa.
         cache_name += "-git"
 
@@ -73,39 +81,40 @@ def support_vcs_checkout(config, job, taskdesc, repo_configs):
     This can only be used with ``run-task`` tasks, as the cache name is
     reserved for ``run-task`` tasks.
     """
-    worker = job["worker"]
+    if clone_type(config, job) == "git":
+        return _support_vcs_checkout_git(config, job, taskdesc, repo_configs)
+    return _support_vcs_checkout_hg(config, job, taskdesc, repo_configs)
+
+
+def _detect_worker_os(worker):
     is_mac = worker["os"] == "macosx"
     is_win = worker["os"] == "windows"
     is_linux = worker["os"] in ("linux", "linux-bitbar", "linux-lambda")
     is_docker = worker["implementation"] == "docker-worker"
     assert is_mac or is_win or is_linux
+    return is_win, is_mac, is_linux, is_docker
+
+
+def _common_checkout_setup(config, job, taskdesc, repo_configs):
+    worker = job["worker"]
+    is_win, _, _, is_docker = _detect_worker_os(worker)
 
     if is_win:
         checkoutdir = "build"
         geckodir = f"{checkoutdir}/src"
-        if "aarch64" in job["worker-type"] or "a64" in job["worker-type"]:
-            # arm64 instances on azure don't support local ssds
-            hgstore = f"{checkoutdir}/hg-store"
-        else:
-            hgstore = r"%HG_CACHE%\..\hg-shared"
     elif is_docker:
         checkoutdir = "{workdir}/checkouts".format(**job["run"])
         geckodir = f"{checkoutdir}/gecko"
-        hgstore = f"{checkoutdir}/hg-store"
     else:
         checkoutdir = "checkouts"
         geckodir = f"{checkoutdir}/gecko"
-        hgstore = f"{checkoutdir}/hg-shared"
 
     # Use some Gecko specific logic to determine cache name.
     CACHES["checkout"]["cache_name"] = get_cache_name
 
     env = taskdesc["worker"].setdefault("env", {})
-    env.update({
-        "HG_STORE_PATH": hgstore,
-        "REPOSITORIES": json.dumps({
-            repo.prefix: repo.name for repo in repo_configs.values()
-        }),
+    env["REPOSITORIES"] = json.dumps({
+        repo.prefix: repo.name for repo in repo_configs.values()
     })
     for repo_config in repo_configs.values():
         env.update({
@@ -136,16 +145,65 @@ def support_vcs_checkout(config, job, taskdesc, repo_configs):
             "Can't checkout from comm-* repository if not given a repository."
         )
 
+    # only some worker platforms have taskcluster-proxy enabled
+    if worker["implementation"] in ("docker-worker",):
+        taskdesc["worker"]["taskcluster-proxy"] = True
+
+    return gecko_path
+
+
+def _support_vcs_checkout_hg(config, job, taskdesc, repo_configs):
+    worker = job["worker"]
+    is_win, _, _, is_docker = _detect_worker_os(worker)
+
+    if is_win:
+        checkoutdir = "build"
+        if "aarch64" in job["worker-type"] or "a64" in job["worker-type"]:
+            # arm64 instances on azure don't support local ssds
+            hgstore = f"{checkoutdir}/hg-store"
+        else:
+            hgstore = r"%HG_CACHE%\..\hg-shared"
+    elif is_docker:
+        checkoutdir = "{workdir}/checkouts".format(**job["run"])
+        hgstore = f"{checkoutdir}/hg-store"
+    else:
+        checkoutdir = "checkouts"
+        hgstore = f"{checkoutdir}/hg-shared"
+
+    gecko_path = _common_checkout_setup(config, job, taskdesc, repo_configs)
+    taskdesc["worker"]["env"]["HG_STORE_PATH"] = hgstore
+
     # Give task access to hgfingerprint secret so it can pin the certificate
     # for hg.mozilla.org.
     taskdesc["scopes"].append("secrets:get:project/taskcluster/gecko/hgfingerprint")
     taskdesc["scopes"].append("secrets:get:project/taskcluster/gecko/hgmointernal")
 
-    # only some worker platforms have taskcluster-proxy enabled
-    if job["worker"]["implementation"] in ("docker-worker",):
-        taskdesc["worker"]["taskcluster-proxy"] = True
-
     return gecko_path
+
+
+def _support_vcs_checkout_git(config, job, taskdesc, repo_configs):
+    if config.params["repository_type"] == "hg" and config.params.get(
+        "head_git_repository"
+    ):
+        repo_configs = _rewrite_repo_configs_for_git_mirror(config, repo_configs)
+    return _common_checkout_setup(config, job, taskdesc, repo_configs)
+
+
+def _rewrite_repo_configs_for_git_mirror(config, repo_configs):
+    rewritten = {}
+    for prefix, repo_config in repo_configs.items():
+        if repo_config.type == "hg" and repo_config.prefix == "gecko":
+            rewritten[prefix] = dataclasses.replace(
+                repo_config,
+                base_repository=config.params["head_git_repository"],
+                head_repository=config.params["head_git_repository"],
+                head_rev=config.params["head_git_rev"],
+                head_ref=None,
+                type="git",
+            )
+        else:
+            rewritten[prefix] = repo_config
+    return rewritten
 
 
 def setup_secrets(config, job, taskdesc):
