@@ -1,3 +1,4 @@
+import json
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
@@ -242,6 +243,10 @@ def test_push_to_try_routing(
                 return_value={"tasks": ["task1"]},
             )
         )
+        stack.enter_context(
+            patch("tryselect.push.push_to_git_backing", return_value="deadbeef")
+        )
+        stack.enter_context(patch("tryselect.push.write_task_config_history"))
 
         push._is_hg_try.cache_clear()
 
@@ -259,6 +264,85 @@ def test_push_to_try_routing(
         else:
             mock_lando.assert_called_once()
             mock_vcs.push_to_try.assert_not_called()
+
+
+def test_push_to_git_backing_returns_git_push_sha():
+    """For Hg repos, vcs.push() returns the translated git SHA; that SHA is returned."""
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"secret": {"ssh_privkey": "fake-key\n"}}
+
+    mock_vcs = MagicMock()
+    mock_vcs.head_rev = "hgsha123"
+    mock_vcs.push.return_value = "gitsha456"
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.vcs", mock_vcs))
+        stack.enter_context(
+            patch("tryselect.push.get_client", return_value=mock_client)
+        )
+        result = push.push_to_git_backing("try")
+
+    assert result == "gitsha456"
+    mock_client.get.assert_called_once_with(push.GIT_BACKING_SECRET)
+    call_kwargs = mock_vcs.push.call_args.kwargs
+    assert call_kwargs["ref"] == "hgsha123"
+    assert call_kwargs["dest_branch"] == "try/hgsha123"
+    assert call_kwargs["force"] is True
+    assert "-o IdentitiesOnly=yes" in call_kwargs["env"]["GIT_SSH_COMMAND"]
+    assert (
+        "-o StrictHostKeyChecking=accept-new" in call_kwargs["env"]["GIT_SSH_COMMAND"]
+    )
+
+
+def test_push_to_git_backing_falls_back_to_head_rev():
+    """For native git repos, vcs.push() returns None; vcs.head_rev is returned instead."""
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"secret": {"ssh_privkey": "fake-key\n"}}
+
+    mock_vcs = MagicMock()
+    mock_vcs.head_rev = "gitsha789"
+    mock_vcs.push.return_value = None
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.vcs", mock_vcs))
+        stack.enter_context(
+            patch("tryselect.push.get_client", return_value=mock_client)
+        )
+        result = push.push_to_git_backing("try")
+
+    assert result == "gitsha789"
+
+
+def test_push_to_try_injects_git_backing_params():
+    """push_to_try injects head_git_repository and head_git_rev into try_task_config."""
+    url = "ssh://hg.mozilla.org/try"
+    mock_metrics = MagicMock()
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.MACH_TRY_REMOTE", url))
+        stack.enter_context(patch("tryselect.push.check_working_directory"))
+        stack.enter_context(patch("tryselect.push.write_task_config_history"))
+        stack.enter_context(
+            patch("tryselect.push.push_to_git_backing", return_value="deadbeef123")
+        )
+        push._is_hg_try.cache_clear()
+
+        push.push_to_try(
+            "fuzzy",
+            "try: test",
+            mock_metrics,
+            try_task_config={
+                "version": 2,
+                "parameters": {"try_task_config": {"tasks": ["task1"]}},
+            },
+            push_to_vcs=True,
+            dry_run=False,
+        )
+
+    call_kwargs = push.vcs.push_to_try.call_args.kwargs
+    config = json.loads(call_kwargs["changed_files"]["try_task_config.json"])
+    assert config["parameters"]["head_git_repository"] == push.GIT_BACKING_REPO
+    assert config["parameters"]["head_git_rev"] == "deadbeef123"
 
 
 if __name__ == "__main__":
