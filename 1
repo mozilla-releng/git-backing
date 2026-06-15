@@ -1,0 +1,11 @@
+Bug 2033838 - [tryselect] Also push try pushes to mozilla-releng/git-backing, r?#releng-reviewers
+
+This will ensure when a developer pushes to hg.mozilla.org/try, the
+commit will exist somewhere in Github that CI will be able to clone
+from.
+JJ: Change ID: xrlvtxxo
+JJ: This commit contains the following changes:
+JJ:     M tools/tryselect/push.py
+JJ:     A tools/tryselect/util/backing.py
+JJ:
+JJ: Lines starting with "JJ:" (like this one) will be removed.
