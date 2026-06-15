@@ -13,6 +13,7 @@ from mozbuild.base import MozbuildObject
 from mozversioncontrol import MissingVCSExtension, get_repository_object
 
 from .lando import push_to_lando_try
+from .util.backing import GIT_BACKING_REPO, push_to_git_backing
 
 GIT_CINNABAR_NOT_FOUND = """
 Could not detect `git-cinnabar`.
@@ -216,30 +217,42 @@ def push_to_try(
 
     changed_files = {}
 
-    if try_task_config:
-        changed_files["try_task_config.json"] = (
-            json.dumps(
-                try_task_config, indent=4, separators=(",", ": "), sort_keys=True
-            )
-            + "\n"
-        )
-        if push and method not in ("again", "auto", "empty"):
-            write_task_config_history(msg, try_task_config)
-
-    if (push or stage_changes) and files_to_change:
-        changed_files.update(files_to_change.items())
-
     if not push:
         print("Commit message:")
         print(commit_message)
-        config = changed_files.pop("try_task_config.json", None)
-        if config:
-            print("Calculated try_task_config.json:")
-            print(config)
-        if stage_changes:
-            vcs.stage_changes(changed_files)
 
+        if try_task_config:
+            print("Calculated try_task_config.json:")
+            print(
+                json.dumps(
+                    try_task_config, indent=4, separators=(",", ": "), sort_keys=True
+                )
+                + "\n"
+            )
+
+        if stage_changes and files_to_change:
+            vcs.stage_changes(files_to_change)
         return
+
+    # Push the source tree to the git-backing repo so tasks can clone from GitHub, then
+    # inject the resulting git rev into the try_task_config parameters.
+    backing_sha = push_to_git_backing(prefix="try")
+
+    try_task_config = try_task_config or {}
+    try_task_config.setdefault("version", 2)
+    try_task_config.setdefault("parameters", {})
+    try_task_config["parameters"]["head_git_repository"] = GIT_BACKING_REPO
+    try_task_config["parameters"]["head_git_rev"] = backing_sha
+
+    changed_files["try_task_config.json"] = (
+        json.dumps(try_task_config, indent=4, separators=(",", ": "), sort_keys=True)
+        + "\n"
+    )
+    if method not in ("again", "auto", "empty"):
+        write_task_config_history(msg, try_task_config)
+
+    if files_to_change:
+        changed_files.update(files_to_change.items())
 
     metrics.mach_try.commit_prep.stop()
     try:
