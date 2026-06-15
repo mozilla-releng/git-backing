@@ -9,7 +9,7 @@ import importlib
 import os
 import sys
 
-from mach.decorators import Command, SubCommand
+from mach.decorators import Command, CommandArgument, SubCommand
 from mach.util import get_state_dir
 
 from tryselect import TRYSELECT_METRICS_PATH
@@ -488,3 +488,74 @@ def try_compare(command_context, **kwargs):
 def try_perf(command_context, **kwargs):
     init(command_context)
     return run(command_context, **kwargs)
+
+
+PUSH_REPO_ALIASES = {
+    "try": "ssh://hg.mozilla.org/try",
+}
+PUSH_REPO_ALIASES.update(  # project repos
+    {
+        repo: f"ssh://hg.mozilla.org/projects/{repo}"
+        for repo in (
+            "ash",
+            "birch",
+            "cedar",
+            "elm",
+            "holly",
+            "jamun",
+            "larch",
+            "maple",
+            "oak",
+            "pine",
+            "pine-stable",
+            "toolchains",
+        )
+    }
+)
+
+
+@Command(
+    "push",
+    category="ci",
+    description="Push the current head to a remote repo.",
+    virtualenv_name="try",
+)
+@CommandArgument(
+    "remote",
+    help="Remote to push to. Can be a full URL or a project alias (e.g. 'elm').",
+)
+def push(command_context, remote):
+    from tryselect.push import (
+        GIT_CINNABAR_NOT_FOUND,
+        check_working_directory,
+        push_to_git_backing,
+        vcs,
+    )
+
+    if "://" not in remote:
+        if remote not in PUSH_REPO_ALIASES:
+            known = ", ".join(sorted(PUSH_REPO_ALIASES))
+            command_context._mach_context.parser.error(
+                f"unknown remote alias '{remote}'. Known aliases: {known}"
+            )
+        remote = PUSH_REPO_ALIASES[remote]
+
+    check_working_directory()
+
+    is_remote_hgmo = "hg.mozilla.org" in remote
+    if is_remote_hgmo:
+        if vcs.name in ("git", "jj") and not vcs.has_git_cinnabar:
+            print(GIT_CINNABAR_NOT_FOUND)
+            sys.exit(1)
+        push_to_git_backing(prefix="mach-push")
+
+    if is_remote_hgmo and vcs.name in ("git", "jj"):
+        sha = vcs.head_rev
+        vcs.push(
+            f"hg::{remote}",
+            ref=f"{sha}:refs/heads/branches/default/tip",
+        )
+    else:
+        vcs.push(remote)
+
+    print(f"Pushed to '{remote}'.")
