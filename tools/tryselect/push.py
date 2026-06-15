@@ -4,7 +4,10 @@
 
 import json
 import os
+import shlex
+import stat
 import sys
+import tempfile
 from functools import cache
 from typing import Optional
 
@@ -13,6 +16,7 @@ from mozbuild.base import BuildEnvironmentNotFoundException, MozbuildObject
 from mozversioncontrol import MissingVCSExtension, get_repository_object
 
 from .lando import push_to_lando_try
+from .util.taskcluster import get_client
 
 GIT_CINNABAR_NOT_FOUND = """
 Could not detect `git-cinnabar`.
@@ -58,6 +62,11 @@ MACH_TRY_PUSH_TO_VCS = os.getenv("MACH_TRY_PUSH_TO_VCS") == "1"
 
 HG_TRY_URL = "ssh://hg.mozilla.org/try"
 MACH_TRY_REMOTE: Optional[str] = None
+
+GIT_BACKING_ENABLED = False
+GIT_BACKING_REPO = "https://github.com/mozilla-releng/git-backing"
+GIT_BACKING_SSH = "git@github.com:mozilla-releng/git-backing.git"
+GIT_BACKING_SECRET = "project/releng/releng-github-git-backing-ssh"
 
 TREEHERDER_LANDO_TRY_RUN_URL = "https://treeherder.mozilla.org/jobs?repo={repo_name}&landoInstance={lando_instance}&landoCommitID={job_id}"
 
@@ -229,6 +238,29 @@ def _is_hg_try(remote):
     return HG_TRY_URL in remote
 
 
+def push_to_git_backing(prefix: str) -> str:
+    """Push the current head to the git-backing repo and return the git SHA."""
+    print("Pushing to git-backing...")
+    client = get_client("secrets", [f"secrets:get:{GIT_BACKING_SECRET}"])
+    key = client.get(GIT_BACKING_SECRET)["secret"]["ssh_privkey"]
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pem") as keyfile:
+        keyfile.write(key)
+        os.chmod(keyfile.name, stat.S_IRUSR | stat.S_IWUSR)
+        keyfile.flush()
+        ssh_command = f"ssh -i {shlex.quote(keyfile.name)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+        sha = vcs.head_rev
+        vcs.push(
+            GIT_BACKING_SSH,
+            ref=sha,
+            dest_branch=f"{prefix}/{sha}",
+            force=True,
+            env={"GIT_SSH_COMMAND": ssh_command},
+        )
+        return sha
+
+
 def push_to_try(
     method,
     msg,
@@ -267,6 +299,38 @@ def push_to_try(
 
     changed_files = {}
 
+    if not push:
+        print("Commit message:")
+        print(commit_message)
+
+        if try_task_config:
+            print("Calculated try_task_config.json:")
+            print(
+                json.dumps(
+                    try_task_config, indent=4, separators=(",", ": "), sort_keys=True
+                )
+                + "\n"
+            )
+
+        if stage_changes and files_to_change:
+            vcs.stage_changes(files_to_change)
+        return
+
+    metrics.mach_try.commit_prep.stop()
+
+    if GIT_BACKING_ENABLED and _is_hg_try(remote) and vcs.name != "hg":
+        # Push the source tree to the git-backing repo so tasks can clone from GitHub,
+        # then inject the resulting git rev into the try_task_config parameters.
+        metrics.mach_try.git_backing_push_duration.start()
+        backing_sha = push_to_git_backing(prefix="try")
+        metrics.mach_try.git_backing_push_duration.stop()
+
+        try_task_config = try_task_config or {}
+        try_task_config.setdefault("version", 2)
+        try_task_config.setdefault("parameters", {})
+        try_task_config["parameters"]["head_git_repository"] = GIT_BACKING_REPO
+        try_task_config["parameters"]["head_git_rev"] = backing_sha
+
     if try_task_config:
         changed_files["try_task_config.json"] = (
             json.dumps(
@@ -274,25 +338,13 @@ def push_to_try(
             )
             + "\n"
         )
-        if push and method not in ("again", "auto", "empty"):
+        if method not in ("again", "auto", "empty"):
             write_task_config_history(msg, try_task_config)
 
-    if (push or stage_changes) and files_to_change:
+    if files_to_change:
         changed_files.update(files_to_change.items())
 
-    if not push:
-        print("Commit message:")
-        print(commit_message)
-        config = changed_files.pop("try_task_config.json", None)
-        if config:
-            print("Calculated try_task_config.json:")
-            print(config)
-        if stage_changes:
-            vcs.stage_changes(changed_files)
-
-        return
-
-    metrics.mach_try.commit_prep.stop()
+    print("Pushing to try...")
     try:
         if push_to_vcs:
             vcs.push_to_try(
