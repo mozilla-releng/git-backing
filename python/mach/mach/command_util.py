@@ -200,6 +200,7 @@ MACH_COMMANDS = {
     "power": MachCommandReference("tools/power/mach_commands.py"),
     "prettier": MachCommandReference("tools/lint/mach_commands.py"),
     "puppeteer-test": MachCommandReference("remote/mach_commands.py"),
+    "push": MachCommandReference("tools/tryselect/mach_commands.py"),
     "python": MachCommandReference("python/mach_commands.py"),
     "python-test": MachCommandReference("python/mach_commands.py"),
     "raptor": MachCommandReference("testing/raptor/mach_commands.py"),
