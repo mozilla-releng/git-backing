@@ -98,7 +98,7 @@ def _browser_auth(scopes: list[str]) -> dict:
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     server.timeout = 5
     port = server.server_address[1]
-    callback_url = f"http://127.0.0.1:{port}"
+    callback_url = f"http://localhost:{port}"
 
     params = urlencode(
         {
