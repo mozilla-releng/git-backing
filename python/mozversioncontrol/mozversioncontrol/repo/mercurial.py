@@ -17,6 +17,7 @@ from mozpack.files import FileListFinder
 from mozversioncontrol.errors import (
     CannotDeleteFromRootOfRepositoryException,
     MissingVCSExtension,
+    MissingVCSInfo,
 )
 from mozversioncontrol.repo.base import Repository
 
@@ -288,6 +289,46 @@ class HgRepository(Repository):
         except subprocess.CalledProcessError:
             raise MissingVCSExtension(extension)
 
+    def _push_to_git(self, args, remote, ref, dest_branch, env) -> Optional[str]:
+        if not dest_branch:
+            raise MissingVCSInfo(
+                "Destination branch required when pushing to Git remote!"
+            )
+
+        self.raise_for_missing_extension("hggit")
+
+        # hg-git requires git+ssh:// URL
+        if remote.startswith("git@"):
+            # git@host:path
+            host, path = remote[4:].split(":", 1)
+            hg_git_url = f"git+ssh://git@{host}/{path}"
+        else:
+            # ssh://git@host/path
+            hg_git_url = "git+" + remote
+
+        # hg-git uses dulwich which spawns ssh via Mercurial's ui.ssh config
+        if env and (ssh_cmd := env.pop("GIT_SSH_COMMAND", None)):
+            args[0:0] = ["--config", f"ui.ssh={ssh_cmd}"]
+
+        args.extend(["-B", dest_branch, hg_git_url])
+        ref = ref or "."
+
+        run_kwargs = {"env": env} if env else {}
+        try:
+            self._run("bookmark", "-r", ref, dest_branch)
+            self._run(*args, **run_kwargs)
+            sha = self._run("log", "-r", ref, "-T", "{gitnode}").strip()
+            if not sha:
+                raise MissingVCSInfo(
+                    f"Could not determine git SHA for ref {ref!r}. "
+                    "Ensure hg-git has synchronized this revision."
+                )
+            return sha
+        finally:
+            self._run(
+                "--quiet", "bookmark", "--delete", dest_branch, return_codes=[255]
+            )
+
     def push(
         self,
         remote: Optional[str] = None,
@@ -303,6 +344,8 @@ class HgRepository(Repository):
         args = ["push"]
         if force:
             args.append("--force")
+        if remote and remote.startswith(("git@", "ssh://git@")):
+            return self._push_to_git(args, remote, ref, dest_branch, env)
         if remote:
             args.append(remote)
         if ref:
