@@ -9,7 +9,7 @@ import importlib
 import os
 import sys
 
-from mach.decorators import Command, SubCommand
+from mach.decorators import Command, CommandArgument, SubCommand
 from mach.util import get_state_dir
 
 from tryselect import TRYSELECT_METRICS_PATH
@@ -489,3 +489,29 @@ def try_compare(command_context, **kwargs):
 def try_perf(command_context, **kwargs):
     init(command_context)
     return run(command_context, **kwargs)
+
+
+@Command(
+    "push-project",
+    category="ci",
+    description="Push the current head to a project branch on hg.mozilla.org.",
+    virtualenv_name="try",
+)
+@CommandArgument(
+    "project",
+    help="Project branch to push to (e.g. 'elm', 'oak').",
+)
+def push_project(command_context, project):
+    from tryselect.push import check_working_directory, vcs
+    from tryselect.util.backing import (
+        push_to_git_backing,
+        push_to_project_branch,
+    )
+
+    check_working_directory()
+
+    backing_sha = push_to_git_backing(vcs)
+    print(f"Pushed to git-backing: {backing_sha}")
+
+    push_to_project_branch(vcs, project)
+    print(f"Pushed to project branch '{project}'.")
