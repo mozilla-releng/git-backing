@@ -283,6 +283,7 @@ class Repository(abc.ABC):
         ref: Optional[str] = None,
         dest_branch: Optional[str] = None,
         force: bool = False,
+        env: Optional[dict] = None,
     ):
         """Push to a remote repository.
 
@@ -290,6 +291,7 @@ class Repository(abc.ABC):
         `ref` specifies the branch or ref to push. If None, the current branch/ref is used.
         `dest_branch` specifies the destination branch name. If None, pushes ref to ref.
         `force` whether to use a force push (default False).
+        `env` additional environment to set while pushing.
         """
 
     def add_note(
