@@ -23,6 +23,7 @@ task-defaults:
               path: /builds/worker/profile_resource-usage.json
     run:
         using: mach
+        clone-with: git
         use-caches: [checkout, pip, uv]
     when:
         files-changed:
