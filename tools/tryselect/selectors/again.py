@@ -89,12 +89,9 @@ def run(
     if list_configs or list_tasks > 0:
         for i, data in enumerate(history):
             msg, config = json.loads(data)
-            version = config.get("version", "1")
+            version = config.get("version", 2)
             settings = {}
-            if version == 1:
-                tasks = config["tasks"]
-                settings = config
-            elif version == 2:
+            if version == 2:
                 try_config = config.get("parameters", {}).get("try_task_config", {})
                 tasks = try_config.get("tasks")
             else:
