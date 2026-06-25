@@ -9,17 +9,18 @@ import os
 import secrets
 import time
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from mach.util import get_state_dir
+from taskcluster.exceptions import TaskclusterAuthFailure, TaskclusterRestFailure
 
 import taskcluster
 
-TC_CREDENTIALS_EXPIRY_S = 60 * 60 * 24 * 30  # 30 days
+TC_CREDENTIALS_EXPIRY_DAYS = 30
 TC_ROOT_URL = "https://firefox-ci-tc.services.mozilla.com"
 BROWSER_AUTH_TIMEOUT_S = 120
 
@@ -37,18 +38,30 @@ def _load_cached_credentials(scopes: list[str]) -> Optional[dict]:
     creds_file = _get_credentials_file()
     try:
         cache = json.loads(creds_file.read_text())
-        entry = cache.get(_scopes_key(scopes))
-        # only use cached entry if not expired or about to expire
-        if entry and entry.get("expires", 0) > time.time() + 300:
-            return {"clientId": entry["clientId"], "accessToken": entry["accessToken"]}
+        cache_key = _scopes_key(scopes)
+        if entry := cache.get(cache_key):
+            creds = {"clientId": entry["clientId"], "accessToken": entry["accessToken"]}
+            try:
+                auth = taskcluster.Auth({"rootUrl": TC_ROOT_URL})
+                client_info = auth.client(creds["clientId"])
+                expires_ts = datetime.fromisoformat(
+                    client_info["expires"].replace("Z", "+00:00")
+                ).timestamp()
+                if not client_info["disabled"] and expires_ts >= time.time() + 300:
+                    return creds
+            except (TaskclusterAuthFailure, TaskclusterRestFailure):
+                pass
+
+            # cached credentials are invalid
+            del cache[cache_key]
+            creds_file.write_text(json.dumps(cache))
+
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         pass
     return None
 
 
-def _save_credentials(
-    clientId: str, accessToken: str, scopes: list[str], expires: float
-) -> None:
+def _save_credentials(clientId: str, accessToken: str, scopes: list[str]) -> None:
     creds_file = _get_credentials_file()
     creds_file.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -58,7 +71,6 @@ def _save_credentials(
     cache[_scopes_key(scopes)] = {
         "clientId": clientId,
         "accessToken": accessToken,
-        "expires": expires,
     }
     creds_file.write_text(json.dumps(cache))
     creds_file.chmod(0o600)
@@ -88,15 +100,11 @@ def _browser_auth(scopes: list[str]) -> dict:
     port = server.server_address[1]
     callback_url = f"http://127.0.0.1:{port}"
 
-    expires_ts = time.time() + TC_CREDENTIALS_EXPIRY_S
-    expires_iso = datetime.fromtimestamp(expires_ts, tz=timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%S.000Z"
-    )
     params = urlencode(
         {
             "scope": scopes,
             "name": f"mach-try-{secrets.token_hex(4)}",
-            "expires": expires_iso,
+            "expires": f"{TC_CREDENTIALS_EXPIRY_DAYS} days",
             "callback_url": callback_url,
             "description": "Temporary client for mach try",
         },
@@ -120,9 +128,7 @@ def _browser_auth(scopes: list[str]) -> dict:
     finally:
         server.server_close()
 
-    _save_credentials(
-        credentials["clientId"], credentials["accessToken"], scopes, expires_ts
-    )
+    _save_credentials(credentials["clientId"], credentials["accessToken"], scopes)
     return credentials
 
 
