@@ -5,13 +5,15 @@
 import json
 import os
 import threading
-import time
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 import mozunit
 import pytest
+import taskcluster.exceptions
 from tryselect.util.taskcluster import (
+    TC_CREDENTIALS_EXPIRY_DAYS,
     TC_ROOT_URL,
     _scopes_key,
     get_client,
@@ -24,6 +26,37 @@ BROWSER_CLIENT_ID = "browser-client"
 BROWSER_ACCESS_TOKEN = "browser-token"
 
 
+def _expires_iso(offset_s):
+    dt = datetime.now(tz=timezone.utc) + timedelta(seconds=offset_s)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+class _FakeAuth:
+    def __init__(self, options):
+        pass
+
+    def client(self, client_id):
+        return {"expires": _expires_iso(TC_CREDENTIALS_EXPIRY_DAYS * 86400)}
+
+
+class _FakeAuthExpiring:
+    def __init__(self, options):
+        pass
+
+    def client(self, client_id):
+        return {"expires": _expires_iso(200)}
+
+
+class _FakeAuthInvalid:
+    def __init__(self, options):
+        pass
+
+    def client(self, client_id):
+        raise taskcluster.exceptions.TaskclusterAuthFailure(
+            "Client not found", status_code=401, body={}, superExc=None
+        )
+
+
 @pytest.fixture
 def credentials_file(tmp_path, monkeypatch):
     creds_path = tmp_path / "tc_credentials.json"
@@ -33,14 +66,13 @@ def credentials_file(tmp_path, monkeypatch):
     return creds_path
 
 
-def make_cache(credentials_file, scopes=None, expires_offset=7200):
+def make_cache(credentials_file, scopes=None):
     scopes = scopes or DEFAULT_SCOPES
     credentials_file.write_text(
         json.dumps({
             _scopes_key(scopes): {
                 "clientId": "cached-client",
                 "accessToken": "cached-token",
-                "expires": time.time() + expires_offset,
             }
         })
     )
@@ -48,6 +80,7 @@ def make_cache(credentials_file, scopes=None, expires_offset=7200):
 
 @pytest.fixture
 def run_get_client(monkeypatch):
+    monkeypatch.setattr("tryselect.util.taskcluster.taskcluster.Auth", _FakeAuth)
 
     def fake_webbrowser_open(url):
         params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
@@ -98,8 +131,11 @@ def test_get_client_cache_hit(credentials_file, run_get_client):
     assert result.options["credentials"]["accessToken"] == b"cached-token"
 
 
-def test_get_client_cache_expired(credentials_file, run_get_client):
-    make_cache(credentials_file, expires_offset=200)
+def test_get_client_cache_expired(credentials_file, run_get_client, monkeypatch):
+    make_cache(credentials_file)
+    monkeypatch.setattr(
+        "tryselect.util.taskcluster.taskcluster.Auth", _FakeAuthExpiring
+    )
     result = run_get_client()
     assert isinstance(result, tc_module.Queue)
     assert result.options["rootUrl"] == TC_ROOT_URL
@@ -115,6 +151,13 @@ def test_get_client_browser_auth(credentials_file, run_get_client):
     assert result.options["credentials"]["clientId"] == b"browser-client"
     assert result.options["credentials"]["accessToken"] == b"browser-token"
     assert credentials_file.is_file()
+
+
+def test_get_client_stale_tc_credentials(credentials_file, run_get_client, monkeypatch):
+    make_cache(credentials_file)
+    monkeypatch.setattr("tryselect.util.taskcluster.taskcluster.Auth", _FakeAuthInvalid)
+    result = run_get_client()
+    assert result.options["credentials"]["clientId"] == b"browser-client"
 
 
 if __name__ == "__main__":
