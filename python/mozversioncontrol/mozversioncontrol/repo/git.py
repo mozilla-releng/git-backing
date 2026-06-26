@@ -366,9 +366,12 @@ class GitRepository(Repository):
                 args.append(f"{ref}:refs/heads/{dest_branch}")
             else:
                 args.append(ref)
-        run_kwargs = {"env": env} if env else {}
-        (cmd, _, merged_env) = self._process_run_args(*args, **run_kwargs)
-        subprocess.check_call(cmd, cwd=self.path, env=merged_env)
+
+        runargs = {
+            "env": env,
+            "stdout": None  # stream push output
+        }
+        self._run(*args, **runargs)
 
     def _resolve_try_branch(self):
         if not self.branch:

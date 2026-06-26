@@ -68,17 +68,7 @@ class Repository(abc.ABC):
             )
         return relative_path.as_posix()
 
-    def _process_run_args(self, *args, **runargs):
-        return_codes = runargs.get("return_codes", [])
-        env = self._env
-        if "env" in runargs:
-            env = env.copy()
-            env.update(runargs["env"])
-
-        cmd = (str(self._tool),) + args
-        return (cmd, return_codes, env)
-
-    def _run(self, *args, encoding="utf-8", **runargs):
+    def _run(self, *args, encoding="utf-8", return_codes=None, **runargs):
         # Check if we have a tool, either hg or git. If this is a source release
         # we return "src", indicating we don't have a tool to use. This caused
         # jstests to fail before fixing, because it uses a packaged mozjs
@@ -86,28 +76,31 @@ class Repository(abc.ABC):
         if not self._tool:
             return "src"
 
-        (cmd, return_codes, env) = self._process_run_args(*args, **runargs)
-        stderr = runargs.get("stderr", None)
+        cmd = (str(self._tool),) + args
+        return_codes = return_codes or []
+
+        env = self._env
+        if extra_env := runargs.pop("env", None):
+            env = env.copy()
+            env.update(extra_env)
+
+        runargs.setdefault("stdout", subprocess.PIPE)
+        runargs.setdefault("check", True)
         try:
-            return subprocess.check_output(
-                cmd,
-                cwd=self.path,
-                encoding=encoding,
-                env=env,
-                stderr=stderr,
-            )
+            result = subprocess.run(cmd, cwd=self.path, encoding=encoding, env=env, **runargs)
+            return result.stdout
         except subprocess.CalledProcessError as e:
             if e.returncode in return_codes:
                 return ""
             raise
 
     def _pipefrom(self, *args, encoding="utf-8"):
-        (cmd, _return_codes, env) = self._process_run_args(*args)
+        cmd = (str(self._tool),) + args
         return subprocess.Popen(
             cmd,
             cwd=self.path,
             encoding=encoding,
-            env=env,
+            env=self._env,
             stdout=subprocess.PIPE,
         ).stdout
 
