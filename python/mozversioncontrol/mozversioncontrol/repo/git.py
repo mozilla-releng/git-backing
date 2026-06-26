@@ -350,7 +350,8 @@ class GitRepository(Repository):
         dest_branch: Optional[str] = None,
         force: bool = False,
         env: Optional[dict] = None,
-    ):
+        capture_output: bool = False,
+    ) -> Optional[str]:
         if ref and not remote:
             raise ValueError("Cannot specify ref without specifying remote")
         if dest_branch and not ref:
@@ -367,11 +368,12 @@ class GitRepository(Repository):
             else:
                 args.append(ref)
 
-        runargs = {
-            "env": env,
-            "stdout": None  # stream push output
-        }
-        self._run(*args, **runargs)
+        runargs = {"env": env}
+        if capture_output:
+            runargs["stderr"] = subprocess.STDOUT
+        else:
+            runargs["stdout"] = None
+        return self._run(*args, **runargs)
 
     def _resolve_try_branch(self):
         if not self.branch:

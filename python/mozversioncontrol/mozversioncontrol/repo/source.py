@@ -154,7 +154,8 @@ class SrcRepository(Repository):
         dest_branch: Optional[str] = None,
         force: bool = False,
         env: Optional[dict] = None,
-    ):
+        capture_output: bool = False,
+    ) -> Optional[str]:
         pass
 
     def _resolve_try_branch(self):

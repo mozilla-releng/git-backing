@@ -87,7 +87,13 @@ class Repository(abc.ABC):
         runargs.setdefault("stdout", subprocess.PIPE)
         runargs.setdefault("check", True)
         try:
-            result = subprocess.run(cmd, cwd=self.path, encoding=encoding, env=env, **runargs)
+            result = subprocess.run(  # noqa: PLW1510
+                cmd,
+                cwd=self.path,
+                encoding=encoding,
+                env=env,
+                **runargs,
+            )
             return result.stdout
         except subprocess.CalledProcessError as e:
             if e.returncode in return_codes:
@@ -277,7 +283,8 @@ class Repository(abc.ABC):
         dest_branch: Optional[str] = None,
         force: bool = False,
         env: Optional[dict] = None,
-    ):
+        capture_output: bool = False,
+    ) -> Optional[str]:
         """Push to a remote repository.
 
         `remote` specifies the remote to push to. If None, the default remote is used.
@@ -285,6 +292,7 @@ class Repository(abc.ABC):
         `dest_branch` specifies the destination branch name. If None, pushes ref to ref.
         `force` whether to use a force push (default False).
         `env` additional environment to set while pushing.
+        `capture_output` whether to capture push output instead of streaming it (default False).
         """
 
     def add_note(

@@ -383,7 +383,8 @@ class JujutsuRepository(Repository):
         dest_branch: Optional[str] = None,
         force: bool = False,
         env: Optional[dict] = None,
-    ):
+        capture_output: bool = False,
+    ) -> Optional[str]:
         if ref and not remote:
             raise ValueError("Cannot specify ref without specifying remote")
         if dest_branch and not ref:
@@ -391,7 +392,14 @@ class JujutsuRepository(Repository):
 
         if ref and dest_branch:
             ref = self._resolve_to_commit(ref)
-        self._git.push(remote, ref=ref, dest_branch=dest_branch, force=force, env=env)
+        return self._git.push(
+            remote,
+            ref=ref,
+            dest_branch=dest_branch,
+            force=force,
+            env=env,
+            capture_output=capture_output,
+        )
 
     def _resolve_try_branch(self):
         dest_branch = self.branch

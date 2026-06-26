@@ -295,7 +295,8 @@ class HgRepository(Repository):
         dest_branch: Optional[str] = None,
         force: bool = False,
         env: Optional[dict] = None,
-    ):
+        capture_output: bool = False,
+    ) -> Optional[str]:
         if ref and not remote:
             raise ValueError("Cannot specify ref without specifying remote")
 
@@ -308,7 +309,11 @@ class HgRepository(Repository):
             args.extend(["-r", ref])
 
         kwargs = {"env": env} if env else {}
-        self._run(*args, **kwargs)
+        if not capture_output:
+            kwargs["stdout"] = None
+        else:
+            kwargs["stderr"] = subprocess.STDOUT
+        return self._run(*args, **kwargs)
 
     def _resolve_try_branch(self):
         return self.branch
