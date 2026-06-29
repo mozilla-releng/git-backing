@@ -111,7 +111,9 @@ def adjust_locale_watershed(config, jobs):
     # only once
     # we do not have a non-production version of this to fetch; we always fetch
     # prod even on try
-    req = requests.get("https://product-details.mozilla.org/1.0/firefox_history_locales.json")
+    # req = requests.get("https://product-details.mozilla.org/1.0/firefox_history_locales.json")
+    # temp: different URL for testing until it's available on p-d
+    req = requests.get("https://hearsum.ca/~bhearsum/firefox_history_locales.json")
     req.raise_for_status()
     locale_history = req.json()
 
