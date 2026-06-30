@@ -1,4 +1,22 @@
 {
+    "ace": {
+        "pin": false,
+        "platforms": [
+            "linux64",
+            "linux64-aarch64",
+            "linux64-aarch64-devedition",
+            "linux64-devedition",
+            "macosx64",
+            "macosx64-devedition",
+            "win32",
+            "win32-devedition",
+            "win64",
+            "win64-aarch64",
+            "win64-aarch64-devedition",
+            "win64-devedition"
+        ],
+        "revision": "79c1fa99150478b17d79d07406d315fa325fa2de"
+    },
     "ach": {
         "pin": false,
         "platforms": [
