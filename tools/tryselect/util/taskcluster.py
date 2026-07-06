@@ -20,7 +20,7 @@ from taskcluster.exceptions import TaskclusterAuthFailure, TaskclusterRestFailur
 
 import taskcluster
 
-TC_CREDENTIALS_EXPIRY_DAYS = 30
+TC_CREDENTIALS_EXPIRY_DAYS = 365
 TC_ROOT_URL = "https://firefox-ci-tc.services.mozilla.com"
 BROWSER_AUTH_TIMEOUT_S = 120
 
