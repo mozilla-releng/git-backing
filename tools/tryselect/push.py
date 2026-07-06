@@ -316,7 +316,7 @@ def push_to_try(
             vcs.stage_changes(files_to_change)
         return
 
-    if GIT_BACKING_ENABLED and _is_hg_try(remote) and vcs.tool != "hg":
+    if GIT_BACKING_ENABLED and _is_hg_try(remote) and vcs.name != "hg":
         # Push the source tree to the git-backing repo so tasks can clone from GitHub,
         # then inject the resulting git rev into the try_task_config parameters.
         backing_sha = push_to_git_backing(prefix="try")
