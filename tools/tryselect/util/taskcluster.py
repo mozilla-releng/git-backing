@@ -27,7 +27,7 @@ BROWSER_AUTH_TIMEOUT_S = 120
 
 @functools.lru_cache(maxsize=None)
 def _get_credentials_file() -> Path:
-    return Path(get_state_dir(specific_to_topsrcdir=False)) / "tc_credentials.json"
+    return Path(get_state_dir(specific_to_topsrcdir=False)) / "cache" / "taskcluster" / "credentials.json"
 
 
 def _scopes_key(scopes: list[str]) -> str:
