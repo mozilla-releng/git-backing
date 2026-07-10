@@ -1544,7 +1544,7 @@ def _create_venv_with_pthfile(
             target_venv.pip_install([
                 "--requirement",
                 requirements_txt_file.path,
-                "--require-hashes",
+                #"--require-hashes",
             ])
         if requirements.pypi_requirements:
             requirements_list = [
