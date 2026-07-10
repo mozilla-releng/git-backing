@@ -216,7 +216,11 @@ def push_to_git_backing(prefix: str) -> str:
         keyfile.write(key)
         os.chmod(keyfile.name, stat.S_IRUSR | stat.S_IWUSR)
         keyfile.flush()
-        ssh_command = f"ssh -i {shlex.quote(keyfile.name)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+        ssh_command = (
+            f"ssh -F /dev/null -i {shlex.quote(keyfile.name)} "
+            "-o IdentitiesOnly=yes -o IdentityAgent=none "
+            "-o StrictHostKeyChecking=accept-new"
+        )
 
         sha = vcs.head_rev
         vcs.push(
