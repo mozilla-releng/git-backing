@@ -766,7 +766,7 @@ const accessKeyBase = {
   },
 
   /**
-   * Search for keys on a keyserver.
+   * Search for keys on a keyserver (using KeyBase).
    *
    * @param {string} searchTerm - Search term.
    * @param {string} keyserver - Keyserver URL (optionally incl. protocol).
@@ -1245,7 +1245,7 @@ const accessVksServer = {
           break;
         }
       } catch (ex) {
-        console.error("Uploading keys FAILED!", ex);
+        lazy.log.error(`Uploading keys to ${keyserver} FAILED!`, ex);
         rv = false;
         break;
       }
@@ -1259,7 +1259,7 @@ const accessVksServer = {
   },
 
   /**
-   * Search for keys on a keyserver.
+   * Search for keys on a keyserver (using VKS).
    *
    * @param {string} searchTerm - Search term.
    * @param {string} keyserver - Keyserver URL (optionally incl. protocol).
@@ -1378,10 +1378,10 @@ export var EnigmailKeyServer = {
   },
 
   /**
-   * Search keys on a keyserver
+   * Search keys on a keyserver.
    *
    * @param {string} searchString - Search term. Multiple email addresses can
-   *   be search by spaces.
+   *   be searched by spaces.
    * @param {string} [keyserver] - Keyserver URL (optionally incl. protocol).
    * @param {KeySrvListener} [listener]
    * @returns {Promise<object>} found
@@ -1410,8 +1410,18 @@ export var EnigmailKeyServer = {
       keyserver,
       listener
     );
-    if (searchResult.result != 0 || searchResult.pubKeys.length != 1) {
+    if (searchResult.result != 0 || searchResult.pubKeys.length == 0) {
       return null;
+    }
+    if (searchResult.pubKeys.length != 1) {
+      const validKeys = searchResult.pubKeys.filter(k => k.status == "");
+      if (validKeys.length != 1) {
+        lazy.log.warn(
+          `Discarding result for '${searchString}' - got ${validKeys} results`
+        );
+        return null;
+      }
+      searchResult.pubKeys = validKeys;
     }
     return this.downloadNoImport(
       searchResult.pubKeys[0].keyId,
