@@ -12,6 +12,7 @@ pub fn run(
     linter: &str,
     message: &str,
     rule: &str,
+    level: &str,
 ) -> Result<(), String> {
     let re = RegexBuilder::new(pattern)
         .case_insensitive(ignore_case)
@@ -20,17 +21,18 @@ pub fn run(
 
     let paths = common::read_paths_from_stdin();
     common::par_map_lint(&paths, |path| {
-        check_reject_words(path, &re, linter, message, rule)
+        check_regex(path, &re, linter, message, rule, level)
     });
     Ok(())
 }
 
-pub fn check_reject_words(
+pub fn check_regex(
     path: &str,
     re: &regex::Regex,
     linter: &str,
     message: &str,
     rule: &str,
+    level: &str,
 ) -> Vec<LintIssue> {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
@@ -48,7 +50,7 @@ pub fn check_reject_words(
                 lineno: Some(lineno + 1),
                 column: Some(m.start() + 1),
                 message: message.to_string(),
-                level: "error".to_string(),
+                level: level.to_string(),
                 linter: linter.to_string(),
                 rule: Some(rule.to_string()),
             });
@@ -63,7 +65,7 @@ mod tests {
     use std::io::Write;
 
     #[test]
-    fn test_check_reject_words_finds_matches() {
+    fn test_check_regex_finds_matches() {
         let dir = tempfile::tempdir().unwrap();
         let file_path = dir.path().join("test.txt");
         {
@@ -78,12 +80,13 @@ mod tests {
             .build()
             .unwrap();
 
-        let issues = check_reject_words(
+        let issues = check_regex(
             file_path.to_str().unwrap(),
             &re,
             "test-linter",
             "bad word",
             "test-rule",
+            "error",
         );
 
         assert_eq!(issues.len(), 2);
@@ -94,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_reject_words_no_matches() {
+    fn test_check_regex_no_matches() {
         let dir = tempfile::tempdir().unwrap();
         let file_path = dir.path().join("clean.txt");
         std::fs::write(&file_path, "nothing bad here\n").unwrap();
@@ -104,22 +107,30 @@ mod tests {
             .build()
             .unwrap();
 
-        let issues = check_reject_words(
+        let issues = check_regex(
             file_path.to_str().unwrap(),
             &re,
             "test-linter",
             "bad word",
             "test-rule",
+            "error",
         );
 
         assert!(issues.is_empty());
     }
 
     #[test]
-    fn test_check_reject_words_missing_file() {
+    fn test_check_regex_missing_file() {
         let re = RegexBuilder::new(r"te.t").build().unwrap();
 
-        let issues = check_reject_words("/nonexistent/path.txt", &re, "test-linter", "msg", "rule");
+        let issues = check_regex(
+            "/nonexistent/path.txt",
+            &re,
+            "test-linter",
+            "msg",
+            "rule",
+            "error",
+        );
 
         assert!(issues.is_empty());
     }

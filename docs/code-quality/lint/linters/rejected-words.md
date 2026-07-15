@@ -24,4 +24,4 @@ New words can be added in the `payload` section.
 ## Sources
 
 - {searchfox}`Configuration (YAML) <tools/lint/rejected-words.yml>`
-- {searchfox}`Source (Rust) <tools/lint/mozcheck/src/rejected_words.rs>`
+- {searchfox}`Source (Rust) <tools/lint/mozcheck/src/regex_search.rs>`

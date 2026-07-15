@@ -5,7 +5,7 @@ avoid-blacklist-and-whitelist:
     include: ['.']
     type: external
     payload: mozcheck:lint
-    check: rejected-words
+    check: regex
     check-config:
         regex-pattern: (black|white)[-_]?list
         ignore-case: true
@@ -284,7 +284,7 @@ avoid-blacklist-and-whitelist:
         - tools/fuzzing/messagemanager/MessageManagerFuzzer.cpp
         - tools/fuzzing/messagemanager/MessageManagerFuzzer.h
         - tools/lint/mozcheck/src/batch.rs
-        - tools/lint/mozcheck/src/rejected_words.rs
+        - tools/lint/mozcheck/src/regex_search.rs
         - tools/lint/rejected-words.yml
         - widget/android/GfxInfo.cpp
         - widget/GfxInfoBase.cpp
@@ -310,7 +310,7 @@ avoid-gobbledygook:
     include: ['.']
     type: external
     payload: mozcheck:lint
-    check: rejected-words
+    check: regex
     check-config:
         regex-pattern: \b(gobbledy)?-?gook
         ignore-case: true

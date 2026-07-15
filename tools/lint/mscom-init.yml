@@ -9,9 +9,14 @@ forbid-mscom-init:
         have questions, please consult a peer of the IPC: MSCOM module.
     level: error
     include: ['.']
-    type: regex
-    payload: ([CR]o|Ole)(Uni|I)nitialize(Ex)?
-    ignore-case: false
+    type: external
+    payload: mozcheck:lint
+    check: regex
+    check-config:
+        regex-pattern: ([CR]o|Ole)(Uni|I)nitialize(Ex)?
+        ignore-case: false
+    support-files:
+        - 'tools/lint/mozcheck/**'
     extensions:
         - h
         - c
@@ -51,9 +56,14 @@ forbid-apartment-region:
         require approval by a peer of the IPC: MSCOM module.
     level: error
     include: ['.']
-    type: regex
-    payload: ApartmentRegion(T)?|[MS]TARegion
-    ignore-case: false
+    type: external
+    payload: mozcheck:lint
+    check: regex
+    check-config:
+        regex-pattern: ApartmentRegion(T)?|[MS]TARegion
+        ignore-case: false
+    support-files:
+        - 'tools/lint/mozcheck/**'
     extensions:
         - h
         - c

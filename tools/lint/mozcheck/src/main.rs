@@ -9,7 +9,7 @@ mod file_perm;
 mod file_whitespace;
 mod license;
 mod pathutil;
-mod rejected_words;
+mod regex_search;
 mod trojan_source;
 
 use clap::{Parser, Subcommand};
@@ -23,8 +23,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Scan files for rejected word patterns
-    RejectedWords {
+    /// Scan files for an arbitrary regex pattern
+    Regex {
         /// Regex pattern to search for
         #[arg(long)]
         pattern: String,
@@ -44,6 +44,10 @@ enum Commands {
         /// Rule name for output
         #[arg(long)]
         rule: String,
+
+        /// Severity level for output
+        #[arg(long, default_value = "error")]
+        level: String,
     },
     /// Check file permissions (Unix only)
     #[cfg(unix)]
@@ -84,13 +88,14 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::RejectedWords {
+        Commands::Regex {
             pattern,
             ignore_case,
             linter,
             message,
             rule,
-        } => rejected_words::run(&pattern, ignore_case, &linter, &message, &rule),
+            level,
+        } => regex_search::run(&pattern, ignore_case, &linter, &message, &rule, &level),
         #[cfg(unix)]
         Commands::FilePerm {
             allow_shebang,

@@ -11,7 +11,7 @@ use serde::Deserialize;
 use crate::common;
 #[cfg(unix)]
 use crate::file_perm;
-use crate::{file_whitespace, license, pathutil, rejected_words, trojan_source};
+use crate::{file_whitespace, license, pathutil, regex_search, trojan_source};
 
 #[derive(Deserialize)]
 struct BatchInput {
@@ -66,7 +66,7 @@ fn run_linter(linter: &LinterEntry, root: &str, fix: bool) {
     }
 
     match linter.check.as_str() {
-        "rejected-words" => run_rejected_words(&files, linter),
+        "regex" => run_regex(&files, linter),
         #[cfg(unix)]
         "file-perm" => run_file_perm(&files, linter, fix),
         #[cfg(not(unix))]
@@ -88,7 +88,7 @@ fn run_linter(linter: &LinterEntry, root: &str, fix: bool) {
     }
 }
 
-fn run_rejected_words(files: &[String], linter: &LinterEntry) {
+fn run_regex(files: &[String], linter: &LinterEntry) {
     let pattern = linter
         .config
         .get("regex-pattern")
@@ -110,6 +110,11 @@ fn run_rejected_words(files: &[String], linter: &LinterEntry) {
         .get("rule")
         .and_then(|v| v.as_str())
         .unwrap_or(&default_rule);
+    let level = linter
+        .config
+        .get("level")
+        .and_then(|v| v.as_str())
+        .unwrap_or("error");
 
     let re = match RegexBuilder::new(pattern)
         .case_insensitive(ignore_case)
@@ -123,7 +128,7 @@ fn run_rejected_words(files: &[String], linter: &LinterEntry) {
     };
 
     common::par_map_lint(files, |path| {
-        rejected_words::check_reject_words(path, &re, &linter.name, message, rule)
+        regex_search::check_regex(path, &re, &linter.name, message, rule, level)
     });
 }
 
@@ -154,7 +159,7 @@ mod tests {
             "fix": false,
             "linters": [{
                 "name": "test-linter",
-                "check": "rejected-words",
+                "check": "regex",
                 "paths": ["/repo/src"],
                 "extensions": ["js"],
                 "exclude": [],
@@ -171,11 +176,11 @@ mod tests {
         assert_eq!(batch.root, "/repo");
         assert!(!batch.fix);
         assert_eq!(batch.linters.len(), 1);
-        assert_eq!(batch.linters[0].check, "rejected-words");
+        assert_eq!(batch.linters[0].check, "regex");
     }
 
     #[test]
-    fn test_run_rejected_words_via_batch() {
+    fn test_run_regex_via_batch() {
         let dir = tempfile::tempdir().unwrap();
         let file_path = dir.path().join("test.js");
         {
@@ -185,7 +190,7 @@ mod tests {
 
         let linter = LinterEntry {
             name: "test-linter".to_string(),
-            check: "rejected-words".to_string(),
+            check: "regex".to_string(),
             paths: vec![file_path.to_str().unwrap().to_string()],
             extensions: vec!["js".to_string()],
             exclude: vec![],

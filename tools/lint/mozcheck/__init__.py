@@ -108,6 +108,7 @@ def lint(paths, config, fix=None, **lintargs):
                 "config": {
                     **config.get("check-config", {}),
                     "message": config["description"],
+                    "level": config.get("level", "error"),
                 },
             }
         ],
