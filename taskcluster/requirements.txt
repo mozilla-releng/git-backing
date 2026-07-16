@@ -498,7 +498,7 @@ mozilla-repo-urls==0.1.1 \
     # via
     #   -c taskcluster/../third_party/python/requirements.txt
     #   taskcluster-taskgraph
-mozilla-taskgraph @ git+https://github.com/bhearsum/mozilla-taskgraph@7c60759cec3f45e2b8a42e2befd23afcf22a7193
+mozilla-taskgraph @ git+https://github.com/bhearsum/mozilla-taskgraph@040cbedcff115129d88419482348d67513c6b41e
     # via -r taskcluster/requirements.in
 msgspec==0.21.1 \
     --hash=sha256:0d03867786e5d7ba25d666df4b11320c27170f4aeafcb8e3a8b0a50a4fb742ca \
