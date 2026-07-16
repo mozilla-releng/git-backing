@@ -756,8 +756,8 @@ class CommandSiteManager:
 
         args = ["--requirement", path]
 
-        if require_hashes:
-            args.append("--require-hashes")
+        #if require_hashes:
+        #    args.append("--require-hashes")
 
         try:
             install_result = self._virtualenv.pip_install(args)
@@ -1544,7 +1544,7 @@ def _create_venv_with_pthfile(
             target_venv.pip_install([
                 "--requirement",
                 requirements_txt_file.path,
-                "--require-hashes",
+                #"--require-hashes",
             ])
         if requirements.pypi_requirements:
             requirements_list = [
