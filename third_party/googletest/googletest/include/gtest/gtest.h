@@ -74,8 +74,6 @@
 #include "gtest/internal/gtest-internal.h"
 #include "gtest/internal/gtest-string.h"
 
-#include "mozilla/Attributes.h"
-
 GTEST_DISABLE_MSC_WARNINGS_PUSH_(4251 \
 /* class A needs to have dll-interface to be used by clients of class B */)
 
@@ -332,7 +330,7 @@ class GTEST_API_ [[nodiscard]] Test {
   //
   // DO NOT OVERRIDE THIS FUNCTION DIRECTLY IN A USER PROGRAM.
   // Instead, use the TEST or TEST_F macro.
-  MOZ_CAN_RUN_SCRIPT virtual void TestBody() = 0;
+  virtual void TestBody() = 0;
 
   // Sets up, executes, and tears down the test.
   void Run();
@@ -2166,7 +2164,7 @@ class GTEST_API_ [[nodiscard]] ScopedTrace {
 // to cause a compiler error.
 template <typename T1, typename T2>
 constexpr bool StaticAssertTypeEq() noexcept {
-  static_assert(std::is_same<T1, T2>::value, "T1 and T2 are not the same type");
+  static_assert(std::is_same_v<T1, T2>, "T1 and T2 are not the same type");
   return true;
 }
 
@@ -2312,7 +2310,7 @@ template <int&... ExplicitParameterBarrier, typename Factory>
 TestInfo* RegisterTest(const char* test_suite_name, const char* test_name,
                        const char* type_param, const char* value_param,
                        const char* file, int line, Factory factory) {
-  using TestT = typename std::remove_pointer<decltype(factory())>::type;
+  using TestT = std::remove_pointer_t<decltype(factory())>;
 
   class FactoryImpl : public internal::TestFactoryBase {
    public:
