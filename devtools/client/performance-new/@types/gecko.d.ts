@@ -243,6 +243,7 @@ declare namespace MockedExports {
   const AppConstantsSYSMJS: {
     AppConstants: {
       MOZ_APP_NAME: string;
+      MOZ_GECKO_PROFILER_PARSE_ELF: boolean;
       platform: string;
     };
   };
