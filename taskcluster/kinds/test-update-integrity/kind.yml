@@ -80,7 +80,7 @@ tasks:
 
         # we do not have a non-production version of this to fetch; we always fetch
         # prod even on try
-        locale-history-file: https://product-details.mozilla.org/1.0/firefox_history_locales.json
+        locale-history-file: https://hearsum.ca/~bhearsum/firefox_history_locales.json
 
         last-watershed:
             by-release-type:
