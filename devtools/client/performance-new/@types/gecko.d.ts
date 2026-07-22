@@ -209,6 +209,10 @@ declare namespace MockedExports {
       getProfileDataAsGzippedArrayBuffer: (
         sinceTime?: number
       ) => Promise<ProfileAndAdditionalInformation>;
+      getSymbolTable: (
+        debugPath: string,
+        breakpadId: string
+      ) => Promise<import("perf").SymbolTableAsTuple>;
       IsActive: () => boolean;
       sharedLibraries: SharedLibrary[];
     };
