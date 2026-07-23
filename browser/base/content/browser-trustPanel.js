@@ -183,6 +183,12 @@ class TrustPanel {
 
   #lastEvent = null;
 
+  // The browser element that was active during the last updateIdentity() call.
+  // Used to distinguish a real same-site navigation within one tab from a tab
+  // switch to another tab on the same domain, so the tracker count from the
+  // previous tab is not incorrectly inherited.
+  #lastBrowser = null;
+
   // Monotonic tag for #updateBlockerView runs so a stale (slower) run can't
   // overwrite a fresher one's result. See the method for details.
   #blockerViewUpdateId = 0;
@@ -506,8 +512,14 @@ class TrustPanel {
     } catch (ex) {
       this.#uriHasHost = false;
     }
-    // Compute before overwriting #uri below.
-    this.#sameSiteNavigation = this.#isSameSite(uri, this.#uri);
+
+    const browser = gBrowser.selectedBrowser;
+    this.#sameSiteNavigation =
+      // If the user visits the same site in different tabs, then switches between those tabs,
+      // that results in two `updateIdentity` calls with the same site, but that should not
+      // be considered a same-site navigation:
+      browser === this.#lastBrowser && this.#isSameSite(uri, this.#uri);
+    this.#lastBrowser = browser;
 
     this.#state = state;
     this.#uri = uri;
@@ -518,14 +530,9 @@ class TrustPanel {
     this.#qwacStatusPromise = null;
     this.#pageExtensionPolicy = WebExtensionPolicy.getByURI(uri);
     this.#breachedStatus = null;
-    if (this.#sameSiteNavigation) {
-      // Keep the count, but clear first-visit so it renders statically.
-      this.#isFirstVisit = false;
-    } else {
-      this.#trackerCount = null;
-      this.#trackerCountPromise = null;
-      this.#isFirstVisit = false;
-    }
+    this.#trackerCount = null;
+    this.#trackerCountPromise = null;
+    this.#isFirstVisit = false;
     // #blockersChecked is reset in resetIconForNavigation, not here, so tab
     // switches and re-fired security changes don't re-enter scanning.
     this.#updateUrlbarIcon();
@@ -597,6 +604,7 @@ class TrustPanel {
     if (this.#isAboutNetErrorPage || this.#isCertUserOverridden) {
       targetClasses.add("warning");
     }
+    const browser = gBrowser.selectedBrowser;
     if (this.#isFirstVisit) {
       targetClasses.add("first-visit");
     }
@@ -632,7 +640,6 @@ class TrustPanel {
 
     // Handle the breach animation guard (restart only on fresh URI).
     if (targetClasses.has("breached")) {
-      let browser = gBrowser.selectedBrowser;
       if (browser.lastAnimatedBreachURI !== this.#uri?.spec) {
         // This is a fresh visit: trigger the animation.
         targetClasses.add("breach-animating");
@@ -646,6 +653,17 @@ class TrustPanel {
     // the target set — keeping targetClasses the single source of truth with no
     // separate member to maintain. (chickletShown is re-toggled below.)
     let appliedIconClasses = [...icon.classList];
+
+    if (
+      targetClasses.has("has-blocked-trackers") &&
+      browser.lastTrackerCountShownURI !== this.#uri?.spec
+    ) {
+      browser.lastTrackerCountShownURI = this.#uri?.spec;
+      Glean.trustpanel.trackerCountShown.record({
+        first_visit: targetClasses.has("first-visit"),
+      });
+    }
+
     for (let cls of appliedIconClasses) {
       if (!targetClasses.has(cls)) {
         icon.classList.remove(cls);
@@ -822,8 +840,13 @@ class TrustPanel {
     }
     // Also treat as a first visit if the tracker count has never been shown,
     // so the user gets the long-form UI even on a return visit.
+    const browser = gBrowser.selectedBrowser;
     this.#isFirstVisit =
-      rows.length === 0 || !UrlbarPrefs.get("trackerCountShown");
+      (rows.length === 0 || !UrlbarPrefs.get("trackerCountShown")) &&
+      browser.lastFirstVisitURI !== uri.spec;
+    if (this.#isFirstVisit) {
+      browser.lastFirstVisitURI = uri.spec;
+    }
     this.#updateUrlbarIcon();
   }
 
@@ -846,11 +869,6 @@ class TrustPanel {
       return;
     }
 
-    // On a same-site navigation, keep the last positive count until the new page
-    // reports its own, so the pill doesn't flash "0" mid-load.
-    if (this.#sameSiteNavigation && count === 0 && this.#trackerCount > 0) {
-      count = this.#trackerCount;
-    }
     this.#trackerCount = count;
     // A blocked tracker resolves the scanning shield straight into the reveal.
     if (count > 0) {
