@@ -102,15 +102,28 @@ var SessionMigrationInternal = {
    * Asynchronously read session restore state (JSON) from a path
    */
   readState(aPath) {
-    return IOUtils.readJSON(aPath, { decompress: true });
+    // Always pass decrypt: it is a no-op on unencrypted files (IOUtils
+    // checks the magic number and skips decryption), so this handles
+    // both encrypted and plaintext source profiles.
+    return IOUtils.readJSON(aPath, {
+      decompress: true,
+      decrypt: "sessionstore",
+    });
   },
   /**
    * Asynchronously write session restore state as JSON to a path
    */
   writeState(aPath, aState) {
+    let encrypt = Services.prefs.getBoolPref(
+      "browser.sessionstore.encryption.enabled",
+      false
+    )
+      ? "sessionstore"
+      : undefined;
     return IOUtils.writeJSON(aPath, aState, {
       compress: true,
       tmpPath: `${aPath}.tmp`,
+      encrypt,
     });
   },
 };

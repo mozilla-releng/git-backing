@@ -32,6 +32,11 @@ skip-if = [
   "condprof", # Bug 1769154
 ]
 
+["test_session_migration_encryption.js"]
+skip-if = [
+  "condprof",
+]
+
 ["test_session_schema.js"]
 support-files = [
   "data/sessionstore_complete.json",

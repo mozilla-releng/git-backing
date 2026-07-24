@@ -5,6 +5,20 @@ ChromeUtils.defineESModuleGetters(this, {
     "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
 });
 
+// In a full browser session, NSS is initialized during startup. xpcshell
+// tests skip that path, so initialize it here for lockstore encryption.
+Cc["@mozilla.org/psm;1"].getService(Ci.nsINSSComponent);
+
+function sessionStoreReadOptions() {
+  let opts = { decompress: true };
+  if (
+    Services.prefs.getBoolPref("browser.sessionstore.encryption.enabled", false)
+  ) {
+    opts.decrypt = "sessionstore";
+  }
+  return opts;
+}
+
 // Call a function once initialization of SessionStartup is complete
 function afterSessionStartupInitialization(cb) {
   info("Waiting for session startup initialization");
