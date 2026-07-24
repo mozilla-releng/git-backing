@@ -27,6 +27,8 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/sessionstore/SessionWriter.sys.mjs",
 });
 
+const ENCRYPTION_COLLECTION = "sessionstore";
+
 const PREF_UPGRADE_BACKUP = "browser.sessionstore.upgradeBackup.latestBuildID";
 const PREF_MAX_UPGRADE_BACKUPS =
   "browser.sessionstore.upgradeBackup.maxUpgradeBackups";
@@ -198,6 +200,14 @@ var SessionFileInternal = {
     }
   },
 
+  /**
+   * Try each session backup file in priority order, returning the first
+   * one that parses successfully.
+   *
+   * @param {boolean} useOldExtension - If true, look for uncompressed
+   *   legacy files (.js/.bak) instead of the current .jsonlz4/.baklz4.
+   * @returns {{ result: object|undefined, noFilesFound: boolean }}
+   */
   async _readInternal(useOldExtension) {
     let result;
     let noFilesFound = true;
@@ -211,7 +221,10 @@ var SessionFileInternal = {
         let path;
         let startMs = Date.now();
 
-        let options = {};
+        // Always attempt decryption: encrypted files written while the
+        // encryption pref was on must be readable even when it is off, and
+        // unencrypted/legacy files pass through untouched.
+        let options = { decrypt: ENCRYPTION_COLLECTION };
         if (useOldExtension) {
           path = this.Paths[key]
             .replace("jsonlz4", "js")
@@ -281,7 +294,22 @@ var SessionFileInternal = {
         lazy.sessionStoreLogger.debug(`Successful file read of ${key} file`);
         break;
       } catch (ex) {
-        if (DOMException.isInstance(ex) && ex.name == "NotFoundError") {
+        let isDecryptionError =
+          DOMException.isInstance(ex) &&
+          ex.message?.includes("could not decrypt");
+
+        if (isDecryptionError) {
+          lazy.sessionStoreLogger.error(
+            `Decryption error when reading session file: ${key}`,
+            ex
+          );
+          corrupted = true;
+          Glean.sessionRestore.backupCanBeLoadedSessionFile.record({
+            can_load: "false",
+            path_key: key,
+            loadfail_reason: `Decryption error`,
+          });
+        } else if (DOMException.isInstance(ex) && ex.name == "NotFoundError") {
           exists = false;
           Glean.sessionRestore.backupCanBeLoadedSessionFile.record({
             can_load: "false",

@@ -9,6 +9,8 @@ const lazy = XPCOMUtils.declareLazy({
     "moz-src:///browser/components/sessionstore/SessionLogger.sys.mjs",
 });
 
+const ENCRYPTION_COLLECTION = "sessionstore";
+
 /**
  * We just started (we haven't written anything to disk yet) from
  * `Paths.clean`. The backup directory may not exist.
@@ -160,6 +162,13 @@ const SessionWriterInternal = {
     let exn;
     let telemetry = {};
 
+    const encrypt = Services.prefs.getBoolPref(
+      "browser.sessionstore.encryption.enabled",
+      false
+    )
+      ? ENCRYPTION_COLLECTION
+      : "";
+
     // Cap the number of backward and forward shistory entries on shutdown.
     if (options.isFinalWrite) {
       for (let window of state.windows) {
@@ -199,7 +208,10 @@ const SessionWriterInternal = {
           // and write it to $Path.cleanBackup.
           let oldCleanPath = this.Paths.clean.replace("jsonlz4", "js");
           let d = await IOUtils.read(oldCleanPath);
-          await IOUtils.write(this.Paths.cleanBackup, d, { compress: true });
+          await IOUtils.write(this.Paths.cleanBackup, d, {
+            compress: true,
+            encrypt,
+          });
         }
       }
 
@@ -215,6 +227,7 @@ const SessionWriterInternal = {
         await IOUtils.writeJSON(this.Paths.clean, state, {
           tmpPath: this.Paths.clean + ".tmp",
           compress: true,
+          encrypt,
         });
         fileStat = await IOUtils.stat(this.Paths.clean);
       } else if (this.state == STATE_RECOVERY) {
@@ -228,6 +241,7 @@ const SessionWriterInternal = {
           tmpPath: this.Paths.recovery + ".tmp",
           backupFile: this.Paths.recoveryBackup,
           compress: true,
+          encrypt,
         });
         fileStat = await IOUtils.stat(this.Paths.recovery);
       } else {
@@ -237,6 +251,7 @@ const SessionWriterInternal = {
         await IOUtils.writeJSON(this.Paths.recovery, state, {
           tmpPath: this.Paths.recovery + ".tmp",
           compress: true,
+          encrypt,
         });
         fileStat = await IOUtils.stat(this.Paths.recovery);
       }

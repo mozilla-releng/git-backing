@@ -489,6 +489,10 @@ const SNAPSHOT_SCHEMA = {
           required: false,
           type: "boolean",
         },
+        "browser.sessionstore.encryption.enabled": {
+          required: false,
+          type: "boolean",
+        },
       },
     },
     places: {

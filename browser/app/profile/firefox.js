@@ -1526,6 +1526,7 @@ pref("browser.lna.warning.infoURL", "https://support.mozilla.org/%LOCALE%/kb/con
 pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
 pref("browser.sessionstore.resuming_after_os_restart", false);
+pref("browser.sessionstore.encryption.enabled", false);
 
 // Determines the behavior for opening new tab when users resume sessions
 pref("browser.sessionstore.newTabOnRestore", false);

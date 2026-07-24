@@ -438,7 +438,7 @@ Result<nsTArray<nsCString>, nsresult> LockstoreService::DoListKeks(
 
 Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoEncrypt(
     const nsACString& aDekName, const nsACString& aKekRef,
-    const nsTArray<uint8_t>& aPlaintext) {
+    Span<const uint8_t> aPlaintext) {
   LOCKSTORE_SYNC_PREAMBLE;
   nsTArray<uint8_t> out;
   MOZ_TRY(keystore_encrypt(mKeystore, &aDekName, &aKekRef,
@@ -448,7 +448,7 @@ Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoEncrypt(
 
 Result<nsTArray<uint8_t>, nsresult> LockstoreService::DoDecrypt(
     const nsACString& aDekName, const nsACString& aKekRef,
-    const nsTArray<uint8_t>& aCiphertext) {
+    Span<const uint8_t> aCiphertext) {
   LOCKSTORE_SYNC_PREAMBLE;
   nsTArray<uint8_t> out;
   MOZ_TRY(keystore_decrypt(mKeystore, &aDekName, &aKekRef,

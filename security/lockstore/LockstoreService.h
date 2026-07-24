@@ -7,6 +7,7 @@
 
 #include "mozilla/Mutex.h"
 #include "mozilla/Result.h"
+#include "mozilla/Span.h"
 #include "mozilla/security/lockstore/lockstore_ffi_generated.h"
 #include "nsCOMPtr.h"
 #include "nsILockstore.h"
@@ -67,13 +68,13 @@ class LockstoreService final : public nsILockstore, public nsIObserver {
                        const nsACString& aNewKekRef);
   Result<nsTArray<nsCString>, nsresult> DoListDeks();
   Result<nsTArray<nsCString>, nsresult> DoListKeks(const nsACString& aDekName);
-  Result<nsTArray<uint8_t>, nsresult> DoEncrypt(
-      const nsACString& aDekName, const nsACString& aKekRef,
-      const nsTArray<uint8_t>& aPlaintext);
+  Result<nsTArray<uint8_t>, nsresult> DoEncrypt(const nsACString& aDekName,
+                                                const nsACString& aKekRef,
+                                                Span<const uint8_t> aPlaintext);
   Result<nsTArray<uint8_t>, nsresult> DoDecrypt(
       const nsACString& aDekName, const nsACString& aKekRef,
-      const nsTArray<uint8_t>& aCiphertext);
-  Result<nsTArray<uint8_t>, nsresult> DoGetDek(const nsACString& aDekName,
+      Span<const uint8_t> aCiphertext);
+  Result<nsTArray<uint8_t>, nsresult> DoGetDek(const nsACString& aCollection,
                                                const nsACString& aKekRef);
   Result<nsCString, nsresult> DoCreateKek(const nsACString& aKekType,
                                           const nsACString& aIdentifier,
