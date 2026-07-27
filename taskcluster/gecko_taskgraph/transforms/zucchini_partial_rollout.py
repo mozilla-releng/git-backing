@@ -19,6 +19,7 @@ LEGACY_PARTIALS_PROJECTS = {
     "mozilla-release",
     "mozilla-esr115",
     "mozilla-esr140",
+    "try",
 }
 
 
