@@ -300,14 +300,15 @@ for ((i=0; $i<$num_olddirs; i=$i+1)); do
 done
 
 # https://bugzilla.mozilla.org/show_bug.cgi?id=2058197
-# to ensure firefox.exe cannot be launched mid-update, we make sure that
-# patching it is the very last thing the updater does, by placing this
-# instruction at the very end of the manifest.
 notice ""
-notice "Moving firefox.exe instructions to the end of the update manifest"
+notice "Reordering MAR instructions to a safe order"
 {
-  grep -v -E '"firefox\.exe"$' "$updatemanifestv3"
-  grep -E '"firefox\.exe"$' "$updatemanifestv3"
+  grep -E '^type '                 "$updatemanifestv3"
+  grep -E '"dependentlibs\.list"$' "$updatemanifestv3"
+  grep -vE '^type |"(dependentlibs\.list|omni\.ja|xul\.dll|firefox\.exe)"$' "$updatemanifestv3"
+  grep -E '"omni\.ja"$'            "$updatemanifestv3"
+  grep -E '"xul\.dll"$'            "$updatemanifestv3"
+  grep -E '"firefox\.exe"$'        "$updatemanifestv3"
 } > "$updatemanifestv3.reordered"
 mv -f "$updatemanifestv3.reordered" "$updatemanifestv3"
 
