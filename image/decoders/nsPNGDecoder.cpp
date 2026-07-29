@@ -602,9 +602,10 @@ void nsPNGDecoder::info_callback(png_structp png_ptr, png_infop info_ptr) {
       png_get_eXIf_1(png_ptr, info_ptr, &num_exif_bytes, &exifdata) &&
       num_exif_bytes > 0 && exifdata) {
 
-    EXIFData exif = EXIFParser::Parse(/* aExpectExifIdCode = */ false, exifdata,
-                                      static_cast<uint32_t>(num_exif_bytes),
-                                      gfx::IntSize(width, height));
+    EXIFData exif =
+        EXIFParser::Parse(/* aExpectExifIdCode = */ false, exifdata,
+                          static_cast<uint32_t>(num_exif_bytes),
+                          gfx::IntSize(width, height), kMaxEXIFLength);
     decoder->PostSize(width, height, exif.orientation, exif.resolution);
   } else {
     decoder->PostSize(width, height);
