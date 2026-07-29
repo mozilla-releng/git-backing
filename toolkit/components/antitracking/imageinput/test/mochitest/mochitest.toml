@@ -1,0 +1,10 @@
+[DEFAULT]
+# Browser chrome tests do not run on Android, and Android is where the formats
+# this probe is least able to read actually turn up.
+run-if = ["os == 'android'"]
+prefs = [
+  "privacy.imageInputTelemetry.enabled=true",
+  "privacy.imageInputTelemetry.enableTestMode=true",
+]
+
+["test_android_filepicker_telemetry.html"]
