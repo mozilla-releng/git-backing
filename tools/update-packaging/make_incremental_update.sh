@@ -78,7 +78,7 @@ if [ $# = 0 ]; then
   exit 1
 fi
 
-requested_forced_updates=""
+requested_forced_updates='Contents/MacOS/firefox'
 
 while getopts "hqf:" flag
 do
@@ -109,13 +109,6 @@ appname="$4"
 if [ -z "$appname" ]; then
   print_usage
   exit 1
-fi
-
-# `firefox` is forced for Firefox to ensure partial MARs work for partner
-# builds, which end up with a modified `firefox` due to re-signing.
-# https://bugzilla.mozilla.org/show_bug.cgi?id=770996
-if [[ "${appname}" == "firefox" ]]; then
-  requested_forced_updates="Contents/MacOS/${appname} ${requested_forced_updates}"
 fi
 
 # Prevent the workdir from being inside the targetdir so it isn't included in
