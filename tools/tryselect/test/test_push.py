@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 import urllib.parse
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
@@ -306,6 +309,150 @@ def test_push_to_git_backing_returns_git_push_sha(
     env = mock_push.call_args.kwargs.get("env", {})
     assert "-o IdentitiesOnly=yes" in env.get("GIT_SSH_COMMAND", "")
     assert "-o StrictHostKeyChecking=accept-new" in env.get("GIT_SSH_COMMAND", "")
+
+
+def test_push_to_git_backing_closes_keyfile_before_push(
+    tmp_path, monkeypatch, mock_tc_secret
+):
+    """The key file must be closed before vcs.push() spawns ssh to read it. On
+    Windows a file this process still has open can't reliably be opened by another
+    process, which caused ssh to fail loading the key (bug 1543241).
+
+    POSIX happily lets a second process open a file we still have open, so we
+    can't detect this by actually trying to read the file from another process
+    here. Instead we spy on the write handle push_to_git_backing opens for the key
+    file and assert it's already closed by the time vcs.push() -- standing in for
+    the external ssh process -- is called.
+    """
+    git_repo = GitRepository(tmp_path)
+    monkeypatch.setattr(push, "vcs", git_repo)
+
+    keyfile_handles = []
+    real_fdopen = os.fdopen
+
+    def spy_fdopen(fd, *args, **kwargs):
+        fh = real_fdopen(fd, *args, **kwargs)
+        keyfile_handles.append(fh)
+        return fh
+
+    def mock_run(*args, **kwargs):
+        if args[0] == "rev-parse":
+            return "gitsha456\n"
+        return None
+
+    def assert_keyfile_closed(*args, **kwargs):
+        assert keyfile_handles, "expected the key file to have been written by now"
+        assert all(fh.closed for fh in keyfile_handles)
+
+    with patch("tryselect.push.os.fdopen", side_effect=spy_fdopen), patch.object(
+        git_repo, "_run", side_effect=mock_run
+    ), patch.object(git_repo, "push", side_effect=assert_keyfile_closed):
+        push.push_to_git_backing("try")
+
+
+def _init_git_repo(repo_dir):
+    """Create a real git repo with one commit, using the real `git` binary."""
+    repo_dir.mkdir()
+    for args in (
+        ["init", "-q", "-b", "main"],
+        ["config", "user.email", "test@example.com"],
+        ["config", "user.name", "Test"],
+    ):
+        subprocess.run(["git", *args], cwd=repo_dir, check=True)
+    (repo_dir / "file.txt").write_text("hello")
+    subprocess.run(["git", "add", "file.txt"], cwd=repo_dir, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "initial"], cwd=repo_dir, check=True)
+
+
+def _make_fake_ssh(bin_dir, key_marker_path, fail=False):
+    """Write a fake `ssh` binary standing in for a real ssh client: it reads the
+    `-i <keyfile>` argument the same way ssh would, then either fails like an SSH
+    auth failure would, or hands off to a local git-receive-pack/upload-pack so a
+    real `git push` can complete without any actual network/SSH involved."""
+    fake_ssh = bin_dir / "ssh"
+    fake_ssh.write_text(
+        f"#!{sys.executable}\n"
+        "import sys, os\n"
+        "args = sys.argv[1:]\n"
+        'keyfile = args[args.index("-i") + 1]\n'
+        "with open(keyfile) as fh:\n"
+        "    key_contents = fh.read()\n"
+        f"with open({str(key_marker_path)!r}, 'w') as fh:\n"
+        "    fh.write(key_contents)\n"
+        f"if {fail!r}:\n"
+        '    sys.stderr.write("git@github.com: Permission denied (publickey).\\n")\n'
+        "    sys.exit(128)\n"
+        "os.execvp('sh', ['sh', '-c', args[-1]])\n"
+    )
+    fake_ssh.chmod(0o755)
+    return fake_ssh
+
+
+def test_push_to_git_backing_runs_real_git_push(tmp_path, monkeypatch, mock_tc_secret):
+    """End-to-end test that exercises the real `git push` subprocess (nothing
+    mocked below push_to_git_backing) via a fake `ssh` that relays to a local
+    git-receive-pack, proving the whole plumbing (argv, quoting, env) works.
+
+    Note: this does NOT reproduce the Windows-only bug 1543241 -- POSIX allows a
+    second process to open a file this process still has open, so this test
+    passes regardless of whether the key file is closed before push happens. See
+    test_push_to_git_backing_closes_keyfile_before_push for the regression test
+    that actually would have caught that bug.
+    """
+    repo_dir = tmp_path / "repo"
+    _init_git_repo(repo_dir)
+    git_repo = GitRepository(repo_dir)
+
+    bare_dir = tmp_path / "backing.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(bare_dir)], check=True)
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    key_marker = tmp_path / "key_seen_by_ssh.txt"
+    _make_fake_ssh(bin_dir, key_marker)
+
+    git_repo._env["PATH"] = f"{bin_dir}{os.pathsep}{git_repo._env['PATH']}"
+    monkeypatch.setattr(push, "vcs", git_repo)
+    monkeypatch.setattr(push, "GIT_BACKING_SSH", f"fakehost:{bare_dir}")
+
+    sha = push.push_to_git_backing("try")
+
+    assert key_marker.read_text() == "fake-key\n"
+    landed = subprocess.run(
+        ["git", "rev-parse", f"refs/heads/try/{sha}"],
+        cwd=bare_dir,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert landed == sha
+
+
+def test_push_to_git_backing_raises_on_real_git_push_failure(
+    tmp_path, monkeypatch, mock_tc_secret
+):
+    """Same setup as test_push_to_git_backing_runs_real_git_push, but the fake ssh
+    fails exactly like a real SSH publickey auth failure would (bug 1543241),
+    proving the real `git push` subprocess failure propagates as a
+    CalledProcessError instead of being silently swallowed."""
+    repo_dir = tmp_path / "repo"
+    _init_git_repo(repo_dir)
+    git_repo = GitRepository(repo_dir)
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    key_marker = tmp_path / "key_seen_by_ssh.txt"
+    _make_fake_ssh(bin_dir, key_marker, fail=True)
+
+    git_repo._env["PATH"] = f"{bin_dir}{os.pathsep}{git_repo._env['PATH']}"
+    monkeypatch.setattr(push, "vcs", git_repo)
+    monkeypatch.setattr(push, "GIT_BACKING_SSH", "fakehost:/nonexistent.git")
+
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        push.push_to_git_backing("try")
+
+    assert exc_info.value.returncode == 128
+    assert key_marker.read_text() == "fake-key\n"
 
 
 def test_push_to_try_skips_git_backing_for_hg_repos():
