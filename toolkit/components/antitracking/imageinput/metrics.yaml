@@ -1,0 +1,124 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Adding a new metric? We have docs for that!
+# https://firefox-source-docs.mozilla.org/toolkit/components/glean/user/new_definitions_file.html
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Core :: Privacy: Anti-Tracking'
+
+image_input:
+  offered:
+    type: event
+    description: >
+      Recorded once for each image file the user makes available to a web page,
+      at the moment it is handed over rather than when it is uploaded: choosing
+      files in a file or folder picker, dropping them onto the page, or pasting
+      them. That is the point at which page script gains read access to the
+      file, which may be earlier than, or instead of, any network request.
+
+      Not recorded for system principals or about: pages. Recorded in the
+      content process; the file's bytes are never read in the parent process.
+
+      Only the first few files of any one selection are inspected. The rest are
+      recorded with scan_outcome = skipped_batch_limit, and the true number of
+      candidate files is recorded separately as image_input.batch_size.
+
+      has_gps = "false" is a LOWER BOUND on how many uploads carry location.
+      Location held in XMP, in a MakerNote, in an Android Motion Photo's
+      appended MP4, in an MPF secondary image or in a thumbnail IFD is not
+      detected, nor are the GPSDest tags, which record where the camera was
+      headed rather than where it stood. Neither is location in WebP,
+      HEIF/HEIC or AVIF, which report scan_outcome = unsupported_container;
+      those are together about 1.8% of image inputs.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2058913
+    data_reviews:
+      # TODO: replace with the data review request before landing.
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2058913
+    data_sensitivity:
+      - interaction
+      - technical
+    notification_emails:
+      - ezuehlcke@mozilla.com
+      - anti-tracking@mozilla.com
+    expires: 163
+    extra_keys:
+      input_type:
+        description: >
+          How the file reached the page. One of "file_picker",
+          "directory_picker", "drop", "paste".
+        type: string
+      declared_type:
+        description: >
+          The MIME type the platform reported for the file, that is File.type,
+          mapped onto a closed vocabulary so that the cardinality stays bounded.
+          One of the image types in netwerk/mime/nsMimeTypes.h, plus
+          "image/heic" and "image/heif", "empty" when the platform reported no
+          type at all, and "other".
+        type: string
+      detected_format:
+        description: >
+          The container format determined from the file's leading bytes, rather
+          than from what the platform claimed. One of "jpeg", "png", "tiff",
+          "bigtiff", "webp", "heif", "avif", "gif", "bmp", "jxl", "svg",
+          "unknown", or "not_scanned" when no bytes were read.
+
+          Comparing this against declared_type finds files whose platform MIME
+          type is wrong or missing. HEIC has no entry in nsMimeTypes.h and no
+          extension mapping, so declared_type = "empty" with detected_format =
+          "heif" is expected rather than anomalous.
+        type: string
+      has_gps:
+        description: >
+          Whether the EXIF metadata can say where the image was captured.
+          "true" means latitude and longitude are both present and usable.
+          "ifd_only" means a GPS attribute IFD exists but carries no usable
+          position, which is what a partially stripped file looks like.
+          "false" means there is no GPS metadata. "unknown" means we could not
+          determine it; see scan_outcome.
+
+          The coordinates themselves are never retained or reported. Collapse
+          "ifd_only" into "false" for a simple yes or no rate.
+        type: string
+      scan_outcome:
+        description: >
+          Why has_gps holds the value it does. One of "ok", "no_exif",
+          "unsupported_container", "malformed_container",
+          "unsupported_exif_encoding", "exif_truncated",
+          "exif_location_unknown", "read_error", "skipped_batch_limit",
+          "skipped_empty_file", "skipped_parent_process".
+
+          has_gps = "true" is authoritative under every outcome, because a
+          position that has been found cannot be un-found by reading further.
+          has_gps = "false" and "ifd_only" are only authoritative for "ok" and
+          "no_exif".
+        type: string
+
+  batch_size:
+    type: custom_distribution
+    description: >
+      The number of candidate image files in a single user selection, counted
+      before any per-selection cap is applied. Recorded once per selection,
+      alongside the capped image_input.offered events, so that the total number
+      of images handed to web pages stays exactly countable even when the
+      per-file detail is truncated.
+    range_min: 1
+    range_max: 1024
+    bucket_count: 20
+    histogram_type: exponential
+    unit: files
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2058913
+    data_reviews:
+      # TODO: replace with the data review request before landing.
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2058913
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - ezuehlcke@mozilla.com
+      - anti-tracking@mozilla.com
+    expires: 163
