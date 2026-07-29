@@ -18591,6 +18591,12 @@
   value: true
   mirror: always
 
+# Collect telemetry about the image files users hand to web pages.
+- name: privacy.imageInputTelemetry.enabled
+  type: bool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "prompts."
 #---------------------------------------------------------------------------
