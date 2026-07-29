@@ -6,6 +6,8 @@
 
 #include "mozilla/ContentEvents.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/ImageInputTelemetry.h"
+#include "mozilla/StaticPrefs_privacy.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "nsIClipboard.h"
 
@@ -70,6 +72,23 @@ DataTransfer* ClipboardEvent::GetClipboardData() {
       event->mClipboardData = new DataTransfer(
           ToSupports(this), event->mMessage, event->mMessage == ePaste,
           Some(nsIClipboard::kGlobalClipboard));
+    }
+  }
+
+  // Only a paste brings anything in from outside; a copy or cut is the page's
+  // own data going the other way.
+  //
+  // Tests cannot synthesize a trusted paste, so they set the pref instead. The
+  // flag keeps repeated clipboardData access from recording the same paste
+  // twice.
+  if (event->mMessage == ePaste && !mImageInputTelemetryCollected &&
+      (!mEventIsInternal ||
+       StaticPrefs::privacy_imageInputTelemetry_enableTestMode())) {
+    mImageInputTelemetryCollected = true;
+    if (nsIGlobalObject* global = GetParentObject()) {
+      ImageInputTelemetry::MaybeRecordDataTransfer(ImageInputSource::Paste,
+                                                   event->mClipboardData,
+                                                   global->PrincipalOrNull());
     }
   }
 

@@ -16,6 +16,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventStateManager.h"
+#include "mozilla/ImageInputTelemetry.h"
 #include "mozilla/MappedDeclarationsBuilder.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MouseEvents.h"
@@ -213,6 +214,17 @@ const double HTMLInputElement::kMaximumMonthInMaximumYear = 9;
 const double HTMLInputElement::kMaximumWeekInYear = 53;
 const double HTMLInputElement::kMsPerDay = 24 * 60 * 60 * 1000;
 
+static nsTArray<RefPtr<File>> CollectFiles(
+    const nsTArray<OwningFileOrDirectory>& aFilesOrDirectories) {
+  nsTArray<RefPtr<File>> files;
+  for (const OwningFileOrDirectory& entry : aFilesOrDirectories) {
+    if (entry.IsFile()) {
+      files.AppendElement(entry.GetAsFile());
+    }
+  }
+  return files;
+}
+
 // An helper class for the dispatching of the 'change' event.
 // This class is used when the FilePicker finished its task (or when files and
 // directories are set by some chrome/test only method).
@@ -220,8 +232,12 @@ const double HTMLInputElement::kMsPerDay = 24 * 60 * 60 * 1000;
 // events at the end of the exploration of the directories.
 class DispatchChangeEventCallback final : public GetFilesCallback {
  public:
-  explicit DispatchChangeEventCallback(HTMLInputElement* aInputElement)
-      : mInputElement(aInputElement) {
+  // aInputType says how the directory this stands for reached the page. It has
+  // to be passed in: this callback serves both the folder picker and a folder
+  // dropped onto the element, and assuming either one would mislabel the other.
+  DispatchChangeEventCallback(HTMLInputElement* aInputElement,
+                              ImageInputSource aInputType)
+      : mInputElement(aInputElement), mInputType(aInputType) {
     MOZ_ASSERT(aInputElement);
   }
 
@@ -244,6 +260,11 @@ class DispatchChangeEventCallback final : public GetFilesCallback {
       element->SetAsFile() = file;
     }
 
+    // This is the only place a directory's files become visible to the page, so
+    // it is the only place they can be counted.
+    ImageInputTelemetry::MaybeRecordFiles(mInputType, CollectFiles(array),
+                                          mInputElement->NodePrincipal());
+
     mInputElement->SetFilesOrDirectories(array, true);
     (void)NS_WARN_IF(NS_FAILED(DispatchEvents()));
   }
@@ -263,6 +284,7 @@ class DispatchChangeEventCallback final : public GetFilesCallback {
 
  private:
   RefPtr<HTMLInputElement> mInputElement;
+  const ImageInputSource mInputType;
 };
 
 struct HTMLInputElement::FileData {
@@ -550,6 +572,13 @@ HTMLInputElement::nsFilePickerShownCallback::Done(
     return NS_OK;
   }
 
+  // A folder picker hands back a Directory rather than files, so nothing is
+  // recorded here for one; the files it stands for arrive later, through
+  // DispatchChangeEventCallback.
+  ImageInputTelemetry::MaybeRecordFiles(ImageInputSource::FilePicker,
+                                        CollectFiles(newFilesOrDirectories),
+                                        mInput->NodePrincipal());
+
   // Store the last used directory using the content pref service:
   nsCOMPtr<nsIFile> lastUsedDir = LastUsedDirectory(newFilesOrDirectories[0]);
 
@@ -569,7 +598,8 @@ HTMLInputElement::nsFilePickerShownCallback::Done(
     return NS_OK;
   }
   RefPtr<DispatchChangeEventCallback> dispatchChangeEventCallback =
-      new DispatchChangeEventCallback(mInput);
+      new DispatchChangeEventCallback(mInput,
+                                      ImageInputSource::DirectoryPicker);
 
   if (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
       mInput->HasAttr(nsGkAtoms::webkitdirectory)) {
@@ -2728,7 +2758,10 @@ void HTMLInputElement::MozSetDndFilesAndDirectories(
   }
 
   RefPtr<DispatchChangeEventCallback> dispatchChangeEventCallback =
-      new DispatchChangeEventCallback(this);
+      // Reached in production when a folder is dropped onto the element; see
+      // nsFileControlFrame::DnDListener. Labelling this a picker would misfile
+      // every folder drop.
+      new DispatchChangeEventCallback(this, ImageInputSource::Drop);
 
   if (StaticPrefs::dom_webkitBlink_dirPicker_enabled() &&
       HasAttr(nsGkAtoms::webkitdirectory)) {
