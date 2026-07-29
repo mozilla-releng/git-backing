@@ -45,6 +45,11 @@ class DragEvent : public MouseEvent {
                                                  const nsAString& aType,
                                                  const DragEventInit& aParam);
 
+ private:
+  // Whether this event has already been counted. The page may ask for
+  // dataTransfer any number of times, but the files only arrived once.
+  bool mImageInputTelemetryCollected = false;
+
  protected:
   ~DragEvent() = default;
 
