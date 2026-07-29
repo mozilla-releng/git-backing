@@ -9,6 +9,7 @@ JAR_MANIFESTS += ["jar.mn"]
 
 DIRS += [
     "bouncetrackingprotection",
+    "imageinput",
     "scopedprefs",
 ]
 

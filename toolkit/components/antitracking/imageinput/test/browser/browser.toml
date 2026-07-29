@@ -1,0 +1,17 @@
+[DEFAULT]
+head = ["head.js"]
+prefs = [
+  "privacy.imageInputTelemetry.enabled=true",
+  "privacy.imageInputTelemetry.enableTestMode=true",
+  "browser.newtab.preload=false",
+]
+
+["browser_directorypicker.js"]
+
+["browser_disabled.js"]
+
+["browser_drop.js"]
+
+["browser_filepicker.js"]
+
+["browser_paste.js"]
