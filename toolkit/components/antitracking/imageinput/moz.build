@@ -20,3 +20,6 @@ FINAL_LIBRARY = "xul"
 
 TEST_DIRS += ["test/gtest"]
 
+BROWSER_CHROME_MANIFESTS += ["test/browser/browser.toml"]
+
+MOCHITEST_MANIFESTS += ["test/mochitest/mochitest.toml"]
