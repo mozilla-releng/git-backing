@@ -1,0 +1,138 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>image_input telemetry from the Android file picker</title>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/GleanTest.js"></script>
+  <link rel="stylesheet" href="/tests/SimpleTest/test.css">
+</head>
+<body>
+<input id="picker" type="file">
+<script class="testbody" type="application/javascript">
+"use strict";
+
+/* Mirrors head.js in the browser-chrome tests: a bare little-endian TIFF block
+ * whose GPS IFD holds 51 30 N 0 7 39 W. IFD0 sits at 8, its GPS pointer names
+ * 26, and the coordinate rationals begin at 56 and 80. */
+function tiffBlockWithPosition() {
+  const bytes = [];
+  const u8 = v => bytes.push(v & 0xff);
+  const u16 = v => { u8(v); u8(v >> 8); };
+  const u32 = v => { u8(v); u8(v >> 8); u8(v >> 16); u8(v >> 24); };
+
+  u8(0x49); u8(0x49); u16(42); u32(8);
+
+  u16(1);
+  u16(0x8825); u16(4); u32(1); u32(26);
+  u32(0);
+
+  u16(2);
+  u16(0x0002); u16(5); u32(3); u32(56);
+  u16(0x0004); u16(5); u32(3); u32(80);
+  u32(0);
+
+  for (const n of [51, 30, 0]) { u32(n); u32(1); }
+  for (const n of [0, 7, 39]) { u32(n); u32(1); }
+  return bytes;
+}
+
+function makeJPEG(tiffBlock) {
+  const bytes = [0xff, 0xd8];
+  if (tiffBlock) {
+    const payload = [...Array.from("Exif\0\0", c => c.charCodeAt(0)), ...tiffBlock];
+    const length = payload.length + 2;
+    bytes.push(0xff, 0xe1, (length >> 8) & 0xff, length & 0xff, ...payload);
+  }
+  bytes.push(0xff, 0xda, 0x00, 0x02, 0xff, 0xd9);
+  return new Uint8Array(bytes);
+}
+
+// Registered once and torn down once. init() already unregisters a previously
+// registered factory, so pairing it with a cleanup() per task leaves the second
+// task unregistering something that is no longer there.
+let pickerReady = false;
+function mockPicker() {
+  const picker = SpecialPowers.MockFilePicker;
+  if (!pickerReady) {
+    picker.init();
+    pickerReady = true;
+    SimpleTest.registerCleanupFunction(() => picker.cleanup());
+  }
+  return picker;
+}
+
+async function pick(file) {
+  const picker = mockPicker();
+
+  const shown = new Promise(resolve => {
+    picker.showCallback = () => {
+      picker.setFiles([file]);
+      picker.returnValue = picker.returnOk;
+      resolve();
+    };
+  });
+
+  // notifyUserGestureActivation is chrome-only, so a plain mochitest has to
+  // reach it through SpecialPowers.
+  SpecialPowers.wrap(document).notifyUserGestureActivation();
+  document.getElementById("picker").click();
+  await shown;
+}
+
+async function waitForEvents(count) {
+  let events = null;
+  await SimpleTest.promiseWaitForCondition(async () => {
+    events = await GleanTest.imageInput.offered.testGetValue();
+    return events && events.length >= count;
+  }, `waiting for ${count} image_input.offered event(s)`);
+  return events;
+}
+
+// Set here rather than only in mochitest.toml so that flipping the default off
+// cannot quietly turn these into tests that assert nothing.
+add_task(async function enableImageInputTelemetry() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["privacy.imageInputTelemetry.enabled", true],
+      ["privacy.imageInputTelemetry.enableTestMode", true],
+    ],
+  });
+});
+
+add_task(async function geotagged_jpeg() {
+  await GleanTest.testResetFOG();
+
+  await pick(new File([makeJPEG(tiffBlockWithPosition())], "photo.jpg",
+                      { type: "image/jpeg" }));
+
+  const events = await waitForEvents(1);
+  is(events.length, 1, "one image was offered to the page");
+  is(events[0].extra.input_type, "file_picker", "came from the file picker");
+  is(events[0].extra.detected_format, "jpeg", "sniffed as a JPEG");
+  is(events[0].extra.has_gps, "true", "its position was found");
+});
+
+// HEIC is the format this matters most for on mobile, and the one the platform
+// most often cannot name. It has to be counted even though its metadata is not
+// read.
+add_task(async function heic_is_counted_even_though_it_is_not_read() {
+  await GleanTest.testResetFOG();
+
+  const heic = new Uint8Array([
+    0x00, 0x00, 0x00, 0x18,
+    ...Array.from("ftypheic", c => c.charCodeAt(0)),
+    ...new Array(32).fill(0),
+  ]);
+  await pick(new File([heic], "IMG_0001.HEIC", { type: "" }));
+
+  const events = await waitForEvents(1);
+  is(events[0].extra.detected_format, "heif",
+     "sniffed from the bytes, though the platform named no type");
+  is(events[0].extra.scan_outcome, "unsupported_container",
+     "and the reason we cannot answer is recorded");
+  is(events[0].extra.has_gps, "unknown", "not a confident no");
+});
+</script>
+</body>
+</html>

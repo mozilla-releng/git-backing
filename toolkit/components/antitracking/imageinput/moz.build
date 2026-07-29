@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Privacy: Anti-Tracking")
+
+EXPORTS.mozilla += [
+    "ImageInputTelemetry.h",
+]
+
+UNIFIED_SOURCES += [
+    "ImageInputBlobReader.cpp",
+    "ImageInputLabels.cpp",
+    "ImageInputScan.cpp",
+    "ImageInputTelemetry.cpp",
+]
+
+FINAL_LIBRARY = "xul"
+
+TEST_DIRS += ["test/gtest"]
+
+BROWSER_CHROME_MANIFESTS += ["test/browser/browser.toml"]
+
+MOCHITEST_MANIFESTS += ["test/mochitest/mochitest.toml"]

@@ -1,0 +1,5 @@
+[DEFAULT]
+# Dedicated test for Android which does not run the other browser mochitests.
+run-if = ["os == 'android'"]
+
+["test_android_filepicker_telemetry.html"]
