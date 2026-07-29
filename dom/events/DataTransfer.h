@@ -316,6 +316,10 @@ class DataTransfer final : public nsISupports, public nsWrapperCache {
   EventMessage GetEventMessage() const { return mEventMessage; }
   bool IsCrossDomainSubFrameDrop() const { return mIsCrossDomainSubFrameDrop; }
 
+  // Whether the data came from outside the page: a drag from another
+  // application or window, or the system clipboard.
+  bool IsExternal() const { return mIsExternal; }
+
   // converts the data into an array of nsITransferable objects to be used for
   // drag and drop or clipboard operations.
   already_AddRefed<nsIArray> GetTransferables(nsINode* aDragTarget);
