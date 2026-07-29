@@ -1,9 +1,13 @@
 import json
+import os
+import subprocess
+import sys
 import urllib.parse
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 import mozunit
+import psutil
 import pytest
 from mozversioncontrol.repo.git import GitRepository
 from responses import RequestsMock
@@ -306,6 +310,36 @@ def test_push_to_git_backing_returns_git_push_sha(
     env = mock_push.call_args.kwargs.get("env", {})
     assert "-o IdentitiesOnly=yes" in env.get("GIT_SSH_COMMAND", "")
     assert "-o StrictHostKeyChecking=accept-new" in env.get("GIT_SSH_COMMAND", "")
+
+
+def test_push_to_git_backing_closes_keyfile_before_push(
+    tmp_path, monkeypatch, mock_tc_secret
+):
+    """The key file must be closed before vcs.push() spawns ssh to read it. On
+    Windows a file this process still has open can't reliably be opened by another
+    process, which caused ssh to fail loading the key (bug 1543241)."""
+    git_repo = GitRepository(tmp_path)
+    monkeypatch.setattr(push, "vcs", git_repo)
+
+    open_pem_paths = []
+
+    def mock_run(*args, **kwargs):
+        if args[0] == "rev-parse":
+            return "gitsha456\n"
+        return None
+
+    def check_keyfile_closed(*args, **kwargs):
+        proc = psutil.Process()
+        open_pem_paths.extend(
+            f.path for f in proc.open_files() if f.path.endswith(".pem")
+        )
+
+    with patch.object(git_repo, "_run", side_effect=mock_run), patch.object(
+        git_repo, "push", side_effect=check_keyfile_closed
+    ):
+        push.push_to_git_backing("try")
+
+    assert open_pem_paths == []
 
 
 def _init_git_repo(repo_dir):
