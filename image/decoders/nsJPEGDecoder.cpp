@@ -688,7 +688,8 @@ EXIFData nsJPEGDecoder::ReadExifData() const {
 
   return EXIFParser::Parse(/* aExpectExifIdCode = */ true, marker->data,
                            static_cast<uint32_t>(marker->data_length),
-                           gfx::IntSize(mInfo.image_width, mInfo.image_height));
+                           gfx::IntSize(mInfo.image_width, mInfo.image_height),
+                           kMaxJPEGEXIFLength);
 }
 
 void nsJPEGDecoder::NotifyDone() {

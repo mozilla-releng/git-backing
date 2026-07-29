@@ -58,6 +58,8 @@ EXPORTS += [
 ]
 
 EXPORTS.mozilla.image += [
+    "decoders/EXIF.h",
+    "decoders/EXIFScanner.h",
     "encoders/bmp/nsBMPEncoder.h",
     "encoders/ico/nsICOEncoder.h",
     "encoders/jpeg/nsJPEGEncoder.h",
