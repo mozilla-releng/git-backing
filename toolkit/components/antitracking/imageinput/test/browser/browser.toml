@@ -1,0 +1,13 @@
+[DEFAULT]
+head = ["head.js"]
+prefs = ["browser.newtab.preload=false"]
+
+["browser_directorypicker.js"]
+
+["browser_disabled.js"]
+
+["browser_drop.js"]
+
+["browser_filepicker.js"]
+
+["browser_paste.js"]
