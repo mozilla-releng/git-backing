@@ -33,6 +33,11 @@ class ClipboardEvent : public Event {
   void InitClipboardEvent(const nsAString& aType, bool aCanBubble,
                           bool aCancelable, DataTransfer* aClipboardData);
 
+ private:
+  // Whether this event has already been counted. The page may ask for
+  // clipboardData any number of times, but the files only arrived once.
+  bool mImageInputTelemetryCollected = false;
+
  protected:
   ~ClipboardEvent() = default;
 };
