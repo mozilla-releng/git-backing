@@ -4,6 +4,7 @@
 
 #include "DragEvent.h"
 
+#include "mozilla/ImageInputTelemetry.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "nsContentUtils.h"
@@ -58,6 +59,24 @@ DataTransfer* DragEvent::GetDataTransfer() {
   if (!mEventIsInternal) {
     nsresult rv = nsContentUtils::SetDataTransferInEvent(dragEvent);
     NS_ENSURE_SUCCESS(rv, nullptr);
+  }
+
+  // Only a completed drop hands anything to the page. This is also reached on
+  // dragover, where the frame's own listener asks for the transfer to decide
+  // whether it can accept the drag, and counting those would mean scanning
+  // files every time the pointer moves over a file input.
+  //
+  // A drop a page dispatches at itself moves no file across any boundary, so
+  // only trusted events count. The flag keeps repeated dataTransfer access from
+  // recording the same drop twice.
+  if (dragEvent->mMessage == eDrop && IsTrusted() &&
+      !mImageInputTelemetryCollected) {
+    mImageInputTelemetryCollected = true;
+    if (nsIGlobalObject* global = GetParentObject()) {
+      ImageInputTelemetry::MaybeRecordDataTransfer(ImageInputSource::Drop,
+                                                   dragEvent->mDataTransfer,
+                                                   global->PrincipalOrNull());
+    }
   }
 
   return dragEvent->mDataTransfer;
