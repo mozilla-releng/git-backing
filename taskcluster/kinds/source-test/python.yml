@@ -369,6 +369,7 @@ tryselect:
     run:
         using: python-test
         subsuite: try
+        clone-with: git
     when:
         files-changed:
             - 'taskcluster/config.yml'
