@@ -212,12 +212,14 @@ def push_to_git_backing(prefix: str) -> str:
     client = get_client("secrets", [f"secrets:get:{GIT_BACKING_SECRET}"])
     key = client.get(GIT_BACKING_SECRET)["secret"]["ssh_privkey"]
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".pem") as keyfile:
-        keyfile.write(key)
-        os.chmod(keyfile.name, stat.S_IRUSR | stat.S_IWUSR)
-        keyfile.flush()
+    fd, keyfile_name = tempfile.mkstemp(suffix=".pem")
+    try:
+        with os.fdopen(fd, "w") as keyfile:
+            keyfile.write(key)
+        os.chmod(keyfile_name, stat.S_IRUSR | stat.S_IWUSR)
+
         ssh_command = (
-            f"ssh -F /dev/null -i {shlex.quote(keyfile.name)} "
+            f"ssh -F /dev/null -i {shlex.quote(keyfile_name)} "
             "-o IdentitiesOnly=yes -o IdentityAgent=none "
             "-o StrictHostKeyChecking=accept-new"
         )
@@ -231,6 +233,8 @@ def push_to_git_backing(prefix: str) -> str:
             env={"GIT_SSH_COMMAND": ssh_command},
         )
         return sha
+    finally:
+        os.remove(keyfile_name)
 
 
 def push_to_try(
