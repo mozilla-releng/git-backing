@@ -377,6 +377,21 @@ tryselect:
             - 'taskcluster/requirements.txt'
             - 'tools/tryselect/**'
 
+# THROWAWAY -- reproducing bug 1543241 on real Windows CI hardware. Delete
+# this job (and tools/tryselect/test/test_windows_repro.py) once diagnosed.
+win-repro:
+    description: THROWAWAY windows repro for bug 1543241
+    platform:
+        - windows11-64/opt
+    treeherder:
+        symbol: win-repro
+    run:
+        using: python-test
+        subsuite: win-repro
+    when:
+        files-changed:
+            - 'tools/tryselect/**'
+
 update-packaging:
     description: tools/update-packaging unit tests
     platform:
