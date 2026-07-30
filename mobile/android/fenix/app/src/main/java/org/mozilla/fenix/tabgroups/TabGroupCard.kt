@@ -36,6 +36,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.collectionItemInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -86,6 +89,7 @@ const val BOTTOM_END_THUMBNAIL_INDEX = 3
  * @param onDeleteTabGroupClick Invoked when the user clicks on delete tab group.
  * @param onEditTabGroupClick Invoked when the user clicks to edit the tab group.
  * @param onCloseTabGroupClick Invoked when the user clicks to close the tab group.
+ * @param itemInfo: Optional CollectionItemInfo? for reading this item in a list.
  */
 @Composable
 fun TabGroupCard(
@@ -97,6 +101,7 @@ fun TabGroupCard(
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onEditTabGroupClick: () -> Unit,
     onCloseTabGroupClick: () -> Unit,
+    itemInfo: CollectionItemInfo? = null,
 ) {
     val containerColor = tabGridItemContainerColor(selectionState)
 
@@ -113,7 +118,10 @@ fun TabGroupCard(
                 .tabItemClickable(
                     clickHandler = clickHandler,
                     clickedItem = group,
-                ),
+                )
+                .semantics {
+                    if (itemInfo != null) { collectionItemInfo = itemInfo }
+                },
             shape = tabContentCardShape,
             border = tabItemConditionalBorder(selectionState),
             colors = CardDefaults.cardColors(

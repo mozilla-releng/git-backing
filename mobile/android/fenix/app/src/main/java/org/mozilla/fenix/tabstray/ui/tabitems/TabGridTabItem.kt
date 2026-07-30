@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -72,6 +74,7 @@ private val TabHeaderFaviconSize = 12.dp
  * @param onClick Invoked when the item is clicked.
  * @param onLongClick Invoked when the item is long clicked.
  * @param interactionState The tab item's interaction state (hover, drag, etc)
+ * @param itemInfo: Optional CollectionItemInfo? for a11y to read this item in a collection.
  */
 @Composable
 fun TabGridTabItem(
@@ -89,6 +92,7 @@ fun TabGridTabItem(
     onClick: (TabsTrayItem) -> Unit,
     onLongClick: ((TabsTrayItem) -> Unit)? = null,
     interactionState: TabItemInteractionState,
+    itemInfo: CollectionItemInfo? = null,
 ) {
     SwipeToDismissBox2(
         modifier = modifier,
@@ -109,6 +113,7 @@ fun TabGridTabItem(
             ),
             onCloseTabClick = onCloseClick,
             interactionState = interactionState,
+            itemInfo = itemInfo,
         )
     }
 }
@@ -122,6 +127,7 @@ fun TabGridTabItem(
  * @param clickHandler: The tab's click handler,
  * @param onCloseTabClick: Invoked when a tab is closed.
  * @param interactionState The tab item's interaction state (hover, drag, etc)
+ * @param itemInfo: Optional CollectionItemInfo? for a11y to read this item in a collection.
  */
 @Composable
 private fun TabContent(
@@ -136,6 +142,7 @@ private fun TabContent(
     clickHandler: TabsTrayItemClickHandler,
     onCloseTabClick: ((TabsTrayItem.Tab) -> Unit),
     interactionState: TabItemInteractionState,
+    itemInfo: CollectionItemInfo? = null,
 ) {
     Box(
         modifier = modifier
@@ -153,6 +160,7 @@ private fun TabContent(
                 )
                 .semantics {
                     selected = selectionState.isFocused
+                    if (itemInfo != null) collectionItemInfo = itemInfo
                 },
             shape = tabContentCardShape,
             border = tabItemConditionalBorder(selectionState),
