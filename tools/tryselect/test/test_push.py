@@ -1,4 +1,7 @@
 import json
+import shlex
+import shutil
+import subprocess
 import urllib.parse
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
@@ -306,6 +309,59 @@ def test_push_to_git_backing_returns_git_push_sha(
     env = mock_push.call_args.kwargs.get("env", {})
     assert "-o IdentitiesOnly=yes" in env.get("GIT_SSH_COMMAND", "")
     assert "-o StrictHostKeyChecking=accept-new" in env.get("GIT_SSH_COMMAND", "")
+
+
+@pytest.mark.skipif(
+    shutil.which("ssh-keygen") is None, reason="ssh-keygen not available"
+)
+def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret):
+    """git-backing ssh deploy key is readable"""
+    ssh_keygen = shutil.which("ssh-keygen")
+    assert ssh_keygen
+
+    git_repo = GitRepository(tmp_path)
+    monkeypatch.setattr(push, "vcs", git_repo)
+
+    def mock_run(*args, **kwargs):
+        if args[0] == "rev-parse":
+            return "gitsha456\n"
+        return None
+
+    unexpected_failures = []
+
+    def check_keyfile_readable(*args, **kwargs):
+        ssh_command = kwargs.get("env", {}).get("GIT_SSH_COMMAND", "")
+        parts = shlex.split(ssh_command)
+        keyfile_path = parts[parts.index("-i") + 1]
+
+        proc = subprocess.run(
+            [ssh_keygen, "-y", "-f", keyfile_path],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        stderr = proc.stderr.lower()
+        # The only acceptable failure is one caused by our fake key's content
+        # being garbage, i.e. ssh-keygen must have gotten as far as reading and
+        # parsing the file. Different ssh-keygen builds word this differently.
+        content_error_markers = (
+            "invalid format",
+            "error in libcrypto",
+        )
+        if proc.returncode != 0 and not any(
+            marker in stderr for marker in content_error_markers
+        ):
+            unexpected_failures.append(proc.stderr)
+
+    with patch.object(git_repo, "_run", side_effect=mock_run), patch.object(
+        git_repo, "push", side_effect=check_keyfile_readable
+    ):
+        push.push_to_git_backing("try")
+
+    assert not unexpected_failures, (
+        "ssh-keygen failed to read the key file for a reason other than bad "
+        f"key content: {unexpected_failures}"
+    )
 
 
 def test_push_to_try_skips_git_backing_for_hg_repos():
