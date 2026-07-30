@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import stat
+import subprocess
 import sys
 import tempfile
 from functools import cache
@@ -217,6 +218,20 @@ def push_to_git_backing(prefix: str) -> str:
         with os.fdopen(fd, "w") as keyfile:
             keyfile.write(key)
         os.chmod(keyfile_name, stat.S_IRUSR | stat.S_IWUSR)
+        if sys.platform == "win32":
+            # os.chmod only toggles the read-only bit on Windows; OpenSSH
+            # rejects the key unless its ACL grants access to the owner only.
+            subprocess.run(
+                [
+                    "icacls",
+                    keyfile_name,
+                    "/inheritance:r",
+                    "/grant:r",
+                    f"{os.environ['USERNAME']}:F",
+                ],
+                check=True,
+                capture_output=True,
+            )
 
         ssh_command = (
             f"ssh -F /dev/null -i {shlex.quote(keyfile_name)} "
