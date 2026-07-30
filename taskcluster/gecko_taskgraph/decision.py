@@ -45,7 +45,7 @@ GIT_BACKING_REPO = "https://github.com/mozilla-releng/git-backing"
 # See `taskcluster/docs/parameters.rst` for information on parameters.
 PER_PROJECT_PARAMETERS = {
     "try": {
-        "enable_always_target": True,
+        "enable_always_target": False,
         "target_tasks_method": "try_tasks",
         "release_type": "nightly",
     },
