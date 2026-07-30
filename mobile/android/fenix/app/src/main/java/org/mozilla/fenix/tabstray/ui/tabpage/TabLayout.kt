@@ -68,6 +68,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.collectionInfo
+import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -616,10 +619,10 @@ private fun ReorderableTabGrid(
                 selectedItemIndex = selectedItemIndex,
                 columns = columns,
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
-            ) { index, tab ->
+            ) { gridIndex, _, tab ->
                 ReorderableTabGridItemContent(
                     tabsTrayItem = tab,
-                    index = index,
+                    gridIndex = gridIndex,
                     thumbnailSizePx = thumbnailSizePx,
                     hasHeader = header != null,
                     isInMultiSelectMode = isInMultiSelectMode,
@@ -644,7 +647,7 @@ private fun ReorderableTabGrid(
 }
 
 // Tab grid that supports reordering as well as drag and drop.
-@Suppress("LongParameterList", "LongMethod")
+@Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod")
 @Composable
 private fun InteractableTabGrid(
     tabs: List<TabsTrayItem>,
@@ -733,12 +736,18 @@ private fun InteractableTabGrid(
                 .drawVerticalReorderIndicator(gridInteractionState = gridInteractionState)
     ) {
         val columns = numberOfGridColumns
+        val collectionSemantics =
+            TabCollectionSemantics(
+                itemCount = tabs.size + if (showOnboardingCardInGrid) columns else 0,
+                columns = columns,
+            )
         LazyVerticalGrid(
             columns = GridCells.Fixed(count = columns),
             modifier =
                 modifier.fillMaxSize().semantics {
                     tabGridColumnCount = columns
                     testTag = TabsTrayTestTag.TAB_GRID
+                    collectionInfo = collectionSemantics.collectionInfo
                 },
             state = gridState,
             userScrollEnabled = gridInteractionState.draggedItem == InteractionState.Grid.None,
@@ -758,7 +767,8 @@ private fun InteractableTabGrid(
                 selectedItemIndex = selectedItemIndex,
                 columns = columns,
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
-            ) { index, tab ->
+                collectionSemantics = collectionSemantics,
+            ) { gridIndex, collectionIndex, tab ->
                 val pinnableContainer = LocalPinnableContainer.current
                 val isDragged by
                     remember(tab.id) {
@@ -773,7 +783,7 @@ private fun InteractableTabGrid(
                 }
                 InteractableTabGridItemContent(
                     tabsTrayItem = tab,
-                    index = index,
+                    gridIndex = gridIndex,
                     thumbnailSizePx = thumbnailSizePx,
                     hasHeader = header != null,
                     isInMultiSelectMode = isInMultiSelectMode,
@@ -788,6 +798,7 @@ private fun InteractableTabGrid(
                     onDeleteTabGroupClick = onDeleteTabGroupClick,
                     enteringGroupId = enteringGroupId,
                     onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+                    itemInfo = collectionSemantics.itemInfo(position = collectionIndex),
                 )
             }
 
@@ -806,7 +817,8 @@ private fun LazyGridScope.tabGridItems(
     selectedItemIndex: Int,
     columns: Int,
     onTabGroupOnboardingDismiss: () -> Unit,
-    tabContent: @Composable LazyGridItemScope.(gridIndex: Int, tab: TabsTrayItem) -> Unit,
+    collectionSemantics: TabCollectionSemantics? = null,
+    tabContent: @Composable LazyGridItemScope.(gridIndex: Int, collectionIndex: Int, tab: TabsTrayItem) -> Unit,
 ) {
     // Integer division rounds down so the onboarding card is inserted at the start
     //  of the row containing the selected tab, instead of splitting the row.
@@ -816,20 +828,30 @@ private fun LazyGridScope.tabGridItems(
         items = tabsBeforeOnboarding,
         key = { _, tab -> tab.id },
     ) { index, tab ->
-        tabContent(index, tab)
+        tabContent(index, index, tab)
     }
 
+    val modifier =
+        collectionSemantics?.let {
+            Modifier.semantics {
+                collectionItemInfo = it.itemInfo(position = onboardingInsertIndex, columnSpan = columns)
+            }
+        } ?: Modifier
     if (showTabGroupOnboarding) {
         item(key = TAB_GROUP_ONBOARDING_ITEM_KEY, span = { GridItemSpan(maxLineSpan) }) {
-            TabGroupOnboardingGridItem(onDismiss = onTabGroupOnboardingDismiss)
+            TabGroupOnboardingGridItem(
+                onDismiss = onTabGroupOnboardingDismiss,
+                modifier = modifier,
+            )
         }
 
         itemsIndexed(
             items = tabs.subList(onboardingInsertIndex, tabs.size),
             key = { _, tab -> tab.id },
         ) { index, tab ->
-            // + 1 to accommodate for the slot occupied by the onboarding row.
-            tabContent(onboardingInsertIndex + index + 1, tab)
+            val gridIndex = onboardingInsertIndex + index + 1
+            val collectionIndex = onboardingInsertIndex + index + columns
+            tabContent(gridIndex, collectionIndex, tab)
         }
     }
 }
@@ -867,7 +889,7 @@ private fun LazyGridScope.tabGridFooter(
 @Composable
 private fun LazyGridItemScope.ReorderableTabGridItemContent(
     tabsTrayItem: TabsTrayItem,
-    index: Int,
+    gridIndex: Int,
     thumbnailSizePx: Int,
     hasHeader: Boolean,
     isInMultiSelectMode: Boolean,
@@ -892,7 +914,7 @@ private fun LazyGridItemScope.ReorderableTabGridItemContent(
 
     ReorderableDragItemContainer(
         state = reorderState,
-        position = index + if (hasHeader) 1 else 0,
+        position = gridIndex + if (hasHeader) 1 else 0,
         key = tabsTrayItem.id,
         swipingActive = swipingActive,
     ) { interactionState ->
@@ -942,7 +964,7 @@ private fun LazyGridItemScope.ReorderableTabGridItemContent(
 @Composable
 private fun LazyGridItemScope.InteractableTabGridItemContent(
     tabsTrayItem: TabsTrayItem,
-    index: Int,
+    gridIndex: Int,
     thumbnailSizePx: Int,
     hasHeader: Boolean,
     isInMultiSelectMode: Boolean,
@@ -957,6 +979,8 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     enteringGroupId: String?,
     onGroupEntranceAnimationPlayed: () -> Unit,
+    modifier: Modifier = Modifier,
+    itemInfo: CollectionItemInfo? = null,
 ) {
     val swipeToDismissBoxState = rememberTabSwipeToDismissBoxState(tabId = tabsTrayItem.id)
     val shouldClickListen = reorderState.draggedItem.key != tabsTrayItem.id
@@ -968,7 +992,7 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
         }
     InteractableDragItemContainer(
         state = reorderState,
-        position = index + if (hasHeader) 1 else 0,
+        position = gridIndex + if (hasHeader) 1 else 0,
         key = tabsTrayItem.id,
         swipingActive = swipingActive,
         enteringGroupId = enteringGroupId,
@@ -993,6 +1017,8 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
                     thumbnailSizePx = thumbnailSizePx,
                     selectionState = selectionState,
                     shouldClickListen = shouldClickListen,
+                    modifier = modifier,
+                    itemInfo = itemInfo,
                 )
             }
 
@@ -1010,6 +1036,8 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
                     onCloseTabGroupClick = { onCloseTabGroupClick(tabsTrayItem) },
                     onShareTabGroupClick = onShareTabGroupClick,
                     onDeleteTabGroupClick = onDeleteTabGroupClick,
+                    modifier = modifier,
+                    itemInfo = itemInfo,
                 )
             }
         }
@@ -1046,6 +1074,7 @@ private fun TabListItemContent(
     onShareTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onDeleteTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onGroupEntranceAnimationPlayed: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val shouldClickListen = listInteractionState.draggedItem.key != tab.id
     when (tab) {
@@ -1053,7 +1082,7 @@ private fun TabListItemContent(
             TabListTabItem(
                 tab = tab,
                 modifier =
-                    Modifier.tabListItemShapeStyling(
+                    modifier.tabListItemShapeStyling(
                         tabShapeInfo = tabShapeInfo,
                         selectionState = selectionState,
                     ),
@@ -1070,7 +1099,8 @@ private fun TabListItemContent(
                 tabGroup = tab,
                 onClick = { onItemClick(tab) },
                 modifier =
-                    Modifier.tabListItemShapeStyling(
+                    modifier
+                        .tabListItemShapeStyling(
                             tabShapeInfo = tabShapeInfo,
                             selectionState = selectionState,
                         )
@@ -1187,6 +1217,11 @@ private fun InteractableTabList(
             listInteractionState.reset()
         }
     }
+    val collectionSemantics =
+        TabCollectionSemantics(
+            itemCount = tabs.size + if (showOnboardingCardInList) 1 else 0,
+            columns = 1,
+        )
     Box(
         modifier =
             Modifier.fillMaxSize()
@@ -1205,6 +1240,7 @@ private fun InteractableTabList(
                     .background(MaterialTheme.colorScheme.surface)
                     .semantics {
                         testTag = TabsTrayTestTag.TAB_LIST
+                        collectionInfo = collectionSemantics.collectionInfo
                     }
                     .drawHorizontalReorderIndicator(listInteractionState = listInteractionState, listState = state),
             state = state,
@@ -1235,6 +1271,7 @@ private fun InteractableTabList(
                 onPrivacyReportTapped = onPrivacyReportTapped,
                 enteringGroupId = enteringGroupId,
                 onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+                tabCollectionSemantics = collectionSemantics,
             )
         }
     }
@@ -1250,6 +1287,7 @@ private fun LazyListScope.interactableTabListContent(
     isInMultiSelectMode: Boolean,
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
+    tabCollectionSemantics: TabCollectionSemantics,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -1272,6 +1310,7 @@ private fun LazyListScope.interactableTabListContent(
         showTabGroupOnboarding = displayTabGroupOnboarding,
         selectedItemIndex = selectedItemIndex,
         onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
+        collectionSemantics = tabCollectionSemantics,
     ) { position, shapeInfo, tab ->
         // Pins the currently dragged item so that it can be scrolled off screen without being disposed
         val pinnableContainer = LocalPinnableContainer.current
@@ -1316,6 +1355,10 @@ private fun LazyListScope.interactableTabListContent(
                 onShareTabGroupClick = onShareTabGroupClick,
                 onDeleteTabGroupClick = onDeleteTabGroupClick,
                 onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+                modifier =
+                    Modifier.semantics {
+                        collectionItemInfo = tabCollectionSemantics.itemInfo(position = position)
+                    },
             )
         }
     }
@@ -1346,6 +1389,7 @@ private fun LazyListScope.tabListItems(
     showTabGroupOnboarding: Boolean,
     selectedItemIndex: Int,
     onTabGroupOnboardingDismiss: () -> Unit,
+    collectionSemantics: TabCollectionSemantics? = null,
     tabContent:
         @Composable
         LazyItemScope.(
@@ -1379,9 +1423,15 @@ private fun LazyListScope.tabListItems(
         item(key = TAB_GROUP_ONBOARDING_ITEM_KEY) {
             // The onboarding card is always before a tab, so it will clip to TabListFirstItemShape if first.
             val cardModifier = if (onboardingInsertIndex == 0) Modifier.clip(TabListFirstItemShape) else Modifier
+            val collectionSemanticsModifier =
+                collectionSemantics?.let {
+                    Modifier.semantics {
+                        collectionItemInfo = collectionSemantics.itemInfo(position = onboardingInsertIndex)
+                    }
+                } ?: Modifier
             TabGroupOnboardingListItem(
                 onDismiss = onTabGroupOnboardingDismiss,
-                modifier = cardModifier,
+                modifier = cardModifier.then(collectionSemanticsModifier),
             )
         }
 
