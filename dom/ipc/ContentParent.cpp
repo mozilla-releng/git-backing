@@ -3261,7 +3261,9 @@ mozilla::ipc::IPCResult ContentParent::RecvSetClipboard(
     const IPCTransferable& aTransferable,
     const nsIClipboard::ClipboardType& aWhichClipboard,
     const MaybeDiscarded<WindowContext>& aRequestingWindowContext) {
-  // aRequestingPrincipal is allowed to be nullptr here.
+  if (NS_WARN_IF(aRequestingWindowContext.IsNullOrDiscarded())) {
+    return IPC_OK();
+  }
 
   if (!ValidatePrincipal(aTransferable.dataPrincipal(),
                          {ValidatePrincipalOptions::AllowNullPtr})) {
@@ -3283,12 +3285,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSetClipboard(
       true /* aFilterUnknownFlavors */);
   NS_ENSURE_SUCCESS(rv, IPC_OK());
 
-  // OK if this is null
-  RefPtr<WindowGlobalParent> window;
-  if (!aRequestingWindowContext.IsDiscarded()) {
-    window = aRequestingWindowContext.get_canonical();
-  }
-  clipboard->SetData(trans, nullptr, aWhichClipboard, window);
+  clipboard->SetData(trans, nullptr, aWhichClipboard, aRequestingWindowContext.get_canonical());
   return IPC_OK();
 }
 
@@ -3603,13 +3600,13 @@ already_AddRefed<PClipboardWriteRequestParent>
 ContentParent::AllocPClipboardWriteRequestParent(
     const nsIClipboard::ClipboardType& aClipboardType,
     const MaybeDiscarded<WindowContext>& aSettingWindowContext) {
-  WindowContext* settingWindowContext = nullptr;
-  if (!aSettingWindowContext.IsDiscarded()) {
-    settingWindowContext = aSettingWindowContext.get();
+  if (NS_WARN_IF(aSettingWindowContext.IsNullOrDiscarded())) {
+    return nullptr;
   }
+
   RefPtr<ClipboardWriteRequestParent> request =
       MakeAndAddRef<ClipboardWriteRequestParent>(this);
-  request->Init(aClipboardType, settingWindowContext);
+  request->Init(aClipboardType, aSettingWindowContext.get());
   return request.forget();
 }
 
