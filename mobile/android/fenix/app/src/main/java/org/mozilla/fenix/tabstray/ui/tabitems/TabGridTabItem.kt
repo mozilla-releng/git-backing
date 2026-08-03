@@ -38,7 +38,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.collectionItemInfo
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -80,6 +82,7 @@ private val TabHeaderFaviconSize = 12.dp
  * @param onLongClick Invoked when the item is long clicked.
  * @param interactionState The tab item's interaction state (hover, drag, etc)
  * @param itemInfo: Optional CollectionItemInfo? for a11y to read this item in a collection.
+ * @param accessibilityActions Accessibility actions offered on the item, such as reordering it.
  */
 @Composable
 fun TabGridTabItem(
@@ -101,6 +104,7 @@ fun TabGridTabItem(
     onLongClick: ((TabsTrayItem) -> Unit)? = null,
     interactionState: TabItemInteractionState,
     itemInfo: CollectionItemInfo? = null,
+    accessibilityActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     // SwipeToDismissBox invokes onDismiss from a LaunchedEffect keyed on the callback, so an
     // unstable lambda would re-close the tab on every recomposition that follows the dismissal.
@@ -129,6 +133,7 @@ fun TabGridTabItem(
             onCloseTabClick = onCloseClick,
             interactionState = interactionState,
             itemInfo = itemInfo,
+            accessibilityActions = accessibilityActions,
         )
     }
 }
@@ -144,6 +149,7 @@ fun TabGridTabItem(
  * @param onCloseTabClick: Invoked when a tab is closed.
  * @param interactionState The tab item's interaction state (hover, drag, etc)
  * @param itemInfo: Optional CollectionItemInfo? for a11y to read this item in a collection.
+ * @param accessibilityActions Accessibility actions offered on the item, such as reordering it.
  */
 @Composable
 private fun TabContent(
@@ -160,6 +166,7 @@ private fun TabContent(
     onCloseTabClick: ((TabsTrayItem.Tab) -> Unit),
     interactionState: TabItemInteractionState,
     itemInfo: CollectionItemInfo? = null,
+    accessibilityActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     Box(
         modifier =
@@ -179,6 +186,9 @@ private fun TabContent(
                     .semantics {
                         selected = selectionState.isFocused
                         if (itemInfo != null) collectionItemInfo = itemInfo
+                        if (accessibilityActions.isNotEmpty()) {
+                            customActions = accessibilityActions
+                        }
                     },
             shape = tabContentCardShape,
             border = tabItemConditionalBorder(selectionState),
