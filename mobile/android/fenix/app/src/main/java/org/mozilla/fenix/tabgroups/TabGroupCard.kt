@@ -37,7 +37,9 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.collectionItemInfo
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -90,6 +92,7 @@ const val BOTTOM_END_THUMBNAIL_INDEX = 3
  * @param onEditTabGroupClick Invoked when the user clicks to edit the tab group.
  * @param onCloseTabGroupClick Invoked when the user clicks to close the tab group.
  * @param itemInfo: Optional CollectionItemInfo? for reading this item in a list.
+ * @param accessibilityActions Accessibility actions offered on the item, such as reordering it.
  */
 @Composable
 fun TabGroupCard(
@@ -102,6 +105,7 @@ fun TabGroupCard(
     onEditTabGroupClick: () -> Unit,
     onCloseTabGroupClick: () -> Unit,
     itemInfo: CollectionItemInfo? = null,
+    accessibilityActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     val containerColor = tabGridItemContainerColor(selectionState)
 
@@ -121,6 +125,7 @@ fun TabGroupCard(
                 )
                 .semantics {
                     if (itemInfo != null) { collectionItemInfo = itemInfo }
+                    if (accessibilityActions.isNotEmpty()) { customActions = accessibilityActions }
                 },
             shape = tabContentCardShape,
             border = tabItemConditionalBorder(selectionState),
