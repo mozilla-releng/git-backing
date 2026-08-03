@@ -69,8 +69,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.collectionInfo
 import androidx.compose.ui.semantics.collectionItemInfo
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -619,7 +621,7 @@ private fun ReorderableTabGrid(
                 selectedItemIndex = selectedItemIndex,
                 columns = columns,
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
-            ) { gridIndex, _, tab ->
+            ) { _, gridIndex, _, tab ->
                 ReorderableTabGridItemContent(
                     tabsTrayItem = tab,
                     gridIndex = gridIndex,
@@ -741,6 +743,7 @@ private fun InteractableTabGrid(
                 itemCount = tabs.size + if (showOnboardingCardInGrid) columns else 0,
                 columns = columns,
             )
+        val reorderGeometry = TabReorderGeometry(tabCount = tabs.size, columns = columns)
         LazyVerticalGrid(
             columns = GridCells.Fixed(count = columns),
             modifier =
@@ -768,7 +771,7 @@ private fun InteractableTabGrid(
                 columns = columns,
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
                 collectionSemantics = collectionSemantics,
-            ) { gridIndex, collectionIndex, tab ->
+            ) { tabIndex, gridIndex, collectionIndex, tab ->
                 val pinnableContainer = LocalPinnableContainer.current
                 val isDragged by
                     remember(tab.id) {
@@ -781,6 +784,15 @@ private fun InteractableTabGrid(
                     val handle = if (isDragged) pinnableContainer?.pin() else null
                     onDispose { handle?.release() }
                 }
+                val reorderActions =
+                    rememberTabReorderActions(
+                        item = tab,
+                        tabs = tabs,
+                        tabIndex = tabIndex,
+                        reorderGeometry = reorderGeometry,
+                        enabled = !isInMultiSelectMode,
+                        tabInteractionHandler = tabInteractionHandler,
+                    )
                 InteractableTabGridItemContent(
                     tabsTrayItem = tab,
                     gridIndex = gridIndex,
@@ -799,6 +811,7 @@ private fun InteractableTabGrid(
                     enteringGroupId = enteringGroupId,
                     onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
                     itemInfo = collectionSemantics.itemInfo(position = collectionIndex),
+                    accessibilityActions = reorderActions,
                 )
             }
 
@@ -818,7 +831,14 @@ private fun LazyGridScope.tabGridItems(
     columns: Int,
     onTabGroupOnboardingDismiss: () -> Unit,
     collectionSemantics: TabCollectionSemantics? = null,
-    tabContent: @Composable LazyGridItemScope.(gridIndex: Int, collectionIndex: Int, tab: TabsTrayItem) -> Unit,
+    tabContent:
+        @Composable
+        LazyGridItemScope.(
+            tabIndex: Int,
+            gridIndex: Int,
+            collectionIndex: Int,
+            tab: TabsTrayItem,
+        ) -> Unit,
 ) {
     // Integer division rounds down so the onboarding card is inserted at the start
     //  of the row containing the selected tab, instead of splitting the row.
@@ -828,7 +848,9 @@ private fun LazyGridScope.tabGridItems(
         items = tabsBeforeOnboarding,
         key = { _, tab -> tab.id },
     ) { index, tab ->
-        tabContent(index, index, tab)
+        // Before the onboarding card is placed,
+        // the tab, index, and collection positions all coincide
+        tabContent(index, index, index, tab)
     }
 
     val modifier =
@@ -849,9 +871,10 @@ private fun LazyGridScope.tabGridItems(
             items = tabs.subList(onboardingInsertIndex, tabs.size),
             key = { _, tab -> tab.id },
         ) { index, tab ->
-            val gridIndex = onboardingInsertIndex + index + 1
-            val collectionIndex = onboardingInsertIndex + index + columns
-            tabContent(gridIndex, collectionIndex, tab)
+            val tabIndex = onboardingInsertIndex + index
+            val gridIndex = tabIndex + 1
+            val collectionIndex = tabIndex + columns
+            tabContent(tabIndex, gridIndex, collectionIndex, tab)
         }
     }
 }
@@ -981,6 +1004,7 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
     onGroupEntranceAnimationPlayed: () -> Unit,
     modifier: Modifier = Modifier,
     itemInfo: CollectionItemInfo? = null,
+    accessibilityActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     val swipeToDismissBoxState = rememberTabSwipeToDismissBoxState(tabId = tabsTrayItem.id)
     val shouldClickListen = reorderState.draggedItem.key != tabsTrayItem.id
@@ -1019,6 +1043,7 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
                     shouldClickListen = shouldClickListen,
                     modifier = modifier,
                     itemInfo = itemInfo,
+                    accessibilityActions = accessibilityActions,
                 )
             }
 
@@ -1038,6 +1063,7 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
                     onDeleteTabGroupClick = onDeleteTabGroupClick,
                     modifier = modifier,
                     itemInfo = itemInfo,
+                    accessibilityActions = accessibilityActions,
                 )
             }
         }
@@ -1222,6 +1248,7 @@ private fun InteractableTabList(
             itemCount = tabs.size + if (showOnboardingCardInList) 1 else 0,
             columns = 1,
         )
+    val reorderGeometry = TabReorderGeometry(tabCount = tabs.size, columns = 1)
     Box(
         modifier =
             Modifier.fillMaxSize()
@@ -1272,12 +1299,14 @@ private fun InteractableTabList(
                 enteringGroupId = enteringGroupId,
                 onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
                 tabCollectionSemantics = collectionSemantics,
+                tabReorderGeometry = reorderGeometry,
+                tabInteractionHandler = tabInteractionHandler,
             )
         }
     }
 }
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 private fun LazyListScope.interactableTabListContent(
     header: (@Composable () -> Unit)? = null,
     tabs: List<TabsTrayItem>,
@@ -1288,6 +1317,8 @@ private fun LazyListScope.interactableTabListContent(
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
     tabCollectionSemantics: TabCollectionSemantics,
+    tabReorderGeometry: TabReorderGeometry,
+    tabInteractionHandler: TabInteractionHandler,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -1311,7 +1342,7 @@ private fun LazyListScope.interactableTabListContent(
         selectedItemIndex = selectedItemIndex,
         onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
         collectionSemantics = tabCollectionSemantics,
-    ) { position, shapeInfo, tab ->
+    ) { tabIndex, position, shapeInfo, tab ->
         // Pins the currently dragged item so that it can be scrolled off screen without being disposed
         val pinnableContainer = LocalPinnableContainer.current
         val isDragged by
@@ -1330,6 +1361,15 @@ private fun LazyListScope.interactableTabListContent(
             val handle = if (isDragged) pinnableContainer?.pin() else null
             onDispose { handle?.release() }
         }
+        val reorderActions =
+            rememberTabReorderActions(
+                item = tab,
+                tabs = tabs,
+                tabIndex = tabIndex,
+                reorderGeometry = tabReorderGeometry,
+                enabled = !isInMultiSelectMode,
+                tabInteractionHandler = tabInteractionHandler,
+            )
         InteractableDragItemContainer(
             state = listInteractionState,
             position = position + if (header != null) 1 else 0,
@@ -1358,6 +1398,9 @@ private fun LazyListScope.interactableTabListContent(
                 modifier =
                     Modifier.semantics {
                         collectionItemInfo = tabCollectionSemantics.itemInfo(position = position)
+                        if (reorderActions.isNotEmpty()) {
+                            customActions = reorderActions
+                        }
                     },
             )
         }
@@ -1393,6 +1436,7 @@ private fun LazyListScope.tabListItems(
     tabContent:
         @Composable
         LazyItemScope.(
+            tabIndex: Int,
             position: Int,
             shapeInfo: TabListShapeInfo,
             tab: TabsTrayItem,
@@ -1407,7 +1451,10 @@ private fun LazyListScope.tabListItems(
         items = tabsBeforeOnboarding,
         key = { _, tab -> tab.id },
     ) { index, tab ->
+        // Before the onboarding card is placed,
+        // the tab, index, and collection positions all coincide
         tabContent(
+            index,
             index,
             getTabShapeInfo(
                 firstItemIndex = 0,
@@ -1442,7 +1489,9 @@ private fun LazyListScope.tabListItems(
         ) { index, tab ->
             // + 1 to accommodate for the onboarding row
             val position = onboardingInsertIndex + index + 1
+            val tabIndex = onboardingInsertIndex + index
             tabContent(
+                tabIndex,
                 position,
                 getTabShapeInfo(
                     firstItemIndex = 0,
@@ -1558,7 +1607,7 @@ private fun ReorderableTabList(
                 showTabGroupOnboarding = displayTabGroupOnboarding,
                 selectedItemIndex = selectedItemIndex,
                 onTabGroupOnboardingDismiss = onTabGroupOnboardingDismiss,
-            ) { position, shapeInfo, tab ->
+            ) { _, position, shapeInfo, tab ->
                 val selectionState =
                     TabsTrayItemSelectionState(
                         isFocused = tab.isFocused,
