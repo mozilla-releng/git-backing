@@ -10,8 +10,11 @@ import androidx.compose.ui.semantics.CollectionItemInfo
 /**
  * Maps tab tray item positions onto accessibility collection rows and columns.
  *
- * @param itemCount Number of tab slots.
- * @param columns Number of columns in the layout; 1 for the list layout.
+ * Positions here count every slot a screen reader can land on, including non-tab slots such as the tab group onboarding
+ * card. Reordering works in tab list indices instead - see [TabReorderGeometry].
+ *
+ * @param itemCount Number of item slots.
+ * @param columns Number of columns in the layout (1 for a list).
  */
 internal data class TabCollectionSemantics(
     private val itemCount: Int,
