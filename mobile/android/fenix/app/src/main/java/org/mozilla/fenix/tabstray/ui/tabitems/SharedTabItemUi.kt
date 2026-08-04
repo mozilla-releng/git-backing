@@ -26,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,6 +78,7 @@ import org.mozilla.fenix.tabstray.TabsTrayTestTag
 import org.mozilla.fenix.tabstray.browser.compose.TabItemInteractionState
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.theme.FirefoxTheme
+import kotlin.math.abs
 import mozilla.components.ui.icons.R as iconsR
 
 // Rounded corner shape used by all tab items
@@ -400,6 +403,7 @@ fun tabGridItemContainerColor(selectionState: TabsTrayItemSelectionState): Color
 object Alpha {
     const val TAB_ITEM_DRAGGED = 0.7f
     const val TAB_ITEM_NO_INTERACTION = 1f
+    const val TAB_ITEM_MIN_SWIPE_FADE = 0.1f
 }
 
 /**
@@ -737,6 +741,39 @@ fun Modifier.defaultListItemAnimation(
         },
         fadeInSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
     )
+}
+
+/**
+ * Custom modifier that fades an item to transparent as it is swiped to dismiss.
+ * The minimum alpha is 10%, so the item will at least be 10% visible.
+ */
+fun Modifier.fadeOnSwipeToDismiss(state: SwipeToDismissBoxState) = graphicsLayer {
+    // state.progress is tied to targetValue which has a fixed threshold,
+    // so we need to pull the offset to get a linear fade animation.
+    val offset = try {
+        if (state.dismissDirection == SwipeToDismissBoxValue.Settled) {
+        0f
+        } else {
+            state.requireOffset()
+        }
+    } catch (e: IllegalStateException) {
+        e.printStackTrace()
+        // It should be safe to call requireOffset() here, but there's no
+        // reason to risk a crash for a fade animation.
+        0f
+    }
+    alpha = swipeFadeAlpha(offset = offset, width = size.width)
+}
+
+internal fun swipeFadeAlpha(offset: Float, width: Float): Float {
+    return if (width <= 0f || offset.isNaN()) {
+        Alpha.TAB_ITEM_NO_INTERACTION
+    } else {
+        maxOf(
+            Alpha.TAB_ITEM_MIN_SWIPE_FADE,
+            Alpha.TAB_ITEM_NO_INTERACTION - (abs(offset) / width).coerceIn(0f, 1f),
+        )
+    }
 }
 
 /**
