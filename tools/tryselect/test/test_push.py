@@ -1,4 +1,6 @@
 import json
+import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -314,10 +316,30 @@ def test_push_to_git_backing_returns_git_push_sha(
 @pytest.mark.skipif(
     shutil.which("ssh-keygen") is None, reason="ssh-keygen not available"
 )
-def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret):
-    """git-backing ssh deploy key is readable"""
+def test_push_to_git_backing_key_usable(tmp_path, monkeypatch, mock_tc_secret):
+    """git-backing ssh deploy key is readable, with permissions ssh will accept"""
     ssh_keygen = shutil.which("ssh-keygen")
     assert ssh_keygen
+
+    # ssh only enforces its strict identity-file permission check once it
+    # actually tries to authenticate, which needs a live network connection.
+    # ssh-add hits the same permission check while loading a key into an
+    # agent, without needing one, so use it here if available.
+    ssh_agent = shutil.which("ssh-agent")
+    ssh_add = shutil.which("ssh-add")
+    agent_env = None
+    agent_pid = None
+    if ssh_agent and ssh_add:
+        agent = subprocess.run(
+            ["ssh-agent", "-s"], capture_output=True, text=True, check=True
+        )
+        sock_match = re.search(r"SSH_AUTH_SOCK=([^;]+);", agent.stdout)
+        pid_match = re.search(r"SSH_AGENT_PID=(\d+);", agent.stdout)
+        assert sock_match and pid_match, (
+            f"could not parse ssh-agent output: {agent.stdout}"
+        )
+        agent_env = {**os.environ, "SSH_AUTH_SOCK": sock_match.group(1)}
+        agent_pid = pid_match.group(1)
 
     git_repo = GitRepository(tmp_path)
     monkeypatch.setattr(push, "vcs", git_repo)
@@ -329,7 +351,16 @@ def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret)
 
     unexpected_failures = []
 
-    def check_keyfile_readable(*args, **kwargs):
+    # The only acceptable failure is one caused by our fake key's content
+    # being garbage, i.e. the tool must have gotten as far as reading and
+    # parsing the file. Different ssh-keygen/ssh-add builds word this
+    # differently.
+    content_error_markers = (
+        "invalid format",
+        "error in libcrypto",
+    )
+
+    def check_keyfile(*args, **kwargs):
         ssh_command = kwargs.get("env", {}).get("GIT_SSH_COMMAND", "")
         parts = shlex.split(ssh_command)
         keyfile_path = parts[parts.index("-i") + 1]
@@ -341,26 +372,42 @@ def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret)
             check=False,
         )
         stderr = proc.stderr.lower()
-        # The only acceptable failure is one caused by our fake key's content
-        # being garbage, i.e. ssh-keygen must have gotten as far as reading and
-        # parsing the file. Different ssh-keygen builds word this differently.
-        content_error_markers = (
-            "invalid format",
-            "error in libcrypto",
-        )
         if proc.returncode != 0 and not any(
             marker in stderr for marker in content_error_markers
         ):
             unexpected_failures.append(proc.stderr)
 
-    with patch.object(git_repo, "_run", side_effect=mock_run), patch.object(
-        git_repo, "push", side_effect=check_keyfile_readable
-    ):
-        push.push_to_git_backing("try")
+        if agent_env is not None:
+            proc = subprocess.run(
+                [ssh_add, keyfile_path],
+                env=agent_env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            stderr = proc.stderr.lower()
+            if proc.returncode != 0 and not any(
+                marker in stderr for marker in content_error_markers
+            ):
+                unexpected_failures.append(proc.stderr)
+
+    try:
+        with patch.object(git_repo, "_run", side_effect=mock_run), patch.object(
+            git_repo, "push", side_effect=check_keyfile
+        ):
+            push.push_to_git_backing("try")
+    finally:
+        if agent_pid is not None:
+            subprocess.run(
+                ["ssh-agent", "-k"],
+                env={**os.environ, "SSH_AGENT_PID": agent_pid},
+                capture_output=True,
+                check=False,
+            )
 
     assert not unexpected_failures, (
-        "ssh-keygen failed to read the key file for a reason other than bad "
-        f"key content: {unexpected_failures}"
+        "ssh rejected the key file for a reason other than bad key content: "
+        f"{unexpected_failures}"
     )
 
 
