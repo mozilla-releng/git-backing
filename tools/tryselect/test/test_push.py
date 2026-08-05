@@ -2,6 +2,8 @@ import json
 import shlex
 import shutil
 import subprocess
+import sys
+import tempfile
 import urllib.parse
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
@@ -314,10 +316,25 @@ def test_push_to_git_backing_returns_git_push_sha(
 @pytest.mark.skipif(
     shutil.which("ssh-keygen") is None, reason="ssh-keygen not available"
 )
-def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret):
-    """git-backing ssh deploy key is readable"""
+def test_push_to_git_backing_key_usable(tmp_path, monkeypatch, mock_tc_secret):
+    """git-backing ssh deploy key is readable, with permissions ssh will accept"""
     ssh_keygen = shutil.which("ssh-keygen")
     assert ssh_keygen
+
+    if sys.platform == "win32":
+        # This CI worker's %TEMP% already has a narrow default ACL (owner +
+        # SYSTEM + Administrators only), so it never reproduces the overly-
+        # open ACL the fix guards against. Point the keyfile at a dedicated
+        # directory instead, with an inheritable broad grant added ahead of
+        # time, so there's an actual overly-open ACE for the fix to strip.
+        fake_temp = tmp_path / "faketemp"
+        fake_temp.mkdir()
+        subprocess.run(
+            ["icacls", str(fake_temp), "/grant", "Users:(OI)(CI)(RX)"],
+            check=True,
+            capture_output=True,
+        )
+        monkeypatch.setattr(tempfile, "tempdir", str(fake_temp))
 
     git_repo = GitRepository(tmp_path)
     monkeypatch.setattr(push, "vcs", git_repo)
@@ -329,7 +346,7 @@ def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret)
 
     unexpected_failures = []
 
-    def check_keyfile_readable(*args, **kwargs):
+    def check_keyfile(*args, **kwargs):
         ssh_command = kwargs.get("env", {}).get("GIT_SSH_COMMAND", "")
         parts = shlex.split(ssh_command)
         keyfile_path = parts[parts.index("-i") + 1]
@@ -353,14 +370,29 @@ def test_push_to_git_backing_key_readable(tmp_path, monkeypatch, mock_tc_secret)
         ):
             unexpected_failures.append(proc.stderr)
 
+        if sys.platform == "win32":
+            # ssh's own strict permission check only fires once it actually
+            # authenticates over a live connection, which needs a real
+            # server. Inspect the ACL directly instead: the keyfile was
+            # created under a directory with an inheritable Users grant, so
+            # the fix must strip that inherited ACE (icacls marks inherited
+            # entries with "(I)") or ssh would reject the key as too open.
+            acl = subprocess.run(
+                ["icacls", keyfile_path],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            if "(I)" in acl or "users:" in acl.lower():
+                unexpected_failures.append(acl)
+
     with patch.object(git_repo, "_run", side_effect=mock_run), patch.object(
-        git_repo, "push", side_effect=check_keyfile_readable
+        git_repo, "push", side_effect=check_keyfile
     ):
         push.push_to_git_backing("try")
 
     assert not unexpected_failures, (
-        "ssh-keygen failed to read the key file for a reason other than bad "
-        f"key content: {unexpected_failures}"
+        f"ssh would reject the key file: {unexpected_failures}"
     )
 
 
