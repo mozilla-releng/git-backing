@@ -3597,6 +3597,18 @@ void MacroAssembler::convertIntPtrToDouble(Register src, FloatRegister dest) {
 // ========================================================================
 // Primitive atomic operations.
 
+static BaseIndex ToAtomicAddress(MacroAssembler& masm, const BaseIndex& mem,
+                                 wasm::ZeroExtendIndex zeroExtend,
+                                 UseScratchRegisterScope& temps) {
+  if (zeroExtend == wasm::ZeroExtendIndex::No || mem.index == zero) {
+    return mem;
+  }
+
+  Register index = temps.Acquire();
+  masm.move32To64ZeroExtend(mem.index, Register64(index));
+  return BaseIndex(mem.base, index, mem.scale, mem.offset);
+}
+
 template <typename T>
 static void CompareExchange(MacroAssembler& masm,
                             const wasm::MemoryAccessDesc* access,
@@ -4122,6 +4134,18 @@ void MacroAssembler::wasmCompareExchange(const wasm::MemoryAccessDesc& access,
                   newval, valueTemp, offsetTemp, maskTemp, output);
 }
 
+void MacroAssembler::wasmCompareExchange(const wasm::MemoryAccessDesc& access,
+                                         const BaseIndex& mem, Register oldval,
+                                         Register newval, Register valueTemp,
+                                         Register offsetTemp, Register maskTemp,
+                                         Register output,
+                                         wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  CompareExchange(*this, &access, access.type(), access.sync(), address, oldval,
+                  newval, valueTemp, offsetTemp, maskTemp, output);
+}
+
 void MacroAssembler::wasmCompareExchange64(const wasm::MemoryAccessDesc& access,
                                            const Address& mem,
                                            Register64 expect,
@@ -4137,6 +4161,18 @@ void MacroAssembler::wasmCompareExchange64(const wasm::MemoryAccessDesc& access,
                                            Register64 replace,
                                            Register64 output) {
   CompareExchange64(*this, &access, access.sync(), mem, expect, replace,
+                    output);
+}
+
+void MacroAssembler::wasmCompareExchange64(const wasm::MemoryAccessDesc& access,
+                                           const BaseIndex& mem,
+                                           Register64 expect,
+                                           Register64 replace,
+                                           Register64 output,
+                                           wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  CompareExchange64(*this, &access, access.sync(), address, expect, replace,
                     output);
 }
 
@@ -4180,6 +4216,17 @@ void MacroAssembler::wasmAtomicExchange(const wasm::MemoryAccessDesc& access,
                                         Register valueTemp, Register offsetTemp,
                                         Register maskTemp, Register output) {
   AtomicExchange(*this, &access, access.type(), access.sync(), mem, value,
+                 valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssembler::wasmAtomicExchange(const wasm::MemoryAccessDesc& access,
+                                        const BaseIndex& mem, Register value,
+                                        Register valueTemp, Register offsetTemp,
+                                        Register maskTemp, Register output,
+                                        wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  AtomicExchange(*this, &access, access.type(), access.sync(), address, value,
                  valueTemp, offsetTemp, maskTemp, output);
 }
 
@@ -4241,6 +4288,18 @@ void MacroAssembler::wasmAtomicFetchOp(const wasm::MemoryAccessDesc& access,
                                        Register output) {
   AtomicFetchOp(*this, &access, access.type(), access.sync(), op, mem, value,
                 valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssembler::wasmAtomicFetchOp(const wasm::MemoryAccessDesc& access,
+                                       AtomicOp op, Register value,
+                                       const BaseIndex& mem, Register valueTemp,
+                                       Register offsetTemp, Register maskTemp,
+                                       Register output,
+                                       wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  AtomicFetchOp(*this, &access, access.type(), access.sync(), op, address,
+                value, valueTemp, offsetTemp, maskTemp, output);
 }
 
 template <typename T>
@@ -4388,6 +4447,18 @@ void MacroAssembler::wasmAtomicEffectOp(const wasm::MemoryAccessDesc& access,
                  valueTemp, offsetTemp, maskTemp);
 }
 
+void MacroAssembler::wasmAtomicEffectOp(const wasm::MemoryAccessDesc& access,
+                                        AtomicOp op, Register value,
+                                        const BaseIndex& mem,
+                                        Register valueTemp, Register offsetTemp,
+                                        Register maskTemp,
+                                        wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  AtomicEffectOp(*this, &access, access.type(), access.sync(), op, address,
+                 value, valueTemp, offsetTemp, maskTemp);
+}
+
 template <typename T>
 static void WasmAtomicExchange64(MacroAssembler& masm,
                                  const wasm::MemoryAccessDesc& access,
@@ -4408,6 +4479,15 @@ void MacroAssembler::wasmAtomicExchange64(const wasm::MemoryAccessDesc& access,
   WasmAtomicExchange64(*this, access, mem, src, output);
 }
 
+void MacroAssembler::wasmAtomicExchange64(const wasm::MemoryAccessDesc& access,
+                                          const BaseIndex& mem, Register64 src,
+                                          Register64 output,
+                                          wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  AtomicExchange64(*this, &access, access.sync(), address, src, output);
+}
+
 void MacroAssembler::wasmAtomicFetchOp64(const wasm::MemoryAccessDesc& access,
                                          AtomicOp op, Register64 value,
                                          const Address& mem, Register64 temp,
@@ -4420,6 +4500,17 @@ void MacroAssembler::wasmAtomicFetchOp64(const wasm::MemoryAccessDesc& access,
                                          const BaseIndex& mem, Register64 temp,
                                          Register64 output) {
   AtomicFetchOp64(*this, &access, access.sync(), op, value, mem, temp, output);
+}
+
+void MacroAssembler::wasmAtomicFetchOp64(const wasm::MemoryAccessDesc& access,
+                                         AtomicOp op, Register64 value,
+                                         const BaseIndex& mem, Register64 temp,
+                                         Register64 output,
+                                         wasm::ZeroExtendIndex zeroExtend) {
+  UseScratchRegisterScope temps(*this);
+  BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
+  AtomicFetchOp64(*this, &access, access.sync(), op, value, address, temp,
+                  output);
 }
 
 // ========================================================================
