@@ -949,6 +949,10 @@ void MacroAssemblerLOONG64Compat::computeScaledAddress32(
 
 Address MacroAssemblerLOONG64Compat::computeScaledAddress(
     const BaseIndex& address, UseScratchRegisterScope& temps) {
+  if (address.index == zero) {
+    return Address(address.base, address.offset);
+  }
+
   Register scratch = temps.Acquire();
   MOZ_ASSERT(scratch != address.base);
   MOZ_ASSERT(scratch != address.index);
@@ -2226,19 +2230,24 @@ void MacroAssemblerLOONG64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
                                          Register memoryBase, Register ptr,
                                          Register ptrScratch,
                                          AnyRegister output, Register tmp) {
-  access.assertOffsetInGuardPages();
   uint32_t offset = access.offset32();
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
-  // Maybe add the offset.
   if (offset) {
     asMasm().addPtr(ImmWord(offset), ptrScratch);
     ptr = ptrScratch;
   }
 
-  asMasm().memoryBarrierBefore(access.sync());
-  FaultingCodeRange fcr(currentOffset());
+  wasmLoadImpl(access, memoryBase, ptr, output);
+}
 
+void MacroAssemblerLOONG64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
+                                         Register memoryBase, Register ptr,
+                                         AnyRegister output) {
+  access.assertOffsetInGuardPages();
+  asMasm().memoryBarrierBefore(access.sync());
+
+  FaultingCodeRange fcr(currentOffset());
   switch (access.type()) {
     case Scalar::Int8:
       as_ldx_b(output.gpr(), memoryBase, ptr);
@@ -2253,8 +2262,13 @@ void MacroAssemblerLOONG64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
       as_ldx_hu(output.gpr(), memoryBase, ptr);
       break;
     case Scalar::Int32:
-    case Scalar::Uint32:
       as_ldx_w(output.gpr(), memoryBase, ptr);
+      break;
+    case Scalar::Uint32:
+      as_ldx_wu(output.gpr(), memoryBase, ptr);
+      break;
+    case Scalar::Int64:
+      as_ldx_d(output.gpr(), memoryBase, ptr);
       break;
     case Scalar::Float64:
       as_fldx_d(output.fpu(), memoryBase, ptr);
@@ -2271,23 +2285,85 @@ void MacroAssemblerLOONG64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
   asMasm().memoryBarrierAfter(access.sync());
 }
 
+void MacroAssemblerLOONG64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
+                                         Address address, AnyRegister output) {
+  access.assertOffsetInGuardPages();
+  asMasm().memoryBarrierBefore(access.sync());
+
+  FaultingCodeRange fcr(currentOffset());
+  switch (access.type()) {
+    case Scalar::Int8:
+      fcr = ma_load(output.gpr(), address, SizeByte, SignExtend);
+      break;
+    case Scalar::Uint8:
+      fcr = ma_load(output.gpr(), address, SizeByte, ZeroExtend);
+      break;
+    case Scalar::Int16:
+      fcr = ma_load(output.gpr(), address, SizeHalfWord, SignExtend);
+      break;
+    case Scalar::Uint16:
+      fcr = ma_load(output.gpr(), address, SizeHalfWord, ZeroExtend);
+      break;
+    case Scalar::Int32:
+      fcr = ma_load(output.gpr(), address, SizeWord, SignExtend);
+      break;
+    case Scalar::Uint32:
+      fcr = ma_load(output.gpr(), address, SizeWord, ZeroExtend);
+      break;
+    case Scalar::Int64:
+      fcr = ma_load(output.gpr(), address, SizeDouble);
+      break;
+    case Scalar::Float64:
+      fcr = ma_fld_d(output.fpu(), address);
+      break;
+    case Scalar::Float32:
+      fcr = ma_fld_s(output.fpu(), address);
+      break;
+    default:
+      MOZ_CRASH("unexpected array type");
+  }
+
+  asMasm().appendAndVerify(
+      access, wasm::TrapMachineInsnForLoad(byteSize(access.type())), fcr);
+  asMasm().memoryBarrierAfter(access.sync());
+}
+
+void MacroAssemblerLOONG64::wasmLoadAbsoluteImpl(
+    const wasm::MemoryAccessDesc& access, Register memoryBase, uint64_t address,
+    AnyRegister output) {
+  if (address <= uint64_t(INT32_MAX)) {
+    wasmLoadImpl(access, Address(memoryBase, int32_t(address)), output);
+    return;
+  }
+
+  UseScratchRegisterScope temps(asMasm());
+  Register scratch = temps.Acquire();
+  ma_li(scratch, ImmWord(address));
+  wasmLoadImpl(access, memoryBase, scratch, output);
+}
+
 void MacroAssemblerLOONG64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
                                           AnyRegister value,
                                           Register memoryBase, Register ptr,
                                           Register ptrScratch, Register tmp) {
-  access.assertOffsetInGuardPages();
   uint32_t offset = access.offset32();
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
-  // Maybe add the offset.
   if (offset) {
     asMasm().addPtr(ImmWord(offset), ptrScratch);
     ptr = ptrScratch;
   }
 
-  asMasm().memoryBarrierBefore(access.sync());
-  FaultingCodeRange fcr(currentOffset());
+  wasmStoreImpl(access, value, memoryBase, ptr);
+}
 
+void MacroAssemblerLOONG64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
+                                          AnyRegister value,
+                                          Register memoryBase, Register ptr) {
+  access.assertOffsetInGuardPages();
+  asMasm().memoryBarrierBefore(access.sync());
+
+  FaultingCodeRange fcr(currentOffset());
   switch (access.type()) {
     case Scalar::Int8:
     case Scalar::Uint8:
@@ -2319,83 +2395,33 @@ void MacroAssemblerLOONG64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
   asMasm().memoryBarrierAfter(access.sync());
 }
 
-void MacroAssemblerLOONG64Compat::wasmLoadI64Impl(
-    const wasm::MemoryAccessDesc& access, Register memoryBase, Register ptr,
-    Register ptrScratch, Register64 output, Register tmp) {
-  uint32_t offset = access.offset32();
-  MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
-
-  // Maybe add the offset.
-  if (offset) {
-    asMasm().addPtr(ImmWord(offset), ptrScratch);
-    ptr = ptrScratch;
-  }
-
+void MacroAssemblerLOONG64::wasmStoreImpl(const wasm::MemoryAccessDesc& access,
+                                          AnyRegister value, Address address) {
+  access.assertOffsetInGuardPages();
   asMasm().memoryBarrierBefore(access.sync());
+
   FaultingCodeRange fcr(currentOffset());
-
-  switch (access.type()) {
-    case Scalar::Int8:
-      as_ldx_b(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Uint8:
-      as_ldx_bu(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Int16:
-      as_ldx_h(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Uint16:
-      as_ldx_hu(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Int32:
-      as_ldx_w(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Uint32:
-      // TODO(loong64): Why need zero-extension here?
-      as_ldx_wu(output.reg, memoryBase, ptr);
-      break;
-    case Scalar::Int64:
-      as_ldx_d(output.reg, memoryBase, ptr);
-      break;
-    default:
-      MOZ_CRASH("unexpected array type");
-  }
-
-  asMasm().appendAndVerify(
-      access, wasm::TrapMachineInsnForLoad(byteSize(access.type())), fcr);
-  asMasm().memoryBarrierAfter(access.sync());
-}
-
-void MacroAssemblerLOONG64Compat::wasmStoreI64Impl(
-    const wasm::MemoryAccessDesc& access, Register64 value, Register memoryBase,
-    Register ptr, Register ptrScratch, Register tmp) {
-  uint32_t offset = access.offset32();
-  MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
-
-  // Maybe add the offset.
-  if (offset) {
-    asMasm().addPtr(ImmWord(offset), ptrScratch);
-    ptr = ptrScratch;
-  }
-
-  asMasm().memoryBarrierBefore(access.sync());
-  FaultingCodeRange fcr(currentOffset());
-
   switch (access.type()) {
     case Scalar::Int8:
     case Scalar::Uint8:
-      as_stx_b(value.reg, memoryBase, ptr);
+      fcr = ma_store(value.gpr(), address, SizeByte);
       break;
     case Scalar::Int16:
     case Scalar::Uint16:
-      as_stx_h(value.reg, memoryBase, ptr);
+      fcr = ma_store(value.gpr(), address, SizeHalfWord);
       break;
     case Scalar::Int32:
     case Scalar::Uint32:
-      as_stx_w(value.reg, memoryBase, ptr);
+      fcr = ma_store(value.gpr(), address, SizeWord);
       break;
     case Scalar::Int64:
-      as_stx_d(value.reg, memoryBase, ptr);
+      fcr = ma_store(value.gpr(), address, SizeDouble);
+      break;
+    case Scalar::Float64:
+      fcr = ma_fst_d(value.fpu(), address);
+      break;
+    case Scalar::Float32:
+      fcr = ma_fst_s(value.fpu(), address);
       break;
     default:
       MOZ_CRASH("unexpected array type");
@@ -2404,6 +2430,50 @@ void MacroAssemblerLOONG64Compat::wasmStoreI64Impl(
   asMasm().appendAndVerify(
       access, wasm::TrapMachineInsnForStore(byteSize(access.type())), fcr);
   asMasm().memoryBarrierAfter(access.sync());
+}
+
+void MacroAssemblerLOONG64::wasmStoreAbsoluteImpl(
+    const wasm::MemoryAccessDesc& access, AnyRegister value,
+    Register memoryBase, uint64_t address) {
+  if (address <= uint64_t(INT32_MAX)) {
+    wasmStoreImpl(access, value, Address(memoryBase, int32_t(address)));
+    return;
+  }
+
+  UseScratchRegisterScope temps(asMasm());
+  Register scratch = temps.Acquire();
+  ma_li(scratch, ImmWord(address));
+  wasmStoreImpl(access, value, memoryBase, scratch);
+}
+
+void MacroAssemblerLOONG64Compat::wasmLoadI64Impl(
+    const wasm::MemoryAccessDesc& access, Register memoryBase, Register ptr,
+    Register ptrScratch, Register64 output, Register tmp) {
+  uint32_t offset = access.offset32();
+  MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
+
+  if (offset) {
+    asMasm().addPtr(ImmWord(offset), ptrScratch);
+    ptr = ptrScratch;
+  }
+
+  MacroAssemblerLOONG64::wasmLoadImpl(access, memoryBase, ptr,
+                                      AnyRegister(output.reg));
+}
+
+void MacroAssemblerLOONG64Compat::wasmStoreI64Impl(
+    const wasm::MemoryAccessDesc& access, Register64 value, Register memoryBase,
+    Register ptr, Register ptrScratch, Register tmp) {
+  uint32_t offset = access.offset32();
+  MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
+
+  if (offset) {
+    asMasm().addPtr(ImmWord(offset), ptrScratch);
+    ptr = ptrScratch;
+  }
+
+  MacroAssemblerLOONG64::wasmStoreImpl(access, AnyRegister(value.reg),
+                                       memoryBase, ptr);
 }
 
 void MacroAssemblerLOONG64::outOfLineWasmTruncateToInt32Check(

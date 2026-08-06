@@ -388,10 +388,48 @@ class MacroAssemblerLOONG64 : public Assembler {
       FloatRegister input, Register64 output, MIRType fromType,
       TruncFlags flags, Label* rejoin, const wasm::TrapSiteDesc& trapSiteDesc);
 
+  // The complete address is in `address`, and `access` is used for its type
+  // attributes only; its `offset` is ignored.
+  void wasmLoadAbsolute(const wasm::MemoryAccessDesc& access,
+                        Register memoryBase, uint64_t address,
+                        AnyRegister output) {
+    wasmLoadAbsoluteImpl(access, memoryBase, address, output);
+  }
+  void wasmLoadAbsoluteI64(const wasm::MemoryAccessDesc& access,
+                           Register memoryBase, uint64_t address,
+                           Register64 output) {
+    wasmLoadAbsoluteImpl(access, memoryBase, address, AnyRegister(output.reg));
+  }
+  void wasmStoreAbsolute(const wasm::MemoryAccessDesc& access,
+                         AnyRegister value, Register memoryBase,
+                         uint64_t address) {
+    wasmStoreAbsoluteImpl(access, value, memoryBase, address);
+  }
+  void wasmStoreAbsoluteI64(const wasm::MemoryAccessDesc& access,
+                            Register64 value, Register memoryBase,
+                            uint64_t address) {
+    wasmStoreAbsoluteImpl(access, AnyRegister(value.reg), memoryBase, address);
+  }
+
  protected:
+  void wasmLoadAbsoluteImpl(const wasm::MemoryAccessDesc& access,
+                            Register memoryBase, uint64_t address,
+                            AnyRegister output);
+  void wasmStoreAbsoluteImpl(const wasm::MemoryAccessDesc& access,
+                             AnyRegister value, Register memoryBase,
+                             uint64_t address);
+
+  void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Register memoryBase,
+                    Register ptr, AnyRegister output);
+  void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Address address,
+                    AnyRegister output);
   void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Register memoryBase,
                     Register ptr, Register ptrScratch, AnyRegister output,
                     Register tmp);
+  void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister value,
+                     Register memoryBase, Register ptr);
+  void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister value,
+                     Address address);
   void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister value,
                      Register memoryBase, Register ptr, Register ptrScratch,
                      Register tmp);
