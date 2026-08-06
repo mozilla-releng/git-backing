@@ -914,6 +914,26 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_load(Register dest, Address address,
             as_ld_h(dest, address.base, address.offset);
           }
         }
+      } else if (is_two_int12(address.offset)) {
+        // This load can be represented by an `addi.d; ld.*` sequence.
+        auto [first, second] = ToTwoInt12(address.offset);
+        Register scratch = temps.Acquire();
+        as_addi_d(scratch, address.base, first);
+
+        fcr = FaultingCodeRange(currentOffset());
+        if (size == SizeByte) {
+          if (extension == ZeroExtend) {
+            as_ld_bu(dest, scratch, second);
+          } else {
+            as_ld_b(dest, scratch, second);
+          }
+        } else {
+          if (extension == ZeroExtend) {
+            as_ld_hu(dest, scratch, second);
+          } else {
+            as_ld_h(dest, scratch, second);
+          }
+        }
       } else {
         // The offset to this load needs to be built in a separate register.
         Register scratch = temps.Acquire();
@@ -960,6 +980,22 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_load(Register dest, Address address,
         } else {
           as_ldptr_d(dest, address.base, address.offset);
         }
+      } else if (is_two_int12(address.offset)) {
+        // This load can be represented by an `addi.d; ld.*` sequence.
+        auto [first, second] = ToTwoInt12(address.offset);
+        Register scratch = temps.Acquire();
+        as_addi_d(scratch, address.base, first);
+
+        fcr = FaultingCodeRange(currentOffset());
+        if (size == SizeWord) {
+          if (extension == ZeroExtend) {
+            as_ld_wu(dest, scratch, second);
+          } else {
+            as_ld_w(dest, scratch, second);
+          }
+        } else {
+          as_ld_d(dest, scratch, second);
+        }
       } else {
         // The offset to this load needs to be built in a separate register.
         Register scratch = temps.Acquire();
@@ -999,6 +1035,18 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_store(
         } else {
           as_st_h(data, address.base, address.offset);
         }
+      } else if (is_two_int12(address.offset)) {
+        // This store can be represented by an `addi.d; st.*` sequence.
+        auto [first, second] = ToTwoInt12(address.offset);
+        Register scratch = temps.Acquire();
+        as_addi_d(scratch, address.base, first);
+
+        fcr = FaultingCodeRange(currentOffset());
+        if (size == SizeByte) {
+          as_st_b(data, scratch, second);
+        } else {
+          as_st_h(data, scratch, second);
+        }
       } else {
         // The offset to this store needs to be built in a separate register.
         Register scratch = temps.Acquire();
@@ -1030,6 +1078,18 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_store(
           as_stptr_w(data, address.base, address.offset);
         } else {
           as_stptr_d(data, address.base, address.offset);
+        }
+      } else if (is_two_int12(address.offset)) {
+        // This store can be represented by an `addi.d; st.*` sequence.
+        auto [first, second] = ToTwoInt12(address.offset);
+        Register scratch = temps.Acquire();
+        as_addi_d(scratch, address.base, first);
+
+        fcr = FaultingCodeRange(currentOffset());
+        if (size == SizeWord) {
+          as_st_w(data, scratch, second);
+        } else {
+          as_st_d(data, scratch, second);
         }
       } else {
         // The offset to this store needs to be built in a separate register.
