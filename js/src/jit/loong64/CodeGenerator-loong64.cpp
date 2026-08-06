@@ -835,11 +835,15 @@ void CodeGenerator::visitWasmLoadI64(LWasmLoadI64* lir) {
     return;
   }
 
+  UseScratchRegisterScope temps(masm);
   Register ptrScratch = ToTempRegisterOrInvalid(lir->temp0());
   Register ptrReg = ToRegister(lir->ptr());
   if (mir->base()->type() == MIRType::Int32) {
     // See comment in visitWasmLoad re the type of 'base'.
-    masm.move32ZeroExtendToPtr(ptrReg, ptrReg);
+    Register scratch = temps.Acquire();
+    masm.move32ZeroExtendToPtr(ptrReg, scratch);
+    ptrReg = scratch;
+    ptrScratch = ptrScratch != InvalidReg ? scratch : InvalidReg;
   }
 
   masm.wasmLoadI64(access, memoryBase, ptrReg, ptrScratch, output);
@@ -857,11 +861,15 @@ void CodeGenerator::visitWasmStoreI64(LWasmStoreI64* lir) {
     return;
   }
 
+  UseScratchRegisterScope temps(masm);
   Register ptrScratch = ToTempRegisterOrInvalid(lir->temp0());
   Register ptrReg = ToRegister(lir->ptr());
   if (mir->base()->type() == MIRType::Int32) {
     // See comment in visitWasmLoad re the type of 'base'.
-    masm.move32ZeroExtendToPtr(ptrReg, ptrReg);
+    Register scratch = temps.Acquire();
+    masm.move32ZeroExtendToPtr(ptrReg, scratch);
+    ptrReg = scratch;
+    ptrScratch = ptrScratch != InvalidReg ? scratch : InvalidReg;
   }
 
   masm.wasmStoreI64(access, value, memoryBase, ptrReg, ptrScratch);
