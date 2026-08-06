@@ -1043,9 +1043,13 @@ void MacroAssemblerLOONG64Compat::computeScaledAddress(const BaseIndex& address,
   Register base = address.base;
   Register index = address.index;
   int32_t shift = Imm32::ShiftOf(address.scale).value;
+  MOZ_ASSERT(shift <= 4);
 
-  if (shift) {
-    MOZ_ASSERT(shift <= 4);
+  if (index == zero) {
+    if (dest != base) {
+      movePtr(base, dest);
+    }
+  } else if (shift) {
     as_alsl_d(dest, index, base, shift - 1);
   } else {
     as_add_d(dest, base, index);
@@ -1057,9 +1061,11 @@ void MacroAssemblerLOONG64Compat::computeScaledAddress32(
   Register base = address.base;
   Register index = address.index;
   int32_t shift = Imm32::ShiftOf(address.scale).value;
+  MOZ_ASSERT(shift <= 4);
 
-  if (shift) {
-    MOZ_ASSERT(shift <= 4);
+  if (index == zero) {
+    move32(base, dest);
+  } else if (shift) {
     as_alsl_w(dest, index, base, shift - 1);
   } else {
     as_add_w(dest, base, index);
