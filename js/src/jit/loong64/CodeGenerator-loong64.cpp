@@ -422,7 +422,12 @@ void CodeGeneratorLOONG64::emitWasmStore(T* lir) {
   const MWasmStore* mir = lir->mir();
   const auto& access = mir->access();
 
-  AnyRegister value = ToAnyRegister(lir->value());
+  AnyRegister value;
+  if (lir->value()->isBogus()) {
+    value = AnyRegister(zero);
+  } else {
+    value = ToAnyRegister(lir->value());
+  }
   Register memoryBase = ToRegister(lir->memoryBase());
 
   if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
@@ -853,7 +858,12 @@ void CodeGenerator::visitWasmStoreI64(LWasmStoreI64* lir) {
   const MWasmStore* mir = lir->mir();
   const auto& access = mir->access();
 
-  Register64 value = ToRegister64(lir->value());
+  Register64 value = Register64::Invalid();
+  if (lir->value().value().isBogus()) {
+    value = Register64(zero);
+  } else {
+    value = ToRegister64(lir->value());
+  }
   Register memoryBase = ToRegister(lir->memoryBase());
 
   if (auto address = ToAbsoluteAddress(lir->ptr(), access)) {
