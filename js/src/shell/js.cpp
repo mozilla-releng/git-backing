@@ -13307,6 +13307,7 @@ bool InitOptionParser(OptionParser& op) {
                        "Stop the MIPS simulator after the given "
                        "NUMBER of instructions.",
                        -1) ||
+#if defined(JS_SIMULATOR_LOONG64)
       !op.addBoolOption('\0', "loong64-sim-icache-checks",
                         "Enable icache flush checks in the LoongArch64 "
                         "simulator.") ||
@@ -13314,6 +13315,7 @@ bool InitOptionParser(OptionParser& op) {
                        "Stop the LoongArch64 simulator after the given "
                        "NUMBER of instructions.",
                        -1) ||
+#endif
 #ifdef JS_CODEGEN_RISCV64
       !op.addBoolOption('\0', "riscv-debug",
                         "Print riscv debugging messages.") ||
