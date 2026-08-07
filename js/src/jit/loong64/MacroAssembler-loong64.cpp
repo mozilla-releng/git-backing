@@ -4068,8 +4068,11 @@ static void AtomicFetchOp64(MacroAssembler& masm,
 
   Register operand = value.reg;
   if (op == AtomicOp::Sub) {
-    operand = temp == output ? temps.Acquire() : temp.reg;
+    MOZ_ASSERT(temp != Register64::Invalid());
+    operand = temp.reg;
     masm.as_sub_d(operand, zero, value.reg);
+  } else {
+    MOZ_ASSERT(temp == Register64::Invalid());
   }
 
   FaultingCodeRange fcr(masm.currentOffset());
@@ -4269,18 +4272,6 @@ void MacroAssembler::atomicFetchOp64(Synchronization sync, AtomicOp op,
   AtomicFetchOp64(*this, nullptr, sync, op, value, mem, temp, output);
 }
 
-void MacroAssembler::atomicEffectOp64(Synchronization sync, AtomicOp op,
-                                      Register64 value, const Address& mem,
-                                      Register64 temp) {
-  AtomicFetchOp64(*this, nullptr, sync, op, value, mem, temp, temp);
-}
-
-void MacroAssembler::atomicEffectOp64(Synchronization sync, AtomicOp op,
-                                      Register64 value, const BaseIndex& mem,
-                                      Register64 temp) {
-  AtomicFetchOp64(*this, nullptr, sync, op, value, mem, temp, temp);
-}
-
 void MacroAssembler::wasmAtomicFetchOp(const wasm::MemoryAccessDesc& access,
                                        AtomicOp op, Register value,
                                        const Address& mem, Register valueTemp,
@@ -4461,6 +4452,40 @@ static void AtomicEffectOp(MacroAssembler& masm,
   masm.memoryBarrierAfter(sync);
 }
 
+template <typename T>
+static void AtomicEffectOp64(MacroAssembler& masm, Synchronization, AtomicOp op,
+                             Register64 value, const T& mem) {
+  MOZ_ASSERT(value.reg != zero);
+
+  UseScratchRegisterScope temps(masm);
+  Register address = temps.Acquire();
+  masm.computeEffectiveAddress(mem, address);
+
+  Register operand = value.reg;
+  if (op == AtomicOp::Sub) {
+    operand = temps.Acquire();
+    masm.as_sub_d(operand, zero, value.reg);
+  }
+
+  switch (op) {
+    case AtomicOp::Add:
+    case AtomicOp::Sub:
+      masm.as_amadd_db_d(zero, address, operand);
+      break;
+    case AtomicOp::And:
+      masm.as_amand_db_d(zero, address, operand);
+      break;
+    case AtomicOp::Or:
+      masm.as_amor_db_d(zero, address, operand);
+      break;
+    case AtomicOp::Xor:
+      masm.as_amxor_db_d(zero, address, operand);
+      break;
+    default:
+      MOZ_CRASH();
+  }
+}
+
 void MacroAssembler::wasmAtomicEffectOp(const wasm::MemoryAccessDesc& access,
                                         AtomicOp op, Register value,
                                         const Address& mem, Register valueTemp,
@@ -4489,6 +4514,16 @@ void MacroAssembler::wasmAtomicEffectOp(const wasm::MemoryAccessDesc& access,
   BaseIndex address = ToAtomicAddress(*this, mem, zeroExtend, temps);
   AtomicEffectOp(*this, &access, access.type(), access.sync(), op, address,
                  value, valueTemp, offsetTemp, maskTemp);
+}
+
+void MacroAssembler::atomicEffectOp64(Synchronization sync, AtomicOp op,
+                                      Register64 value, const Address& mem) {
+  AtomicEffectOp64(*this, sync, op, value, mem);
+}
+
+void MacroAssembler::atomicEffectOp64(Synchronization sync, AtomicOp op,
+                                      Register64 value, const BaseIndex& mem) {
+  AtomicEffectOp64(*this, sync, op, value, mem);
 }
 
 template <typename T>
