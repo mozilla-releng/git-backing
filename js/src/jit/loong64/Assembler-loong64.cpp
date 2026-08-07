@@ -1318,6 +1318,63 @@ BufferOffset AssemblerLOONG64::as_sc_d(Register rd, Register rj, int32_t si14) {
   return emit(InstImm(op_sc_d, si14 >> 2, rj, rd, 14).encode());
 }
 
+// Atomic instructions from LAM_BH extension
+BufferOffset AssemblerLOONG64::as_amswap_b(Register rd, Register rj,
+                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amswap_b, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amswap_h(Register rd, Register rj,
+                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amswap_h, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amadd_b(Register rd, Register rj,
+                                          Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amadd_b, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amadd_h(Register rd, Register rj,
+                                          Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amadd_h, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amswap_db_b(Register rd, Register rj,
+                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amswap_db_b, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amswap_db_h(Register rd, Register rj,
+                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amswap_db_h, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amadd_db_b(Register rd, Register rj,
+                                             Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amadd_db_b, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_amadd_db_h(Register rd, Register rj,
+                                             Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
+  return emit(InstReg(op_amadd_db_h, rk, rj, rd).encode());
+}
+
 // Barrier instructions
 BufferOffset AssemblerLOONG64::as_dbar(int32_t hint) {
   MOZ_ASSERT(is_uintN(hint, 15));
