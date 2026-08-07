@@ -1048,181 +1048,253 @@ BufferOffset AssemblerLOONG64::as_preld(int32_t hint, Register rj,
 // Atomic instructions
 BufferOffset AssemblerLOONG64::as_amswap_w(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amswap_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amswap_d(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amswap_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amadd_w(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amadd_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amadd_d(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amadd_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amand_w(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amand_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amand_d(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amand_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amor_w(Register rd, Register rj,
                                          Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amor_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amor_d(Register rd, Register rj,
                                          Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amor_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amxor_w(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amxor_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amxor_d(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amxor_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_w(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_d(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_w(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_d(Register rd, Register rj,
                                           Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_wu(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_wu, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_du(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_du, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_wu(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_wu, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_du(Register rd, Register rj,
                                            Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_du, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amswap_db_w(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amswap_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amswap_db_d(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amswap_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amadd_db_w(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amadd_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amadd_db_d(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amadd_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amand_db_w(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amand_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amand_db_d(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amand_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amor_db_w(Register rd, Register rj,
                                             Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amor_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amor_db_d(Register rd, Register rj,
                                             Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amor_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amxor_db_w(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amxor_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_amxor_db_d(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_amxor_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_db_w(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_db_d(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_db_w(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_db_w, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_db_d(Register rd, Register rj,
                                              Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_db_d, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_db_wu(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_db_wu, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammax_db_du(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammax_db_du, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_db_wu(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_db_wu, rk, rj, rd).encode());
 }
 
 BufferOffset AssemblerLOONG64::as_ammin_db_du(Register rd, Register rj,
                                               Register rk) {
+  MOZ_ASSERT(rd != rj);
+  MOZ_ASSERT(rd != rk);
   return emit(InstReg(op_ammin_db_du, rk, rj, rd).encode());
 }
 
