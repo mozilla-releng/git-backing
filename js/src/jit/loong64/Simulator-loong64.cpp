@@ -2022,6 +2022,34 @@ void Simulator::writeD(uint64_t addr, double value, SimInstruction* instr) {
   return;
 }
 
+template <typename T>
+void Simulator::AtomicMemoryHelper(AmoOp<T> f, SimInstruction* instr) {
+  uint64_t addr = rj_u(instr);
+  T value = static_cast<T>(rk(instr));
+  constexpr unsigned elementSize = sizeof(T);
+
+  if (addr % elementSize == 0) {
+    if (handleWasmSegFault(addr, elementSize)) {
+      return;
+    }
+
+    SharedMem<T*> ptr = SharedMem<T*>::shared(reinterpret_cast<T*>(addr));
+    LLBit_ = false;
+    T old = f(ptr, value);
+
+    if constexpr (elementSize == 4) {
+      setRegister(rd_reg(instr), static_cast<int32_t>(old));
+    } else {
+      setRegister(rd_reg(instr), static_cast<int64_t>(old));
+    }
+    return;
+  }
+
+  printf("Unaligned atomic access at 0x%016" PRIx64 ", pc=0x%016" PRIxPTR "\n",
+         addr, reinterpret_cast<intptr_t>(instr));
+  MOZ_CRASH();
+}
+
 int Simulator::loadLinkedW(uint64_t addr, SimInstruction* instr) {
   if ((addr & 3) == 0) {
     if (handleWasmSegFault(addr, 4)) {
@@ -3692,110 +3720,74 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_amswap_w:
-      UNIMPLEMENTED();
+    case op_amswap_db_w:
+      AtomicMemoryHelper(AtomicOperations::exchangeSeqCst<int32_t>, instr);
       break;
     case op_amswap_d:
-      UNIMPLEMENTED();
+    case op_amswap_db_d:
+      AtomicMemoryHelper(AtomicOperations::exchangeSeqCst<int64_t>, instr);
       break;
     case op_amadd_w:
-      UNIMPLEMENTED();
+    case op_amadd_db_w:
+      AtomicMemoryHelper(AtomicOperations::fetchAddSeqCst<int32_t>, instr);
       break;
     case op_amadd_d:
-      UNIMPLEMENTED();
+    case op_amadd_db_d:
+      AtomicMemoryHelper(AtomicOperations::fetchAddSeqCst<int64_t>, instr);
       break;
     case op_amand_w:
-      UNIMPLEMENTED();
+    case op_amand_db_w:
+      AtomicMemoryHelper(AtomicOperations::fetchAndSeqCst<int32_t>, instr);
       break;
     case op_amand_d:
-      UNIMPLEMENTED();
+    case op_amand_db_d:
+      AtomicMemoryHelper(AtomicOperations::fetchAndSeqCst<int64_t>, instr);
       break;
     case op_amor_w:
-      UNIMPLEMENTED();
+    case op_amor_db_w:
+      AtomicMemoryHelper(AtomicOperations::fetchOrSeqCst<int32_t>, instr);
       break;
     case op_amor_d:
-      UNIMPLEMENTED();
+    case op_amor_db_d:
+      AtomicMemoryHelper(AtomicOperations::fetchOrSeqCst<int64_t>, instr);
       break;
     case op_amxor_w:
-      UNIMPLEMENTED();
+    case op_amxor_db_w:
+      AtomicMemoryHelper(AtomicOperations::fetchXorSeqCst<int32_t>, instr);
       break;
     case op_amxor_d:
-      UNIMPLEMENTED();
+    case op_amxor_db_d:
+      AtomicMemoryHelper(AtomicOperations::fetchXorSeqCst<int64_t>, instr);
       break;
     case op_ammax_w:
-      UNIMPLEMENTED();
-      break;
-    case op_ammax_d:
-      UNIMPLEMENTED();
-      break;
-    case op_ammin_w:
-      UNIMPLEMENTED();
-      break;
-    case op_ammin_d:
-      UNIMPLEMENTED();
-      break;
-    case op_ammax_wu:
-      UNIMPLEMENTED();
-      break;
-    case op_ammax_du:
-      UNIMPLEMENTED();
-      break;
-    case op_ammin_wu:
-      UNIMPLEMENTED();
-      break;
-    case op_ammin_du:
-      UNIMPLEMENTED();
-      break;
-    case op_amswap_db_w:
-      UNIMPLEMENTED();
-      break;
-    case op_amswap_db_d:
-      UNIMPLEMENTED();
-      break;
-    case op_amadd_db_w:
-      UNIMPLEMENTED();
-      break;
-    case op_amadd_db_d:
-      UNIMPLEMENTED();
-      break;
-    case op_amand_db_w:
-      UNIMPLEMENTED();
-      break;
-    case op_amand_db_d:
-      UNIMPLEMENTED();
-      break;
-    case op_amor_db_w:
-      UNIMPLEMENTED();
-      break;
-    case op_amor_db_d:
-      UNIMPLEMENTED();
-      break;
-    case op_amxor_db_w:
-      UNIMPLEMENTED();
-      break;
-    case op_amxor_db_d:
-      UNIMPLEMENTED();
-      break;
     case op_ammax_db_w:
       UNIMPLEMENTED();
       break;
+    case op_ammax_d:
     case op_ammax_db_d:
       UNIMPLEMENTED();
       break;
+    case op_ammin_w:
     case op_ammin_db_w:
       UNIMPLEMENTED();
       break;
+    case op_ammin_d:
     case op_ammin_db_d:
       UNIMPLEMENTED();
       break;
+    case op_ammax_wu:
     case op_ammax_db_wu:
       UNIMPLEMENTED();
       break;
+    case op_ammax_du:
     case op_ammax_db_du:
       UNIMPLEMENTED();
       break;
+    case op_ammin_wu:
     case op_ammin_db_wu:
       UNIMPLEMENTED();
       break;
+    case op_ammin_du:
     case op_ammin_db_du:
       UNIMPLEMENTED();
       break;
