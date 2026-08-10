@@ -503,6 +503,15 @@ def check_output(out, err, rc, timed_out, test, options):
         if rc == 1 and ("Hit MOZ_CRASH" in err or "Assertion failure:" in err):
             return OutputStatus.OK
 
+        # ASan with abort_on_error=1 returns -6. Check for error output and verify if
+        # it's valid.
+        if (
+            sys.platform != "win32"
+            and rc == -6
+            and ("Hit MOZ_CRASH" in err or "Assertion failure:" in err)
+        ):
+            return OutputStatus.OK
+
         # When running jittests on Android, SEGV results in a return code of
         # 128 + 11 = 139. Due to a bug in tinybox, we have to check for 138 as
         # well.
