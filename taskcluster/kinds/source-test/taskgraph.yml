@@ -32,7 +32,6 @@ diff:
             - run.command
     run-on-repo-type: [hg]
     run:
-        clone-with: hg
         using: run-task
         cwd: '{checkout}'
         command: >-

@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
 task-defaults:
-    run-on-repo-type: [hg]
     run-on-projects: ["trunk"]
     platform: linux64/debug
     worker-type: t-linux-docker-amd
@@ -16,7 +15,6 @@ task-defaults:
         kind: other
         tier: 2
     run:
-        clone-with: hg
         using: run-task
         tooltool-downloads: public
     fetches:
@@ -39,7 +37,6 @@ tidy:
     treeherder:
         symbol: cpp(clang-tidy)
     run:
-        clone-with: hg
         cwd: '{checkout}'
         command: >-
             source taskcluster/scripts/misc/source-test-clang-setup.sh &&
@@ -62,7 +59,6 @@ external:
     treeherder:
         symbol: cpp(clang-tidy-external)
     run:
-        clone-with: hg
         cwd: '{checkout}'
         command: >-
             source taskcluster/scripts/misc/source-test-clang-setup.sh &&
@@ -96,7 +92,6 @@ unittest:
             - 'taskcluster/scripts/misc/source-test-clang-setup.sh'
             - 'tools/clang-tidy/**'
     run:
-        clone-with: hg
         cwd: '{checkout}'
         command: >-
             source taskcluster/scripts/misc/source-test-clang-setup.sh &&
