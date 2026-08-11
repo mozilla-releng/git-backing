@@ -7931,6 +7931,20 @@ MDefinition* MTimeClip::foldsTo(TempAllocator& alloc) {
 
 JSOp MBinaryCache::jsop() const { return JSOp(*resumePoint()->pc()); }
 
+template <typename T>
+static void GetBaseRefTypeAndInlinenessForWasmLoadOrStore(
+    T ins, wasm::MaybeRefType* type, bool* isInline) {
+  const MDefinition* structObject;
+  if (ins->base()->type() == MIRType::WasmStructData) {
+    structObject = ins->base()->toWasmLoadField()->base();
+    *isInline = false;
+  } else {
+    structObject = ins->base();
+    *isInline = true;
+  }
+  *type = structObject->wasmRefType().asNonNullable();
+}
+
 MDefinition::AliasType MWasmLoadField::mightAlias(
     const MDefinition* ins) const {
   if (!(getAliasSet().flags() & ins->getAliasSet().flags())) {
@@ -7938,27 +7952,37 @@ MDefinition::AliasType MWasmLoadField::mightAlias(
   }
   MOZ_ASSERT(!isEffectful() && ins->isEffectful());
 
-  // Pick off cases where we can easily prove non-aliasing.  The idea is that
-  // two struct field accesses can't alias if either they are at different
-  // offsets, or the struct types are unrelated (which implies that the struct
-  // base pointer for one of the accesses could not validly be handed to the
-  // other access).
+  // Pick off cases where we can easily prove non-aliasing. Two field accesses
+  // can't alias if they disagree on inline/out-of-line, they are at different
+  // offsets (within their inline/out-of-line area), or the ref types are
+  // known and disjoint (which implies that the base pointer for one of the
+  // accesses could not validly be handed to the other access).
+  //
+  // Whether or not the thing being MWasmLoadField'd from is in fact a GC struct
+  // is irrelevant; we consider any such load to be "inline" by default, and
+  // then the remaining checks prevent us from making bad assumptions, mainly
+  // the fact that we need precisely-known and disjoint ref types.
+  wasm::MaybeRefType thisType, insType;
+  bool thisInline, insInline;
+  uint32_t insOffset;
+  GetBaseRefTypeAndInlinenessForWasmLoadOrStore(this, &thisType, &thisInline);
   if (ins->isWasmStoreField()) {
     const MWasmStoreField* store = ins->toWasmStoreField();
-    if (offset() != store->offset() ||
-        !wasm::MaybeRefType::mayHaveValuesInCommon(
-            base()->wasmRefType().asNonNullable(),
-            store->base()->wasmRefType().asNonNullable())) {
-      return AliasType::NoAlias;
-    }
+    GetBaseRefTypeAndInlinenessForWasmLoadOrStore(store, &insType, &insInline);
+    insOffset = store->offset();
   } else if (ins->isWasmStoreFieldRef()) {
     const MWasmStoreFieldRef* store = ins->toWasmStoreFieldRef();
-    if (offset() != store->offset() ||
-        !wasm::MaybeRefType::mayHaveValuesInCommon(
-            base()->wasmRefType().asNonNullable(),
-            store->base()->wasmRefType().asNonNullable())) {
-      return AliasType::NoAlias;
-    }
+    GetBaseRefTypeAndInlinenessForWasmLoadOrStore(store, &insType, &insInline);
+    insOffset = store->offset();
+  } else {
+    // This is a safe default, but a conservative one, as other types of stores
+    // we introduce should really be added above.
+    return AliasType::MayAlias;
+  }
+
+  if (offset() != insOffset || thisInline != insInline ||
+      !wasm::MaybeRefType::mayHaveValuesInCommon(thisType, insType)) {
+    return AliasType::NoAlias;
   }
 
   return AliasType::MayAlias;
