@@ -9969,7 +9969,11 @@
 
 -   name: javascript.options.wasm_compact_imports
     type: bool
+#if defined(ENABLE_WASM_COMPACT_IMPORTS)
+    value: true
+#else
     value: false
+#endif
     mirror: always
     set_spidermonkey_pref: always
 
