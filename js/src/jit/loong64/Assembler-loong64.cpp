@@ -272,6 +272,9 @@ bool AssemblerLOONG64::oom() const {
 // Size of the instruction stream, in bytes.
 size_t AssemblerLOONG64::size() const { return m_buffer.size(); }
 
+// Returns the size of the buffer we can currently read.
+size_t AssemblerLOONG64::readableSize() const { return m_buffer.size(); }
+
 // Size of the relocation table, in bytes.
 size_t AssemblerLOONG64::jumpRelocationTableBytes() const {
   return jumpRelocations_.length();

@@ -1029,6 +1029,8 @@ class AssemblerLOONG64 : public AssemblerShared {
 
   // Size of the instruction stream, in bytes.
   size_t size() const;
+  // Returns the size of the buffer we can currently read.
+  size_t readableSize() const;
   // Size of the jump relocation table, in bytes.
   size_t jumpRelocationTableBytes() const;
   size_t dataRelocationTableBytes() const;
