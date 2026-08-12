@@ -29,6 +29,20 @@ const OBSERVER_MSG_RECORD_BOUNCES_FINISHED = "test-record-bounces-finished";
 
 const ROOT_DIR = getRootDirectory(gTestPath);
 
+// TEMPORARY, DO NOT LAND: Bug 2062952. Test files in this directory can finish
+// with state left in BounceTrackingProtection, which breaks --verify for the
+// file that runs next. Clearing per file lets the try run exercise --verify
+// across the whole suite. Remove once Bug 2062952 has landed.
+registerCleanupFunction(() => {
+  try {
+    Cc["@mozilla.org/bounce-tracking-protection;1"]
+      .getService(Ci.nsIBounceTrackingProtection)
+      .clearAll();
+  } catch (e) {
+    // The singleton is unavailable in MODE_DISABLED.
+  }
+});
+
 /**
  * Get the base url for the current test directory using the given origin.
  *
