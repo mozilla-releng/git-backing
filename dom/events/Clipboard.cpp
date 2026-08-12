@@ -1031,6 +1031,7 @@ LogModule* Clipboard::GetClipboardLog() { return gClipboardLog; }
 /* static */
 bool Clipboard::IsTestingPrefEnabled() {
   bool clipboardTestingEnabled =
+      xpc::IsInAutomation() &&
       StaticPrefs::dom_events_testing_asyncClipboard_DoNotUseDirectly();
   MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
           ("Clipboard, Is testing enabled? %d\n", clipboardTestingEnabled));

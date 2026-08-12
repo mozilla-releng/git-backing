@@ -42,6 +42,9 @@ class Clipboard : public DOMEventTargetHelper {
 
   static Span<const nsLiteralCString> MandatoryDataTypes();
 
+  static bool IsTestingPrefEnabledOrHasReadPermission(
+      nsIPrincipal& aSubjectPrincipal);
+
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
@@ -56,9 +59,6 @@ class Clipboard : public DOMEventTargetHelper {
   // checks when writing to
   //  or reading from the clipboard.
   static bool IsTestingPrefEnabled();
-
-  static bool IsTestingPrefEnabledOrHasReadPermission(
-      nsIPrincipal& aSubjectPrincipal);
 
   already_AddRefed<Promise> ReadHelper(nsIPrincipal& aSubjectPrincipal,
                                        ReadRequestType aType, ErrorResult& aRv);

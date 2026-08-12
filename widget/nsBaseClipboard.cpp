@@ -14,6 +14,7 @@
 #include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/Clipboard.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/MimeType.h"
 #include "mozilla/dom/Promise.h"
@@ -646,10 +647,8 @@ NS_IMETHODIMP nsBaseClipboard::GetDataSnapshot(
 
   // We want to disable security check for automated tests that have the pref
   // set to true, or extension that have clipboard read permission.
-  if (mozilla::StaticPrefs::
-          dom_events_testing_asyncClipboard_DoNotUseDirectly() ||
-      nsContentUtils::PrincipalHasPermission(*aRequestingPrincipal,
-                                             nsGkAtoms::clipboardRead)) {
+  if (Clipboard::IsTestingPrefEnabledOrHasReadPermission(
+          *aRequestingPrincipal)) {
     GetDataSnapshotInternal(aFlavorList, aWhichClipboard,
                             aRequestingWindowContext, aCallback);
     return NS_OK;
