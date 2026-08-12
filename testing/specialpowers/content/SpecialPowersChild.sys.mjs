@@ -1741,7 +1741,7 @@ export class SpecialPowersChild extends JSWindowActorChild {
   clipboardCopyString(str) {
     Cc["@mozilla.org/widget/clipboardhelper;1"]
       .getService(Ci.nsIClipboardHelper)
-      .copyString(str);
+      .copyString(str, this.browsingContext.currentWindowContext);
   }
 
   cleanupAllClipboard() {
