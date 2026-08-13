@@ -983,7 +983,7 @@ void MacroAssemblerLOONG64::ma_push(Register r) {
 // Branches when done from within loongarch-specific code.
 void MacroAssemblerLOONG64::ma_b(Register lhs, ImmWord imm, Label* label,
                                  Condition c, JumpKind jumpKind) {
-  if (imm.value <= INT32_MAX) {
+  if (is_intN(imm.value, 32)) {
     ma_b(lhs, Imm32(uint32_t(imm.value)), label, c, jumpKind);
   } else {
     UseScratchRegisterScope temps(asMasm());
@@ -1156,7 +1156,7 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
 
 void MacroAssemblerLOONG64::ma_cmp_set(Register rd, Register rj, ImmWord imm,
                                        Condition c) {
-  if (imm.value <= INT32_MAX) {
+  if (is_intN(imm.value, 32)) {
     ma_cmp_set(rd, rj, Imm32(uint32_t(imm.value)), c);
   } else {
     UseScratchRegisterScope temps(asMasm());
