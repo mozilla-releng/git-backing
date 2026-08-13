@@ -938,12 +938,10 @@ void CodeGenerator::visitSignExtendInt64(LSignExtendInt64* lir) {
   Register64 output = ToOutRegister64(lir);
   switch (lir->mir()->mode()) {
     case MSignExtendInt64::Byte:
-      masm.move32To64SignExtend(input.reg, output);
-      masm.move8SignExtend(output.reg, output.reg);
+      masm.move8SignExtend(input.reg, output.reg);
       break;
     case MSignExtendInt64::Half:
-      masm.move32To64SignExtend(input.reg, output);
-      masm.move16SignExtend(output.reg, output.reg);
+      masm.move16SignExtend(input.reg, output.reg);
       break;
     case MSignExtendInt64::Word:
       masm.move32To64SignExtend(input.reg, output);
