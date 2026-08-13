@@ -1451,6 +1451,14 @@ void MacroAssemblerLOONG64::ma_fmovn(FloatFormat fmt, FloatRegister fd,
 void MacroAssemblerLOONG64::ma_and(Register rd, Register rj, Imm32 imm) {
   if (is_uintN(imm.value, 12)) {
     as_andi(rd, rj, imm.value);
+  } else if (const auto maybeRange =
+                 GetContiguousMaskRange(mozilla::BitwiseCast<uint64_t>(
+                     static_cast<int64_t>(imm.value)))) {
+    const auto [msb, lsb] = *maybeRange;
+    as_bstrpick_d(rd, rj, msb, lsb);
+    if (lsb != 0) {
+      as_slli_d(rd, rd, lsb);
+    }
   } else if (rd != rj) {
     ma_li(rd, imm);
     as_and(rd, rj, rd);
