@@ -7,10 +7,30 @@
 
 #include "jit/loong64/MacroAssembler-loong64.h"
 
+#include "mozilla/MathAlgorithms.h"
+
+#include <bit>
+#include <optional>
+#include <utility>
+
 namespace js {
 namespace jit {
 
 //{{{ check_macroassembler_style
+
+// If |mask| is a contiguous run of one-bits, return its [msb, lsb] range.
+static inline constexpr std::optional<std::pair<uint32_t, uint32_t>>
+GetContiguousMaskRange(uint64_t mask) {
+  if (mask == 0) {
+    return std::nullopt;
+  }
+  const uint32_t lsb = std::countr_zero(mask);
+  const uint64_t shifted = mask >> lsb;
+  if (!std::has_single_bit(shifted + 1)) {
+    return std::nullopt;
+  }
+  return std::make_pair(lsb + mozilla::FloorLog2(shifted), lsb);
+}
 
 void MacroAssembler::move64(Register64 src, Register64 dest) {
   movePtr(src.reg, dest.reg);
