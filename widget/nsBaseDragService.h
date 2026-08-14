@@ -281,6 +281,11 @@ class nsBaseDragSession : public nsIDragSession {
   bool mDragEventDispatchedToChildProcess = false;
 
   bool mIsDraggingTextInTextControl = false;
+
+  // True if the initial drag data was supplied by a remote (content) process.
+  // Note: This is only meaningful in parent process.
+  bool mInitialDataFromRemote = false;
+
   bool mSessionIsSynthesizedForTests = false;
   // True if this session was started by a synthesized (test) event that was
   // dispatched asynchronously through WebDriver.  Such a session has no native

@@ -164,6 +164,14 @@ nsBaseDragSession::SetSourceWindowContext(WindowContext* aSourceWindowContext) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsBaseDragSession::GetInitialDataFromRemote(bool* aInitialDataFromRemote) {
+  // This should only be called in a parent process for now.
+  MOZ_ASSERT(XRE_IsParentProcess());
+  *aInitialDataFromRemote = mInitialDataFromRemote;
+  return NS_OK;
+}
+
 //
 // GetSourceTopWindowContext
 //
@@ -548,6 +556,7 @@ nsresult nsBaseDragSession::InitWithRemoteImage(
   mDragPopup = nullptr;
   mImage = nullptr;
   mDragStartData = aDragStartData;
+  mInitialDataFromRemote = true;
   mImageOffset = CSSIntPoint(0, 0);
   mSourceWindowContext = mDragStartData->GetSourceWindowContext();
   mSourceTopWindowContext = mDragStartData->GetSourceTopWindowContext();
@@ -814,6 +823,7 @@ nsresult nsBaseDragSession::EndDragSessionImpl(bool aDoneDrag,
   mUserCancelled = false;
   mDragPopup = nullptr;
   mDragStartData = nullptr;
+  mInitialDataFromRemote = false;
   mImage = nullptr;
   mImageOffset = CSSIntPoint();
   mScreenPosition = CSSIntPoint();

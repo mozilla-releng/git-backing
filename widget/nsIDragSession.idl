@@ -89,6 +89,14 @@ interface nsIDragSession : nsISupports
   readonly attribute Node sourceNode;
 
   /**
+   * True if the initial drag data of this session was supplied by a remote
+   * (content) process, i.e. the drag started in remote web content.
+   * Note: This is only meaningful in parent process.
+   */
+  [infallible]
+  readonly attribute boolean initialDataFromRemote;
+
+  /**
    * the triggering principal.  This may be different than sourceNode's
    * principal when sourceNode is xul:browser and the drag is
    * triggered in a browsing context inside it.

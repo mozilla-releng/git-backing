@@ -931,17 +931,18 @@ mozilla::ipc::IPCResult BrowserParent::RecvDropLinks(
     // not been modified then it's safe to load those links using the
     // SystemPrincipal. If they have been modified by web content, then
     // we use a NullPrincipal which still allows to load web links.
-    bool loadUsingSystemPrincipal = true;
-    if (aLinks.Length() != mVerifyDropLinks.Length()) {
-      loadUsingSystemPrincipal = false;
-    }
-    for (uint32_t i = 0; i < aLinks.Length(); i++) {
-      if (loadUsingSystemPrincipal) {
+    const bool loadUsingSystemPrincipal = [&]() {
+      if (aLinks.Length() != mVerifyDropLinks.Length()) {
+        return false;
+      }
+      for (uint32_t i = 0; i < aLinks.Length(); i++) {
         if (!aLinks[i].Equals(mVerifyDropLinks[i])) {
-          loadUsingSystemPrincipal = false;
+          return false;
         }
       }
-    }
+      return true;
+    }();
+
     mVerifyDropLinks.Clear();
     nsCOMPtr<nsIPrincipal> triggeringPrincipal;
     if (loadUsingSystemPrincipal) {
@@ -1707,6 +1708,10 @@ bool BrowserParent::QueryDropLinksForVerification() {
   // No more than one drop event can happen simultaneously; reset the link
   // verification array and store all links that are being dragged.
   mVerifyDropLinks.Clear();
+
+  if (dragSession->GetInitialDataFromRemote()) {
+    return true;
+  }
 
   nsTArray<RefPtr<nsIDroppedLinkItem>> droppedLinkItems;
   dropHandler->QueryLinks(initialDataTransfer, droppedLinkItems);
