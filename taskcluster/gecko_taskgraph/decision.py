@@ -461,6 +461,12 @@ def get_decision_parameters(graph_config, options):
             except ValueError as e:
                 raise Exception(f"Failed to parse {note_ref} as JSON: {e}") from e
 
+    # TODO: this should all go away; reviewbot will set these in the try task config
+    if parameters["target_tasks_method"] == "codereview":
+        parameters["optimize_strategies"] = "gecko_taskgraph.optimize:tryselect.bugbug_reduced_manifests_config_selection_medium"
+        parameters["optimize_target_tasks"] = True
+        parameters["test_manifest_loader"] = "bugbug"
+
     result = Parameters(**parameters)
     result.check()
     return result

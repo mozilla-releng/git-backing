@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from redo import retry
 from taskcluster.exceptions import TaskclusterRestFailure
 from taskgraph import create
+from taskgraph.parameters import Parameters
 from taskgraph.target_tasks import filter_for_git_branch, register_target_task
 from taskgraph.util.attributes import attrmatch
 from taskgraph.util.parameterization import resolve_timestamps
@@ -1495,7 +1496,21 @@ def target_tasks_codereview(full_task_graph, parameters, graph_config):
 
         return False
 
-    return [l for l, t in full_task_graph.tasks.items() if filter(t)]
+    tasks = {l for l, t in full_task_graph.tasks.items() if filter(t)}
+
+#    if parameters["test_manifest_loader"] == "bugbug":
+#        # If bugbug task selection is being used, we must include autoland
+#        # tasks in target tasks, otherwise it will have nothing to select.
+#        autoland_parameters = dict(parameters)
+#        autoland_parameters["project"] = "autoland"
+#        autoland_parameters["target_tasks_method"] = "autoland_tasks"
+#        tasks.update(
+#            target_tasks_autoland(
+#                full_task_graph, Parameters(**autoland_parameters), graph_config
+#            )
+#        )
+
+    return list(tasks)
 
 
 @register_target_task("nothing")
