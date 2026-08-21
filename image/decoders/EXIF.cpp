@@ -522,13 +522,52 @@ void EXIFParser::ParseGPSEntry(ParsedEXIFData& aData, const EXIFEntry& aEntry) {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Tolerated non-conformance. Deviations from the EXIF specification, accepted
+// because real writers produce them and rejecting them loses real data. Scoped
+// as narrowly as the evidence supports.
+///////////////////////////////////////////////////////////////////////////////
+
+// Section 4.6.7 (Section 4.6.6 in EXIF v2.3) specifies RATIONAL for
+// GPSLatitude and GPSLongitude. SRATIONAL is accepted for those two tags
+// regardless, because AOSP's Camera2 EXIF writer selects its type constant by
+// name and the constant named TYPE_RATIONAL is 10, not 5:
+//
+//   public static final short TYPE_UNSIGNED_RATIONAL = 5;
+//   public static final short TYPE_RATIONAL = 10;   // in fact SRATIONAL
+//
+// Only the two coordinate tags reach for the misnamed constant, so altitude and
+// timestamp in the same IFD come out conformant. Rejecting these entries would
+// report a GPS IFD with no position for a photo that plainly has one.
+//
+// Not extended to GPSAltitude, where a sign is meaningful rather than
+// accidental: below sea level is real information that a magnitude would
+// discard, whereas a coordinate's hemisphere is what the ref tag is for.
+static bool IsToleratedCoordinateType(uint16_t aType) {
+  return aType == RationalType || aType == SignedRational;
+}
+
+// Signed components yield their magnitude -- the hemisphere comes from the ref
+// tag, so a sign here is redundant at best.
+static double RationalComponent(uint32_t aNumerator, uint32_t aDenominator,
+                                bool aSigned) {
+  if (!aSigned) {
+    return double(aNumerator) / double(aDenominator);
+  }
+  const double value =
+      double(int32_t(aNumerator)) / double(int32_t(aDenominator));
+  return value < 0.0 ? -value : value;
+}
+
 bool EXIFParser::ParseGPSCoordinate(const EXIFEntry& aEntry,
                                     uint32_t aMaxDegrees, double& aOutDegrees) {
   // Section 4.6.7 (Section 4.6.6 in EXIF v2.3): a coordinate is three
-  // RATIONALs, giving degrees, minutes and seconds.
-  if (aEntry.mType != RationalType || aEntry.mCount != 3) {
+  // RATIONALs, giving degrees, minutes and seconds. See
+  // IsToleratedCoordinateType for why SRATIONAL is also allowed.
+  if (!IsToleratedCoordinateType(aEntry.mType) || aEntry.mCount != 3) {
     return false;
   }
+  const bool isSigned = aEntry.mType == SignedRational;
 
   // Three RATIONALs are 24 bytes, far too big for the entry's 4-byte value
   // field, so that field holds an offset to them instead.
@@ -561,7 +600,7 @@ bool EXIFParser::ParseGPSCoordinate(const EXIFEntry& aEntry,
     // coincidence. Minutes and seconds are compared as values rather than
     // integers because encoders routinely put the fraction in one of them, as
     // in 3900/100 seconds or 305/10 minutes.
-    const double value = double(numerator) / double(denominator);
+    const double value = RationalComponent(numerator, denominator, isSigned);
     const bool inRange = i == 0 ? value <= double(aMaxDegrees) : value < 60.0;
     if (!inRange) {
       return false;

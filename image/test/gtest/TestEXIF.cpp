@@ -35,6 +35,7 @@ class TIFFBuilder {
   static constexpr uint16_t kShort = 3;
   static constexpr uint16_t kLong = 4;
   static constexpr uint16_t kRational = 5;
+  static constexpr uint16_t kSRational = 10;
   static constexpr uint16_t kUndefined = 7;
 
   struct Entry {
@@ -103,6 +104,18 @@ class TIFFBuilder {
     for (const auto& rational : aRationals) {
       AppendUInt32(rational.first);
       AppendUInt32(rational.second);
+    }
+    return offset;
+  }
+
+  // Same layout, written from signed components so a test can express a
+  // negative numerator or denominator without hand-rolling two's complement.
+  uint32_t AddSignedRationals(
+      std::initializer_list<std::pair<int32_t, int32_t>> aRationals) {
+    uint32_t offset = CurrentOffset();
+    for (const auto& rational : aRationals) {
+      AppendUInt32(uint32_t(rational.first));
+      AppendUInt32(uint32_t(rational.second));
     }
     return offset;
   }
@@ -417,6 +430,88 @@ TEST(EXIFParser, AllZeroCoordinatesAreZeroPosition)
   EXIFData data = ParseAll(builder.Data().Clone());
   EXPECT_EQ(EXIFGPSPresence::ZeroPosition, data.gpsPresence);
   EXPECT_TRUE(data.gpsCoordinates.isNothing());
+}
+
+// SRATIONAL is not a type the specification allows for these tags, but AOSP's
+// Camera2 writer emits it. See IsToleratedCoordinateType.
+TEST(EXIFParser, SRATIONALCoordinatesParseLikeRATIONAL)
+{
+  auto build = [](uint16_t aType) {
+    TIFFBuilder builder(ByteOrder::LittleEndian);
+    uint32_t latitude = builder.AddRationals({{51, 1}, {30, 1}, {0, 1}});
+    uint32_t longitude = builder.AddRationals({{0, 1}, {7, 1}, {39, 1}});
+    uint32_t gps = builder.AddIFD({
+        {0x0002, aType, 3, latitude},
+        {0x0004, aType, 3, longitude},
+    });
+    builder.SetIFD0(builder.AddIFD({{0x8825, TIFFBuilder::kLong, 1, gps}}));
+    return ParseAll(builder.Data().Clone());
+  };
+
+  EXIFData conformant = build(TIFFBuilder::kRational);
+  EXIFData tolerated = build(TIFFBuilder::kSRational);
+
+  ASSERT_TRUE(conformant.gpsCoordinates.isSome());
+  ASSERT_TRUE(tolerated.gpsCoordinates.isSome());
+  EXPECT_EQ(EXIFGPSPresence::Position, tolerated.gpsPresence);
+  EXPECT_DOUBLE_EQ(conformant.gpsCoordinates->latitudeDegrees,
+                   tolerated.gpsCoordinates->latitudeDegrees);
+  EXPECT_DOUBLE_EQ(conformant.gpsCoordinates->longitudeDegrees,
+                   tolerated.gpsCoordinates->longitudeDegrees);
+}
+
+// The ref tag carries the hemisphere, so a signed component contributes its
+// magnitude and nothing else.
+TEST(EXIFParser, SRATIONALNegativeComponentsUseTheirMagnitude)
+{
+  TIFFBuilder builder(ByteOrder::LittleEndian);
+  uint32_t latitude = builder.AddSignedRationals({{-51, 1}, {30, -1}, {0, 1}});
+  uint32_t longitude = builder.AddRationals({{0, 1}, {7, 1}, {39, 1}});
+  uint32_t gps = builder.AddIFD({
+      {0x0002, TIFFBuilder::kSRational, 3, latitude},
+      {0x0004, TIFFBuilder::kRational, 3, longitude},
+  });
+  builder.SetIFD0(builder.AddIFD({{0x8825, TIFFBuilder::kLong, 1, gps}}));
+
+  EXIFData data = ParseAll(builder.Data().Clone());
+  ASSERT_TRUE(data.gpsCoordinates.isSome());
+  EXPECT_NEAR(51.5, data.gpsCoordinates->latitudeDegrees, 1e-9);
+}
+
+// Taking the magnitude must not let an out-of-range component through.
+TEST(EXIFParser, SRATIONALOutOfRangeIsStillRejected)
+{
+  TIFFBuilder builder(ByteOrder::LittleEndian);
+  uint32_t latitude = builder.AddSignedRationals({{-500, 1}, {0, 1}, {0, 1}});
+  uint32_t longitude = builder.AddRationals({{0, 1}, {7, 1}, {39, 1}});
+  uint32_t gps = builder.AddIFD({
+      {0x0002, TIFFBuilder::kSRational, 3, latitude},
+      {0x0004, TIFFBuilder::kRational, 3, longitude},
+  });
+  builder.SetIFD0(builder.AddIFD({{0x8825, TIFFBuilder::kLong, 1, gps}}));
+
+  EXPECT_EQ(EXIFGPSPresence::NoPosition, ParseGPS(builder.Data().Clone()));
+}
+
+// The tolerance stops at the coordinates. A signed altitude means something --
+// below sea level -- so it would need real signed handling rather than a
+// magnitude.
+TEST(EXIFParser, AltitudeRejectsSRATIONAL)
+{
+  TIFFBuilder builder(ByteOrder::LittleEndian);
+  uint32_t latitude = builder.AddRationals({{51, 1}, {30, 1}, {0, 1}});
+  uint32_t longitude = builder.AddRationals({{0, 1}, {7, 1}, {39, 1}});
+  uint32_t altitude = builder.AddSignedRationals({{-100, 1}});
+  uint32_t gps = builder.AddIFD({
+      {0x0002, TIFFBuilder::kRational, 3, latitude},
+      {0x0004, TIFFBuilder::kRational, 3, longitude},
+      {0x0006, TIFFBuilder::kSRational, 1, altitude},
+  });
+  builder.SetIFD0(builder.AddIFD({{0x8825, TIFFBuilder::kLong, 1, gps}}));
+
+  EXIFData data = ParseAll(builder.Data().Clone());
+  ASSERT_TRUE(data.gpsCoordinates.isSome());
+  EXPECT_TRUE(data.gpsCoordinates->altitudeMeters.isNothing());
 }
 
 // Only latitude being zero is ordinary: that is the equator, not a blanked
