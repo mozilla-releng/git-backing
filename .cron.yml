@@ -423,6 +423,13 @@ jobs:
           include-cron-input: true
       when: []  # never (hook only)
 
+    - name: test-geckodriver-linux-signing
+      job:
+          type: decision-task
+          treeherder-symbol: gd-sign-linux-test
+          target-tasks-method: test_geckodriver_linux_signing
+      when: []  # never (hook only, for testing)
+
     - name: eslint-build
       job:
           type: decision-task

@@ -1203,6 +1203,18 @@ def target_tasks_nightly_win64_aarch64(full_task_graph, parameters, graph_config
     return [l for l, t in full_task_graph.tasks.items() if filter(t, parameters)]
 
 
+@register_target_task("test_geckodriver_linux_signing")
+def target_tasks_test_geckodriver_linux_signing(
+    full_task_graph, parameters, graph_config
+):
+    """Testing-only: select the linux geckodriver signing task."""
+    return [
+        l
+        for l, t in full_task_graph.tasks.items()
+        if t.kind == "geckodriver-signing" and "linux" in l
+    ]
+
+
 @register_target_task("daily_releases")
 def target_tasks_daily_releases(full_task_graph, parameters, graph_config):
     """Select the set of tasks required to identify if we should release.
