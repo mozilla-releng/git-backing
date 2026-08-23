@@ -1028,10 +1028,13 @@ export var itip = {
           {
             responseMode,
             identities: MailServices.accounts.allIdentities.slice().sort((a, b) => {
-              if (a.email == itipItem.identity && b.email != itipItem.identity) {
+              const wanted = itipItem.identity?.toLowerCase();
+              const aMatches = a.email?.toLowerCase() == wanted;
+              const bMatches = b.email?.toLowerCase() == wanted;
+              if (aMatches && !bMatches) {
                 return -1;
               }
-              if (b.email == itipItem.identity && a.email != itipItem.identity) {
+              if (bMatches && !aMatches) {
                 return 1;
               }
               return 0;
@@ -1388,8 +1391,9 @@ export var itip = {
     }
 
     for (const att of attendees) {
+      const attId = att.id?.toLowerCase();
       const resolveDelegation = function (e, i, a) {
-        if (e == att.id) {
+        if (e.toLowerCase() == attId) {
           a[i] = att.toString();
         }
       };
@@ -1444,9 +1448,10 @@ export var itip = {
     );
     const addresses = compFields.splitRecipients(aEmailAddress, true);
     if (addresses.length == 1) {
-      const searchFor = lazy.cal.email.prependMailTo(addresses[0]);
+      const searchFor = lazy.cal.email.prependMailTo(addresses[0]).toLowerCase();
       aAttendees.forEach(aAttendee => {
-        if ([aAttendee.id, aAttendee.getProperty("SENT-BY")].includes(searchFor)) {
+        const candidates = [aAttendee.id, aAttendee.getProperty("SENT-BY")];
+        if (candidates.some(candidate => candidate?.toLowerCase() == searchFor)) {
           attendees.push(aAttendee);
         }
       });

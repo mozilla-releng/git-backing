@@ -464,7 +464,11 @@ var calendarController = {
           // If we are the organizer and there are attendees, then
           // this is likely also an invitation.
           const calOrgId = item.calendar.getProperty("organizerId");
-          if (item.organizer.id == calOrgId && item.getAttendees().length) {
+          if (
+            calOrgId &&
+            item.organizer.id.toLowerCase() == calOrgId.toLowerCase() &&
+            item.getAttendees().length
+          ) {
             selected_events_invitation++;
           }
         }
@@ -562,7 +566,11 @@ var calendarController = {
         // If we are the organizer and there are attendees, then
         // this is likely also an invitation.
         const calOrgId = item.calendar.getProperty("organizerId");
-        if (item.organizer.id == calOrgId && item.getAttendees().length) {
+        if (
+          calOrgId &&
+          item.organizer.id.toLowerCase() == calOrgId.toLowerCase() &&
+          item.getAttendees().length
+        ) {
           selected_tasks_invitation++;
         }
       }
