@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>This Test is for clipboard data in paste event when pasting plaintext</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/resources/testdriver.js"></script>
+<script src="/resources/testdriver-vendor.js"></script>
+<script src="/resources/testdriver-actions.js"></script>
+<script src="../include/editor-test-utils.js"></script>
+</head>
+<body>
+<div id="source">Some <b>Bold</b> Text</div>
+<input type="text">
+<textarea></textarea>
+<div contenteditable></div>
+<script>
+"use strict";
+
+function waitForPasteEventAndGetData(element) {
+  return new Promise(resolve => {
+    element.addEventListener("paste", (e) => {
+      const data = e.clipboardData;
+      resolve({
+        types: data.types,
+        text: data.getData("text/plain"),
+        html: data.getData("text/html"),
+      });
+    }, {once: true});
+  });
+}
+
+document.querySelectorAll("input, textarea, div[contenteditable]").forEach((editingHost) => {
+  promise_test(async () => {
+    const utils = new EditorTestUtils(editingHost);
+
+    const source = document.getElementById("source");
+    await test_driver.click(source);  // Ensure user activation
+    getSelection().selectAllChildren(source);
+    await utils.sendCopyShortcutKey();
+
+    let promise = waitForPasteEventAndGetData(editingHost);
+    editingHost.focus();
+    await utils.sendPasteAsPlaintextShortcutKey();
+
+    let data = await promise;
+    assert_array_equals(data.types, ["text/plain"]);
+    assert_equals(data.text, source.textContent);
+    assert_equals(data.html, "");
+  }, `Test paste as plaintext data in ${editingHost}`);
+});
+
+</script>
+</body>
+</html>
