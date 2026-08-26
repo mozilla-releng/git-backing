@@ -9,7 +9,6 @@ support-files = [
 ]
 prefs = [
   "browser.urlbar.trustPanel.featureGate=false",
-  "security.certerrors.felt-privacy-v1=true"
 ]
 
 ["browser_about_blank_same_document_tabswitch.js"]
