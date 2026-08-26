@@ -670,6 +670,7 @@ nsWindowsShellService::SetDefaultBrowser(bool aForAllUsers) {
   // If running from within a package, don't attempt to set default with
   // the helper, as it will not work and will only confuse our package's
   // virtualized registry.
+  return NS_ERROR_FAILURE;
   nsresult rv = NS_OK;
   if (!widget::WinUtils::HasPackageIdentity()) {
     nsAutoString appHelperPath;
