@@ -133,12 +133,23 @@ class SpreadDirective extends Directive {
 export const spread = directive(SpreadDirective);
 
 /**
- * controlAttrs keys that carry a heading level destined for moz-fieldset
- * (or another widget that exposes a `headingLevel` Lit property). Both
- * the lowercase HTML attribute form and the Lit property-binding form
- * are recognized; setAttribute folds case so `headingLevel` works too.
+ * Config ids we've already warned about, so the console isn't spammed on every render.
+ *
+ * @type {Set<string>}
  */
-const HEADING_LEVEL_KEYS = ["headinglevel", "headingLevel", ".headingLevel"];
+const warnedHeadingLevelIds = new Set();
+
+/**
+ * Lit-style keys a config might use to try to set a heading level via
+ * `controlAttrs`. None of these are the supported form — the top-level
+ * `headingLevel` field on the config is. But keeping here so a warning
+ * can be emitted when they're detected.
+ */
+const UNSUPPORTED_HEADING_LEVEL_ATTR_KEYS = [
+  "headinglevel",
+  "headingLevel",
+  ".headingLevel",
+];
 
 /**
  * Translate a config-supplied heading level into the level we should
@@ -169,14 +180,22 @@ export class SettingElement extends MozLitElement {
    */
   getCommonPropertyMapping(config) {
     let controlAttrs = { ...(config.controlAttrs ?? {}) };
-    if (lazy.srdEnabled) {
-      for (let key of HEADING_LEVEL_KEYS) {
-        if (typeof controlAttrs[key] === "number") {
-          controlAttrs[key] = bumpHeadingLevelForSrd(
-            controlAttrs[key],
-            lazy.srdEnabled
-          );
-        }
+    for (let key of UNSUPPORTED_HEADING_LEVEL_ATTR_KEYS) {
+      /**
+       * @type {SettingElementConfig['headingLevel']}
+       */
+      const value = controlAttrs[key];
+      if (typeof value !== "number") {
+        continue;
+      }
+      if (config.id && !warnedHeadingLevelIds.has(config.id)) {
+        warnedHeadingLevelIds.add(config.id);
+        console.warn(
+          `Setting '${config.id}' sets a heading level via controlAttrs.${key}. Move it to the top-level 'headingLevel' field on the config.`
+        );
+      }
+      if (lazy.srdEnabled) {
+        controlAttrs[key] = bumpHeadingLevelForSrd(value, lazy.srdEnabled);
       }
     }
     return {
