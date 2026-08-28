@@ -448,7 +448,9 @@ void MacroAssemblerLOONG64::ma_addPtrTestOverflow(Register rd, Register rj,
   Register scratch = temps.Acquire();
 
   if (imm.value == 0) {
-    as_ori(rd, rj, 0);
+    if (rd != rj) {
+      as_ori(rd, rj, 0);
+    }
     return;
   }
 
@@ -474,7 +476,9 @@ void MacroAssemblerLOONG64::ma_addPtrTestOverflow(Register rd, Register rj,
   Register scratch = temps.Acquire();
 
   if (imm.value == 0) {
-    as_ori(rd, rj, 0);
+    if (rd != rj) {
+      as_ori(rd, rj, 0);
+    }
     return;
   }
 
