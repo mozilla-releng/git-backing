@@ -5186,8 +5186,9 @@ void MacroAssemblerLOONG64Compat::move32(Register src, Register dest) {
 }
 
 void MacroAssemblerLOONG64Compat::movePtr(Register src, Register dest) {
-  as_or(dest, src, zero);
+  ma_move(dest, src);
 }
+
 void MacroAssemblerLOONG64Compat::movePtr(ImmWord imm, Register dest) {
   ma_li(dest, imm);
 }
