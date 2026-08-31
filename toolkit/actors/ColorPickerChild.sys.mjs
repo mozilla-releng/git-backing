@@ -20,7 +20,7 @@ export class ColorPickerChild extends InputPickerChildCommon {
     inputElement.setOpenState(false);
     if (this.initialValue !== inputElement.value) {
       inputElement.dispatchEvent(
-        new inputElement.documentGlobal.Event("change")
+        new inputElement.documentGlobal.Event("change", { bubbles: true })
       );
     }
   }
