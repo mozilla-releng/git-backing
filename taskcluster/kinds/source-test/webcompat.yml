@@ -21,7 +21,7 @@ task-defaults:
     worker-type: t-linux-docker-amd
     worker:
         docker-image: {in-tree: ubuntu2404-test}
-        max-run-time: 1800
+        max-run-time: 5400
     optimization:
         skip-unless-expanded: null
 
