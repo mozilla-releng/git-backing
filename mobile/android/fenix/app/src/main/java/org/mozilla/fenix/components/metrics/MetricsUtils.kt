@@ -20,6 +20,7 @@ import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.experiments.nimbus.NimbusEventStore
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.GleanMetrics.Metrics
+import org.mozilla.fenix.components.metrics.MetricsUtils.recordBookmarkMetrics
 
 /**
  * A utility object for recording various metrics related to user interactions within the application. This includes
@@ -251,4 +252,10 @@ object MetricsUtils {
                 }
             }
         }
+
+    /** Enum marking the access point of the Tab Groups feature, for telemetry. */
+    enum class TabGroupAccessPoint {
+        TABS_TRAY,
+        BROWSER_MENU,
+    }
 }

@@ -89,12 +89,19 @@ sealed interface TabGroupAction : TabsTrayAction {
     data class SelectedTabsAddedToGroup(val groupId: String) : TabGroupAction, TabsStorageAction
 
     /**
+     * Fired when the user performs an action to add a single item to a new Tab Group, such as from the menu.
+     *
+     * @property tabId THe ID of the tab.
+     */
+    data class TabAddedToNewTabGroup(val tabId: String) : TabGroupAction, TabsStorageAction
+
+    /**
      * Fired when the user performs an action to add a single item to an existing Tab Group, such as a drag and drop.
      *
      * @property tabId The ID of the tab.
      * @property groupId The ID of the group the tab is being added into.
      */
-    data class TabAddedToGroup(val tabId: String, val groupId: String) : TabGroupAction, TabsStorageAction
+    data class TabAddedToExistingTabGroup(val tabId: String, val groupId: String) : TabGroupAction, TabsStorageAction
 
     /**
      * Invoked when the user clicks to edit a tab group.
@@ -151,4 +158,20 @@ sealed interface TabGroupAction : TabsTrayAction {
 
     /** Invoked when a new group's animation is played. */
     data object NewGroupAnimationFinished : TabGroupAction
+
+    /**
+     * [TabGroupAction] Fired when a reorder is requested from an expanded TabGroup.
+     *
+     * @property sourceId The id of the item being reordered
+     * @property destinationId The id of the reorder target
+     * @property placeAfter Whether to place the item before or after the target
+     */
+    data class ReorderTabGroupItem(
+        val sourceId: String,
+        val destinationId: String?,
+        val placeAfter: Boolean,
+    ) : TabGroupAction, TabsStorageAction
+
+    /** Invoked when back navigation is requested. */
+    data object NavigateBackInvoked : TabGroupAction
 }

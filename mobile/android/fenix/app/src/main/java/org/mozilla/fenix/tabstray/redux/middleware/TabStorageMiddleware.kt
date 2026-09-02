@@ -186,7 +186,7 @@ class TabStorageMiddleware(
                 }
             }
 
-            is TabGroupAction.TabAddedToGroup -> {
+            is TabGroupAction.TabAddedToExistingTabGroup -> {
                 scope.launch {
                     handleTabAddedToGroup(groupId = action.groupId, tabId = action.tabId, store = store)
                 }
@@ -228,6 +228,9 @@ class TabStorageMiddleware(
                     }
                 }
             }
+
+            is TabGroupAction.ReorderTabGroupItem -> TODO()
+            is TabGroupAction.TabAddedToNewTabGroup -> TODO()
         }
     }
 
