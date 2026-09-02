@@ -186,7 +186,7 @@ class TabStorageMiddleware(
                 }
             }
 
-            is TabGroupAction.TabAddedToGroup -> {
+            is TabGroupAction.TabAddedToExistingTabGroup -> {
                 scope.launch {
                     handleTabAddedToGroup(groupId = action.groupId, tabId = action.tabId, store = store)
                 }
@@ -228,6 +228,10 @@ class TabStorageMiddleware(
                     }
                 }
             }
+
+            //todo-bug-2069535: Hook up to the coordinator storage layer when it is ready
+            is TabGroupAction.ReorderTabGroupItem -> {}
+            is TabGroupAction.TabAddedToNewTabGroup -> {}
         }
     }
 
