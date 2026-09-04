@@ -550,11 +550,6 @@ class BrowserParent final : public PBrowserParent,
       const double& aDeltaY, const int32_t& aModifierFlags,
       const Maybe<uint64_t>& aCallbackId);
 
-  mozilla::ipc::IPCResult RecvLockNativePointer(
-      const nsIWidget::NativePointerLockMode& aNativePointerLockMode);
-
-  mozilla::ipc::IPCResult RecvUnlockNativePointer();
-
   mozilla::ipc::IPCResult RecvSetNativePointerLockMode(
       const nsIWidget::NativePointerLockMode& aNativePointerLockMode);
 
@@ -808,8 +803,6 @@ class BrowserParent final : public PBrowserParent,
   // and have to ensure that the child did not modify links to be loaded.
   bool QueryDropLinksForVerification();
 
-  void UnlockNativePointer();
-
  private:
   // This is used when APZ needs to find the BrowserParent associated with a
   // layer to dispatch events.
@@ -1014,14 +1007,6 @@ class BrowserParent final : public PBrowserParent,
   // BrowserChild was not ready to handle it. We will resend it when the next
   // time we fire a mouse event and the BrowserChild is ready.
   bool mIsMouseEnterIntoWidgetEventSuppressed : 1;
-
-  // True after RecvLockNativePointer has been called and until
-  // UnlockNativePointer has been called.
-  bool mLockedNativePointer : 1;
-
-  // True after mLockedNativePointer is changed to `false` and reset to false
-  // once we receive a native mouse move request.
-  bool mWaitingForNativeMouseMoveAfterUnlock : 1;
 
   // True between ShowTooltip and HideTooltip messages.
   bool mShowingTooltip : 1;
