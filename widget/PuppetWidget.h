@@ -280,8 +280,6 @@ class PuppetWidget final : public nsIWidget,
       double aDeltaX, double aDeltaY, int32_t aModifierFlags,
       nsISynthesizedEventCallback* aCallback) override;
 
-  void LockNativePointer(NativePointerLockMode aNativePointerLockMode) override;
-  void UnlockNativePointer() override;
   void SetNativePointerLockMode(
       NativePointerLockMode aNativePointerLockMode) override;
   bool SupportsUnadjustedMovement() override {
