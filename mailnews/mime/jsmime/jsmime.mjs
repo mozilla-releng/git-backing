@@ -272,10 +272,11 @@ const JsMIMEstructuredHeaders = function () {
    * preprocess these headers (see bug 1154521 and bug 1197686).
    *
    * @param {string[]} values
-   * @returns {string} the message ids; properly space separated.
+   * @returns {string} the message ids; properly space separated. If no message
+   *   id could be found, the value is returned as-is.
    */
   function preprocessMessageIDs(values) {
-    return values[0].match(/<[^>]*>/g)?.join(" ");
+    return values[0].match(/<[^>]*>/g)?.join(" ") ?? values[0].trim();
   }
   structuredDecoders.set("References", preprocessMessageIDs);
   structuredDecoders.set("In-Reply-To", preprocessMessageIDs);
@@ -3659,6 +3660,26 @@ headerparser.addStructuredDecoder("Newsgroups", parseNewsgroups);
 headerparser.addStructuredDecoder("Followup-To", parseNewsgroups);
 headeremitter.addStructuredEncoder("Newsgroups", emitNewsgroups);
 headeremitter.addStructuredEncoder("Followup-To", emitNewsgroups);
+
+/**
+ * Emit space separated message ids, folding between them if needed. Message ids
+ * must be emitted verbatim: they are not a phrase, so they must never be
+ * RFC 2047 encoded, which is what would happen if they were emitted as an
+ * unstructured value.
+ *
+ * @param {string|string[]} ids - The message ids, as returned by the matching
+ *   structured decoder.
+ */
+function emitMessageIDs(ids) {
+  const list = (Array.isArray(ids) ? ids.join(" ") : ids)
+    .split(/\s+/)
+    .filter(Boolean);
+  for (let i = 0; i < list.length; i++) {
+    this.addText(list[i], i < list.length - 1);
+  }
+}
+headeremitter.addStructuredEncoder("References", emitMessageIDs);
+headeremitter.addStructuredEncoder("In-Reply-To", emitMessageIDs);
 
 export const jsmime = {
   mimeutils,

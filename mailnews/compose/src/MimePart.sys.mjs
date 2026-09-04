@@ -85,9 +85,11 @@ export class MimePart {
       return;
     }
     try {
-      this._headers.set(name, [
-        jsmime.headerparser.parseStructuredHeader(name, content),
-      ]);
+      const parsed = jsmime.headerparser.parseStructuredHeader(name, content);
+      // A structured decoder may fail to make sense of the value and return
+      // nothing. Fall back to the raw value in that case, since jsmime can't
+      // emit a header value that is neither structured nor a string.
+      this._headers.set(name, [parsed ?? content.trim()]);
     } catch (e) {
       this._headers.set(name, [content.trim()]);
     }
