@@ -439,21 +439,6 @@ nsresult PuppetWidget::SynthesizeNativeTouchpadPan(
   return NS_OK;
 }
 
-void PuppetWidget::LockNativePointer(
-    NativePointerLockMode aNativePointerLockMode) {
-  if (!mBrowserChild) {
-    return;
-  }
-  mBrowserChild->SendLockNativePointer(aNativePointerLockMode);
-}
-
-void PuppetWidget::UnlockNativePointer() {
-  if (!mBrowserChild) {
-    return;
-  }
-  mBrowserChild->SendUnlockNativePointer();
-}
-
 void PuppetWidget::SetNativePointerLockMode(
     NativePointerLockMode aNativePointerLockMode) {
   if (!mBrowserChild) {
