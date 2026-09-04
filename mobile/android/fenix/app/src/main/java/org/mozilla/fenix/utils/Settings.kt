@@ -2446,7 +2446,10 @@ class Settings(
      */
     var enableHomepageAsNewTab by booleanPreference(
         key = appContext.getPreferenceKey(R.string.pref_key_enable_homepage_as_new_tab),
-        default = { FxNimbus.features.homepageAsNewTab.value().enabled },
+        default = {
+            org.mozilla.fenix.tabgroups.strip.TabGroupStripConfig.isEnabled ||
+                FxNimbus.features.homepageAsNewTab.value().enabled
+        },
     )
 
     /**

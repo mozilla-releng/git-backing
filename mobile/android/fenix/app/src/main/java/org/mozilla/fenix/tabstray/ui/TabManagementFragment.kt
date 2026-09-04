@@ -44,6 +44,8 @@ import androidx.navigation.fragment.navArgs
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.scene.DialogSceneStrategy
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import mozilla.appservices.places.BookmarkRoot
@@ -670,6 +672,26 @@ class TabManagementFragment : Fragment() {
         recordBreadcrumb("TabManagementFragment onPause")
     }
 
+    private fun openExpandedTabGroupIfRequested() {
+        val args by navArgs<TabManagementFragmentArgs>()
+        val groupId = args.openExpandedTabGroupId ?: return
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            tabsTrayStore.stateFlow
+                .map { state -> state.tabGroupState.groups.find { it.id == groupId } }
+                .filterNotNull()
+                .first()
+                .let { group ->
+                    val hasExpandedDestination = tabsTrayStore.state.backStack.any {
+                        it is TabManagerNavDestination.ExpandedTabGroup
+                    }
+                    if (!hasExpandedDestination) {
+                        tabsTrayStore.dispatch(TabGroupAction.TabGroupClicked(group = group))
+                    }
+                }
+        }
+    }
+
     private fun shouldShowBanner(settings: Settings) =
         with(settings) { privateBrowsingLockedFeatureEnabled && shouldShowLockPbmBanner }
 
@@ -689,6 +711,8 @@ class TabManagementFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         TabsTray.opened.record(NoExtras())
+
+        openExpandedTabGroupIfRequested()
 
         inactiveTabsBinding.set(
             feature = InactiveTabsBinding(

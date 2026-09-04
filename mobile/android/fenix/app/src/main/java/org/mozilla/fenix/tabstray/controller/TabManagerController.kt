@@ -63,6 +63,7 @@ import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 import org.mozilla.fenix.tabstray.redux.store.TabsTrayStore
 import org.mozilla.fenix.tabstray.ui.TabManagementFragmentDirections
 import org.mozilla.fenix.trackingprotection.ProtectionsDashboardFragment
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.CoroutineContext
@@ -291,9 +292,13 @@ class DefaultTabManagerController(
         val startTime = profiler?.getProfilerTime()
         browsingModeManager.mode = BrowsingMode.fromBoolean(isPrivate)
 
-        if (settings.enableHomepageAsNewTab) {
-            fenixBrowserUseCases.addNewHomepageTab(
+        if (settings.homepageActsAsNewTab()) {
+            fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                 private = isPrivate,
+            )
+            navController.popBackStack()
+            navController.navigate(
+                TabManagementFragmentDirections.actionGlobalHome(),
             )
         } else {
             navController.popBackStack()
@@ -329,11 +334,9 @@ class DefaultTabManagerController(
     }
 
     override fun handleNavigateToHome() {
-        if (!navController.popBackStack(R.id.homeFragment, false)) {
-            navController.navigate(
-                TabManagementFragmentDirections.actionGlobalHome(),
-            )
-        }
+        navController.navigate(
+            TabManagementFragmentDirections.actionGlobalHome(),
+        )
     }
 
     override fun handleTabDeletion(tab: TabsTrayItem.Tab, source: String?) {

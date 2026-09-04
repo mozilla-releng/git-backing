@@ -68,6 +68,7 @@
     <dimen name="browser_navbar_height">60dp</dimen>
     <dimen name="browser_navbar_height_small">48dp</dimen>
     <dimen name="tab_strip_height">56dp</dimen>
+    <dimen name="tab_group_strip_height">48dp</dimen>
     <dimen name="browser_microsurvey_height">131dp</dimen>
 
     <!-- Home Fragment -->

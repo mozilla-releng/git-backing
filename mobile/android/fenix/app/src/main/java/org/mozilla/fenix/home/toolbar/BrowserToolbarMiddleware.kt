@@ -82,6 +82,7 @@ import org.mozilla.fenix.search.BrowserToolbarSearchMiddleware
 import org.mozilla.fenix.search.ext.searchEngineShortcuts
 import org.mozilla.fenix.settings.ShortcutType
 import org.mozilla.fenix.tabstray.redux.state.Page
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 import mozilla.components.feature.summarize.R as summariesR
 import mozilla.components.lib.state.Action as MVIAction
@@ -210,13 +211,13 @@ class BrowserToolbarMiddleware(
 
             is OriginClicked -> {
                 Events.searchBarTapped.record(Events.SearchBarTappedExtra("HOME"))
-                appStore.dispatch(SearchStarted())
+                appStore.dispatch(SearchStarted(browserStore.state.selectedTabId))
             }
             is VoiceSearchClicked -> {
                 scope.launch {
                     appStore.dispatch(VoiceInputRequested)
                     delay(DISPLAY_TOOLBAR_DELAY_AFTER_VOICE_REQUEST)
-                    appStore.dispatch(SearchStarted())
+                    appStore.dispatch(SearchStarted(browserStore.state.selectedTabId))
                 }
                 next(action)
             }
@@ -247,8 +248,18 @@ class BrowserToolbarMiddleware(
         searchTerms: String? = null,
     ) {
         browsingMode?.let { browsingModeManager.mode = it }
+
+        if (settings.homepageActsAsNewTab() && searchTerms == null) {
+            useCases.fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
+                private = browsingMode?.isPrivate ?: browsingModeManager.mode.isPrivate,
+            )
+            store.dispatch(ExitEditMode)
+            store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(""), isQueryPrefilled = false))
+            return
+        }
+
         store.dispatch(SearchQueryUpdated(BrowserToolbarQuery(searchTerms ?: ""), true))
-        appStore.dispatch(SearchStarted())
+        appStore.dispatch(SearchStarted(browserStore.state.selectedTabId))
     }
 
     private fun observeSearchStateUpdates(store: Store<BrowserToolbarState, BrowserToolbarAction>) {

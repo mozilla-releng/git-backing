@@ -30,6 +30,14 @@ apply from: 'benchmark.gradle'
 
 def isAppBundle = gradle.startParameter.taskNames.any { it.toLowerCase().contains("bundle") }
 
+// Tab group strip prototype: any of A/B/C/D builds the strip in. Prototyping settled on
+// variant D (expand right, favicons), which is what every build now shows.
+def tabGroupStripVariant = (
+    project.findProperty("tabGroupStripVariant")
+        ?: rootProject.findProperty("tabGroupStripVariant")
+        ?: "D"
+)
+
 android {
     project.maybeConfigForJetpackBenchmark(it)
     if (project.hasProperty("testBuildType")) {
@@ -74,6 +82,10 @@ android {
 
         buildConfigField "String[]", "SUPPORTED_LOCALE_ARRAY", getSupportedLocales()
         buildConfigField "boolean", "IS_BENCHMARK_BUILD", "false"
+
+        // Tab group strip prototype variant: A/B/C/D = single-variant user-test builds,
+        // ALL = partner build with Secret Settings picker for every variant.
+        buildConfigField "String", "TAB_GROUP_STRIP_VARIANT", "\"${tabGroupStripVariant}\""
     }
 
     def releaseTemplate = {
@@ -229,7 +241,9 @@ android {
                 include "arm64-v8a"
             } else {
                 include "armeabi-v7a", "arm64-v8a", "x86_64"
-                if (gradle.mozconfig.substs.MOZILLA_OFFICIAL || System.getenv("MOZ_BUILD_CONFIG_LINT") == "1") {
+                if (gradle.mozconfig.substs.MOZILLA_OFFICIAL ||
+                    System.getenv("MOZ_BUILD_CONFIG_LINT") == "1" ||
+                    tabGroupStripVariant in ['A', 'B', 'C', 'D']) {
                     universalApk true
                 }
             }
@@ -305,6 +319,17 @@ androidComponents {
             project.logger.debug("versionName override: $versionName")
             variant.outputs.each { output ->
                 output.versionName.set(versionName)
+            }
+        }
+
+        if (tabGroupStripVariant in ['A', 'B', 'C', 'D']) {
+            variant.outputs.each { output ->
+                // Only rename the universal APK; ABI splits keep Gradle's default names.
+                def abi = output.filters.find { it.filterType == FilterConfiguration.FilterType.ABI }?.identifier
+                if (abi != null) {
+                    return
+                }
+                output.outputFileName.set("fenix-group-strip-${variant.name}.apk")
             }
         }
     }

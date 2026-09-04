@@ -11,6 +11,7 @@ import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.lib.state.Middleware
 import mozilla.components.lib.state.Store
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 
 /**
@@ -64,5 +65,5 @@ class DefaultHomepageAsANewTabPreferenceRepository(
     private val settings: Settings,
 ) : HomepageAsANewTabPreferencesRepository {
 
-    override fun getHomepageAsANewTabEnabled(): Boolean = settings.enableHomepageAsNewTab
+    override fun getHomepageAsANewTabEnabled(): Boolean = settings.homepageActsAsNewTab()
 }

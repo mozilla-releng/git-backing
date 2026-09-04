@@ -144,6 +144,7 @@ import org.mozilla.fenix.summarization.SummarizationNavigator
 import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabstray.ext.isActiveDownload
 import org.mozilla.fenix.tabstray.redux.state.Page
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.Stories.hasUrlOfAHomeScreenStory
 import org.mozilla.fenix.utils.Stories.hasUrlOfAStoriesScreenStory
@@ -908,8 +909,9 @@ class BrowserToolbarMiddleware(
     private fun openNewTab(
         browsingMode: BrowsingMode,
     ) {
-        if (settings.enableHomepageAsNewTab) {
-            useCases.fenixBrowserUseCases.addNewHomepageTab(
+        if (settings.homepageActsAsNewTab()) {
+            browsingModeManager.mode = browsingMode
+            useCases.fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                 private = browsingMode.isPrivate,
             )
         } else {

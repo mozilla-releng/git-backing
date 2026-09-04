@@ -16,6 +16,7 @@ import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.support.ktx.kotlin.isUrl
 import mozilla.components.support.ktx.kotlin.toNormalizedUrl
 import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction
 
 /**
  * Use cases for handling loading a URL and performing a search.
@@ -58,8 +59,18 @@ class FenixBrowserUseCases(
         flags: EngineSession.LoadUrlFlags = EngineSession.LoadUrlFlags.none(),
         historyMetadata: HistoryMetadataKey? = null,
         additionalHeaders: Map<String, String>? = null,
+        targetTabId: String? = null,
     ) {
         val startTime = profiler?.getProfilerTime()
+        val existingTabId = if (newTab) {
+            null
+        } else {
+            targetTabId ?: appStore.state.searchState.sourceTabId
+        }
+
+        existingTabId?.let { tabId ->
+            tabsUseCases.selectTab.invoke(tabId)
+        }
 
         // In situations where we want to perform a search but have no search engine (e.g. the user
         // has removed all of them, or we couldn't load any) we will pass searchTermOrURL to Gecko
@@ -76,6 +87,7 @@ class FenixBrowserUseCases(
             } else {
                 loadUrlUseCase.invoke(
                     url = searchTermOrURL.toNormalizedUrl(),
+                    sessionId = existingTabId,
                     flags = flags,
                     originalInput = searchTermOrURL,
                 )
@@ -98,6 +110,7 @@ class FenixBrowserUseCases(
             } else {
                 searchUseCases.defaultSearch.invoke(
                     searchTerms = searchTermOrURL,
+                    sessionId = existingTabId,
                     searchEngine = searchEngine,
                     flags = flags,
                     additionalHeaders = additionalHeaders,
@@ -115,6 +128,20 @@ class FenixBrowserUseCases(
                 text = "newTab: $newTab, private: $private",
             )
         }
+    }
+
+    /**
+     * Adds a new homepage tab and clears any in-progress search UI state.
+     *
+     * Use this for new-tab actions outside of tab groups so the user lands on a clean homepage
+     * instead of a prefilled search field tied to a previous tab.
+     *
+     * @param private Whether or not the new homepage tab should be private.
+     * @return The ID of the created tab.
+     */
+    fun addNewHomepageTabWithoutSearch(private: Boolean = appStore.state.mode.isPrivate): String {
+        appStore.dispatch(AppAction.SearchAction.SearchEnded)
+        return addNewHomepageTab(private = private)
     }
 
     /**

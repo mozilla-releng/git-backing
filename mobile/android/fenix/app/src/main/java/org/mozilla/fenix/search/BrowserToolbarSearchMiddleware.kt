@@ -102,6 +102,7 @@ import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTOR_CLICKED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.telemetry.SURFACE_BROWSER
 import org.mozilla.fenix.telemetry.SURFACE_HOME
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
@@ -188,6 +189,9 @@ class BrowserToolbarSearchMiddleware(
             }
 
             is EnterEditMode -> {
+                browserStore.state.selectedTabId?.let { selectedTabId ->
+                    appStore.dispatch(SearchStarted(selectedTabId))
+                }
                 refreshConfigurationAfterSearchEngineChange(
                     store = store,
                     searchEngine = this.reconcileSelectedEngine(),
@@ -338,20 +342,23 @@ class BrowserToolbarSearchMiddleware(
         }
     }
 
+    private fun resolveSearchSourceTabId(): String? =
+        appStore.state.searchState.sourceTabId ?: browserStore.state.selectedTabId
+
+    private fun shouldOpenSearchInNewTab(): Boolean {
+        if (settings.homepageActsAsNewTab()) {
+            return false
+        }
+        return resolveSearchSourceTabId()?.let { browserStore.state.findTab(it) == null } ?: true
+    }
+
     private fun openSearchOrUrl(text: String, navController: NavController) {
         val searchEngine = reconcileSelectedEngine()
         val isDefaultEngine = (
             searchEngine?.id == browserStore.state.search
                 .selectedOrDefaultSearchEngine(private = browsingModeManager.mode.isPrivate)?.id
         )
-        val newTab = if (settings.enableHomepageAsNewTab) {
-            false
-        } else {
-            // Create a new tab if the source for where the search originated is not available.
-            appStore.state.searchState.sourceTabId?.run {
-                browserStore.state.findTab(this) == null
-            } ?: true
-        }
+        val newTab = shouldOpenSearchInNewTab()
 
         navController.navigate(
             NavGraphDirections.actionGlobalBrowser(),
@@ -363,6 +370,7 @@ class BrowserToolbarSearchMiddleware(
             forceSearch = !isDefaultEngine,
             private = browsingModeManager.mode.isPrivate,
             searchEngine = searchEngine,
+            targetTabId = resolveSearchSourceTabId().takeUnless { newTab },
         )
 
         if (text.isUrl() || searchEngine == null) {

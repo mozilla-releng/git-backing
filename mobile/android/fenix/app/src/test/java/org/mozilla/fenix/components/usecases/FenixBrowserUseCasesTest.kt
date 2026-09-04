@@ -26,6 +26,7 @@ import mozilla.components.feature.search.SearchUseCases
 import mozilla.components.feature.search.ext.createSearchEngine
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.tabs.TabsUseCases
+import mozilla.components.support.test.middleware.CaptureActionsMiddleware
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Before
 import org.junit.Test
@@ -33,6 +34,7 @@ import org.junit.runner.RunWith
 import org.mozilla.fenix.R
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppState
 
 @RunWith(AndroidJUnit4::class)
@@ -168,6 +170,31 @@ class FenixBrowserUseCasesTest {
                 url = url,
                 flags = EngineSession.LoadUrlFlags.none(),
                 private = private,
+                originalInput = url,
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN a target tab WHEN load url or search is invoked without creating a new tab THEN select and load in that tab`() {
+        val url = "https://www.mozilla.org"
+        val targetTabId = "homepage-tab"
+
+        useCases.loadUrlOrSearch(
+            searchTermOrURL = url,
+            newTab = false,
+            forceSearch = false,
+            private = false,
+            searchEngine = mockk(relaxed = true),
+            targetTabId = targetTabId,
+        )
+
+        verify { tabsUseCases.selectTab.invoke(targetTabId) }
+        verify {
+            loadUrlUseCase.invoke(
+                url = url,
+                sessionId = targetTabId,
+                flags = EngineSession.LoadUrlFlags.none(),
                 originalInput = url,
             )
         }
@@ -344,6 +371,34 @@ class FenixBrowserUseCasesTest {
                 url = ABOUT_HOME_URL,
                 title = homepageTitle,
                 private = false,
+            )
+        }
+    }
+
+    @Test
+    fun `WHEN add new homepage tab without search is invoked THEN end search and create a new homepage tab`() {
+        val captorMiddleware = CaptureActionsMiddleware<AppState, AppAction>()
+        val searchableAppStore = AppStore(
+            initialState = AppState(),
+            middlewares = listOf(captorMiddleware),
+        )
+        val searchableUseCases = FenixBrowserUseCases(
+            tabsUseCases = tabsUseCases,
+            loadUrlUseCase = loadUrlUseCase,
+            searchUseCases = searchUseCases,
+            homepageTitle = homepageTitle,
+            profiler = profiler,
+            appStore = searchableAppStore,
+        )
+
+        searchableUseCases.addNewHomepageTabWithoutSearch(private = true)
+
+        captorMiddleware.assertFirstAction(AppAction.SearchAction.SearchEnded::class) {}
+        verify {
+            tabsUseCases.addTab.invoke(
+                url = ABOUT_HOME_URL,
+                title = homepageTitle,
+                private = true,
             )
         }
     }

@@ -62,6 +62,7 @@ import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.TabCollectionStorage
 import org.mozilla.fenix.components.accounts.FenixFxAEntryPoint
+import org.mozilla.fenix.components.appstate.AppAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase
 import org.mozilla.fenix.components.share.ShareSource
@@ -186,7 +187,7 @@ class DefaultTabManagerControllerTest {
 
     @Test
     fun `GIVEN private mode and homepage as a new tab is enabled WHEN the fab is clicked THEN a new private homepage tab is displayed`() {
-        every { settings.enableHomepageAsNewTab } returns true
+        every { settings.homepageActsAsNewTab() } returns true
 
         profiler = spyk(profiler) {
             every { getProfilerTime() } returns Double.MAX_VALUE
@@ -201,9 +202,11 @@ class DefaultTabManagerControllerTest {
 
         verifyOrder {
             profiler.getProfilerTime()
-            fenixBrowserUseCases.addNewHomepageTab(
+            fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                 private = true,
             )
+            navController.popBackStack()
+            navController.navigate(TabManagementFragmentDirections.actionGlobalHome())
             TabsTray.closed.record(NoExtras())
             profiler.addMarker(
                 "DefaultTabManagerController.onNewTabTapped",
@@ -237,7 +240,7 @@ class DefaultTabManagerControllerTest {
 
     @Test
     fun `GIVEN normal mode and homepage as a new tab is enabled WHEN the fab is clicked THEN a new homepage tab is displayed`() {
-        every { settings.enableHomepageAsNewTab } returns true
+        every { settings.homepageActsAsNewTab() } returns true
 
         profiler = spyk(profiler) {
             every { getProfilerTime() } returns Double.MAX_VALUE
@@ -248,9 +251,11 @@ class DefaultTabManagerControllerTest {
 
         verifyOrder {
             profiler.getProfilerTime()
-            fenixBrowserUseCases.addNewHomepageTab(
+            fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                 private = false,
             )
+            navController.popBackStack()
+            navController.navigate(TabManagementFragmentDirections.actionGlobalHome())
             TabsTray.closed.record(NoExtras())
             profiler.addMarker(
                 "DefaultTabManagerController.onNewTabTapped",
@@ -404,37 +409,13 @@ class DefaultTabManagerControllerTest {
     }
 
     @Test
-    fun `GIVEN the browser is currently shown WHEN navigate to home is called THEN the manager is closed and popBackStack is executed`() {
-        every { navController.currentDestination?.id } returns R.id.browserFragment
-        every { navController.popBackStack(R.id.homeFragment, false) } returns true
-
+    fun `GIVEN a selected tab WHEN navigate to home is called THEN home is opened`() {
         createController().handleNavigateToHome()
 
-        verify { navController.popBackStack(R.id.homeFragment, false) }
-        verify(exactly = 0) { navController.navigate(any<Int>()) }
-        verify(exactly = 0) { navController.navigate(any<NavDirections>()) }
-        verify(exactly = 0) { navController.navigate(any<NavDirections>(), any<NavOptions>()) }
-    }
-
-    @Test
-    fun `GIVEN the browser is currently shown WHEN navigate to home is called and pop back stack fails THEN it navigates to home`() {
-        every { navController.currentDestination?.id } returns R.id.browserFragment
-        every { navController.popBackStack(R.id.homeFragment, false) } returns false
-
-        createController().handleNavigateToHome()
-
-        verify { navController.popBackStack(R.id.homeFragment, false) }
-        verify { navController.navigate(TabManagementFragmentDirections.actionGlobalHome()) }
-    }
-
-    @Test
-    fun `WHEN navigate to home is called and popBackStack succeeds THEN the method finishes`() {
-        every { navController.popBackStack(R.id.homeFragment, false) } returns true
-
-        createController().handleNavigateToHome()
-
-        verify(exactly = 1) { navController.popBackStack(R.id.homeFragment, false) }
-        verify(exactly = 0) { navController.navigate(TabManagementFragmentDirections.actionGlobalHome()) }
+        verify {
+            navController.navigate(TabManagementFragmentDirections.actionGlobalHome())
+        }
+        verify(exactly = 0) { navController.popBackStack(R.id.homeFragment, false) }
     }
 
     @Test
@@ -1683,7 +1664,7 @@ class DefaultTabManagerControllerTest {
 
     @Test
     fun `GIVEN homepage as a new tab is enabled WHEN a homepage tab is selected THEN report the metric, update the state, and show the homepage`() {
-        every { settings.enableHomepageAsNewTab } returns true
+        every { settings.homepageActsAsNewTab() } returns true
         trayStore = TabsTrayStore()
         val controller = spyk(createController())
         val tabData = createTab(url = ABOUT_HOME_URL)

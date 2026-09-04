@@ -13,7 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
@@ -42,7 +42,10 @@ class TabStripStatusBarView(private val rootView: ViewGroup) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .windowInsetsTopHeight(WindowInsets.statusBars)
+                            // Screen content is inset by the status bar *and* the display cutout,
+                            // so cover both or the taller of the two leaves an uncovered band
+                            // above the strip.
+                            .windowInsetsTopHeight(WindowInsets.safeDrawing)
                             .background(brush = FirefoxTheme.gradients.accentSubtle.brush),
                     )
                 }

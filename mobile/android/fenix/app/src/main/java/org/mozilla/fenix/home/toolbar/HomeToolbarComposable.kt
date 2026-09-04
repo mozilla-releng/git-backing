@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import mozilla.components.browser.state.action.AwesomeBarAction
 import mozilla.components.browser.state.ext.getUrl
 import mozilla.components.browser.state.selector.findTab
+import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.utils.BackInvokedHandler
 import mozilla.components.compose.browser.toolbar.BrowserToolbar
@@ -75,6 +76,7 @@ internal const val EDIT_TOOLBAR_DELAY_AFTER_VOICE_REQUEST = 1_000L
  * @param searchSuggestionsContent [Composable] as the search suggestions content to be displayed
  * together with this toolbar.
  * @param navigationBarContent [Composable] content for the navigation bar.
+ * @param groupStripContent [Composable] content for the tab group strip shown above the bottom toolbar.
  */
 @Suppress("LongParameterList")
 internal class HomeToolbarComposable(
@@ -90,6 +92,7 @@ internal class HomeToolbarComposable(
     private val tabStripContent: @Composable () -> Unit,
     private val searchSuggestionsContent: @Composable (Modifier) -> Unit,
     private val navigationBarContent: (@Composable () -> Unit)?,
+    private val groupStripContent: @Composable () -> Unit = {},
 ) : FenixHomeToolbar {
     private val addressBarVisibility = mutableStateOf(true)
 
@@ -154,6 +157,7 @@ internal class HomeToolbarComposable(
 
             if (settings.shouldUseBottomToolbar) {
                 searchSuggestionsContent(Modifier.weight(1f))
+                groupStripContent()
             }
 
             Box {
@@ -210,6 +214,11 @@ internal class HomeToolbarComposable(
     }
 
     private fun configureStartingInSearchMode() {
+        if (!directToSearchConfig.startSearch && !shouldStartToVoiceSearch()) {
+            appStore.dispatch(SearchEnded)
+            return
+        }
+
         if (shouldStartToVoiceSearch()) {
             handleVoiceSearchRequest()
         } else if (directToSearchConfig.startSearch) {
@@ -238,10 +247,14 @@ internal class HomeToolbarComposable(
         handleStartingSearch(directToSearchConfig)
 
         if (directToSearchConfig.sessionId != null) {
-            browserStore.state.findTab(directToSearchConfig.sessionId)?.let {
+            browserStore.state.findTab(directToSearchConfig.sessionId)?.let { tab ->
+                val url = tab.getUrl() ?: return@let
+                if (url == ABOUT_HOME_URL) {
+                    return
+                }
                 toolbarStore.dispatch(
                     SearchQueryUpdated(
-                        query = BrowserToolbarQuery(it.getUrl() ?: ""),
+                        query = BrowserToolbarQuery(url),
                         isQueryPrefilled = true,
                     ),
                 )

@@ -7,12 +7,16 @@ package org.mozilla.fenix.home.topsites.controller
 import android.app.Activity
 import androidx.navigation.NavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.mockk.clearMocks
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import mozilla.components.browser.state.action.SearchAction
 import mozilla.components.browser.state.search.RegionState
@@ -28,6 +32,7 @@ import mozilla.components.service.mars.MozAdsUseCases
 import mozilla.components.support.test.robolectric.testContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Ignore
@@ -49,10 +54,13 @@ import org.mozilla.fenix.home.topsites.AddShortcutEntryPoint
 import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.home.topsites.ShortcutsFragmentDirections
 import org.mozilla.fenix.settings.SupportUtils
+import org.mozilla.fenix.tabgroups.fakes.FakeTabGroupRepository
+import org.mozilla.fenix.tabgroups.strip.shouldLoadHomeItemInCurrentTab
 import org.mozilla.fenix.utils.Settings
 import java.lang.ref.WeakReference
 import kotlin.test.assertNotNull
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
 class DefaultTopSiteControllerTest {
 
@@ -69,6 +77,8 @@ class DefaultTopSiteControllerTest {
     private val mozAdsUseCases: MozAdsUseCases = mockk(relaxed = true)
     private val settings: Settings = mockk(relaxed = true)
     private val analytics: Analytics = mockk(relaxed = true)
+    private val tabGroupAssignments = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val tabGroupRepository = FakeTabGroupRepository(tabGroupAssignmentFlow = tabGroupAssignments)
 
     private val searchEngine = SearchEngine(
         id = "test",
@@ -100,6 +110,7 @@ class DefaultTopSiteControllerTest {
 
     @Before
     fun setup() = runTest {
+        tabGroupAssignments.value = emptyMap()
         store = BrowserStore(
             BrowserState(
                 search = SearchState(
@@ -1279,6 +1290,109 @@ class DefaultTopSiteControllerTest {
         }
     }
 
+    @Test
+    fun `GIVEN selected tab is in a group WHEN Frecent top site matches another tab THEN load in current tab`() = runTest {
+        val url = "mozilla.org"
+        val groupedHomeTab = createTab(url = "about:home", id = "home-tab")
+        val existingTabForUrl = createTab(url = url, id = "other-tab")
+
+        store = BrowserStore(
+            BrowserState(
+                tabs = listOf(groupedHomeTab, existingTabForUrl),
+                selectedTabId = groupedHomeTab.id,
+                search = SearchState(regionSearchEngines = listOf(searchEngine)),
+            ),
+        )
+        tabGroupRepository.addTabGroupAssignment(
+            tabId = groupedHomeTab.id,
+            tabGroupId = "group-1",
+        )
+
+        val topSite = TopSite.Frecent(
+            id = 1L,
+            title = "Mozilla",
+            url = url,
+            createdAt = 0,
+        )
+        val controller = createController(this)
+
+        every { settings.enableHomepageAsNewTab } returns false
+        every { settings.tabGroupsEnabled } returns true
+
+        assertEquals(groupedHomeTab.id, store.state.selectedTabId)
+        assertTrue(
+            shouldLoadHomeItemInCurrentTab(
+                settings = settings,
+                selectedTabId = store.state.selectedTabId,
+                tabGroupRepository = tabGroupRepository,
+            ),
+        )
+
+        clearMocks(fenixBrowserUseCases, selectTabUseCase, tabsUseCases, answers = false)
+
+        controller.openSelectedTopSite(topSite)
+
+        verify {
+            fenixBrowserUseCases.loadUrlOrSearch(
+                searchTermOrURL = url,
+                newTab = false,
+                private = false,
+            )
+        }
+        verify(exactly = 0) { selectTabUseCase.selectTab(any()) }
+        verify(exactly = 0) { tabsUseCases.addTab }
+    }
+
+    @Test
+    fun `GIVEN selected tab is in a group WHEN Default top site selected THEN load in current tab`() = runTest {
+        val groupedHomeTab = createTab(url = "about:home", id = "home-tab")
+
+        store = BrowserStore(
+            BrowserState(
+                tabs = listOf(groupedHomeTab),
+                selectedTabId = groupedHomeTab.id,
+                search = SearchState(regionSearchEngines = listOf(searchEngine)),
+            ),
+        )
+        tabGroupRepository.addTabGroupAssignment(
+            tabId = groupedHomeTab.id,
+            tabGroupId = "group-1",
+        )
+
+        val topSite = TopSite.Default(
+            id = 1L,
+            title = "Mozilla",
+            url = "mozilla.org",
+            createdAt = 0,
+        )
+        val controller = createController(this)
+
+        every { settings.enableHomepageAsNewTab } returns false
+        every { settings.tabGroupsEnabled } returns true
+
+        assertEquals(groupedHomeTab.id, store.state.selectedTabId)
+        assertTrue(
+            shouldLoadHomeItemInCurrentTab(
+                settings = settings,
+                selectedTabId = store.state.selectedTabId,
+                tabGroupRepository = tabGroupRepository,
+            ),
+        )
+
+        clearMocks(fenixBrowserUseCases, selectTabUseCase, tabsUseCases, answers = false)
+
+        controller.openSelectedTopSite(topSite)
+
+        verify {
+            fenixBrowserUseCases.loadUrlOrSearch(
+                searchTermOrURL = topSite.url,
+                newTab = false,
+                private = false,
+            )
+        }
+        verify(exactly = 0) { tabsUseCases.addTab }
+    }
+
     fun `WHEN screen is shown THEN impression is logged`() = runTest {
         assertNull(ShortcutsLibrary.viewed.testGetValue())
         val controller = createController(this)
@@ -1301,6 +1415,7 @@ class DefaultTopSiteControllerTest {
             fenixBrowserUseCases = fenixBrowserUseCases,
             topSitesUseCases = topSitesUseCases,
             mozAdsUseCases = mozAdsUseCases,
+            tabGroupRepository = tabGroupRepository,
             viewLifecycleScope = scope,
             source = source,
         )
