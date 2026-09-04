@@ -5,6 +5,7 @@
 package org.mozilla.fenix
 
 import androidx.navigation.NavController
+import androidx.navigation.navOptions
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,7 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.lib.state.helpers.AbstractBinding
 import org.mozilla.fenix.home.HomeFragment
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripNewTabEnter
 
 /**
  * A binding for observing [ContentState.url] and navigating to the [HomeFragment] if
@@ -39,7 +41,23 @@ class AboutHomeBinding(
                         R.id.onboardingFragment,
                     ).contains(navController.currentDestination?.id)
                 ) {
-                    navController.navigate(NavGraphDirections.actionGlobalHome())
+                    if (TabGroupStripNewTabEnter.peek()) {
+                        // Strip "+": no fragment anims — content enter + strip bridge handle motion.
+                        navController.navigate(
+                            NavGraphDirections.actionGlobalHome(),
+                            navOptions {
+                                popUpTo(R.id.homeFragment) { inclusive = true }
+                                anim {
+                                    enter = 0
+                                    exit = 0
+                                    popEnter = 0
+                                    popExit = 0
+                                }
+                            },
+                        )
+                    } else {
+                        navController.navigate(NavGraphDirections.actionGlobalHome())
+                    }
                 }
             }
     }

@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.StrictMode
 import android.text.format.DateUtils
 import android.util.AttributeSet
+import android.view.Gravity
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -25,14 +26,26 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager.LayoutParams.FLAG_SECURE
+import android.widget.FrameLayout
 import androidx.activity.BackEventCompat
 import androidx.annotation.CallSuper
 import androidx.annotation.IdRes
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.ActionBar
 import androidx.appcompat.widget.Toolbar
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripContent
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripNewTabEnter
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripNewTabSurfaceOverlay
+import org.mozilla.fenix.theme.FirefoxTheme
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.layoutDirection
@@ -203,6 +216,12 @@ import mozilla.components.ui.icons.R as iconsR
 open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, CrashActionDispatcher {
     @VisibleForTesting
     internal lateinit var binding: ActivityHomeBinding
+
+    /** Activity-level strip overlay that survives Browser → Home during strip "+" create. */
+    private var tabGroupStripBridgeView: ComposeView? = null
+
+    /** Full-screen surface sheet that covers chrome while the new homepage settles. */
+    private var tabGroupStripSurfaceOverlayView: ComposeView? = null
     lateinit var themeManager: ThemeManager
     lateinit var browsingModeManager: BrowsingModeManager
 
@@ -631,7 +650,6 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             StatusBarColorManager(
                 themeManager = themeManager,
                 activity = this,
-                appStore = components.appStore,
                 settings = components.settings,
                 tabStripStatusBarView = TabStripStatusBarView(rootView = window.decorView as ViewGroup),
             ),
@@ -1419,6 +1437,128 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         if (directions != null) {
             navHost.navController.nav(fragmentId, directions)
         }
+    }
+
+    /**
+     * Pins a strip overlay above the fragment host so the group strip stays visible while
+     * BrowserFragment is torn down and HomeFragment is created after strip "+".
+     */
+    fun showTabGroupStripBridge() {
+        if (tabGroupStripBridgeView != null) {
+            TabGroupStripNewTabEnter.setBridgeVisible(true)
+            return
+        }
+        val root = binding.root
+        val toolbarStore = BrowserToolbarStore()
+        val bottomToolbarPadding =
+            if (components.settings.shouldUseBottomToolbar && !components.settings.isTabStripEnabled) {
+                // Approximate address bar stack so the bridge sits where the browser strip was.
+                64.dp
+            } else {
+                0.dp
+            }
+        tabGroupStripBridgeView = ComposeView(this).apply {
+            setContent {
+                FirefoxTheme {
+                    Box(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = bottomToolbarPadding),
+                    ) {
+                        TabGroupStripContent(
+                            browserStore = components.core.store,
+                            toolbarStore = toolbarStore,
+                            tabGroupRepository = components.core.tabGroupRepository,
+                            tabsUseCases = components.useCases.tabsUseCases,
+                            fenixBrowserUseCases = components.useCases.fenixBrowserUseCases,
+                            settings = components.settings,
+                            onVisibilityChanged = {},
+                            isBridgeOverlay = true,
+                        )
+                    }
+                }
+            }
+        }
+        root.addView(
+            tabGroupStripBridgeView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM,
+            ),
+        )
+        TabGroupStripNewTabEnter.setBridgeVisible(true)
+    }
+
+    /** Removes the strip bridge after the surface overlay fully covers the screen. */
+    fun hideTabGroupStripBridge() {
+        TabGroupStripNewTabEnter.setBridgeVisible(false)
+        tabGroupStripBridgeView?.let { bridge ->
+            binding.root.removeView(bridge)
+        }
+        tabGroupStripBridgeView = null
+    }
+
+    /**
+     * Full-screen Z-axis surface sheet: expands from bottom-right, covers chrome while home
+     * settles, then fades out. Lives above the strip bridge on the activity root.
+     */
+    fun showTabGroupStripNewTabSurfaceOverlay() {
+        if (tabGroupStripSurfaceOverlayView != null) {
+            return
+        }
+        tabGroupStripSurfaceOverlayView = ComposeView(this).apply {
+            setContent {
+                FirefoxTheme {
+                    TabGroupStripNewTabSurfaceOverlay(
+                        onExpandSettled = {
+                            // Under the opaque sheet only: create homepage tab and navigate
+                            // Browser → Home. Keep the sheet up until Home paints so the
+                            // crossfade does not reveal a blank fragment swap.
+                            TabGroupStripNewTabEnter.prepareHomepageReveal()
+                            val pending = TabGroupStripNewTabEnter.takePendingCreate()
+                            if (pending != null) {
+                                val tabId = components.useCases.fenixBrowserUseCases
+                                    .addNewHomepageTabWithoutSearch(private = pending.private)
+                                components.core.tabGroupRepository.addTabGroupAssignment(
+                                    tabId = tabId,
+                                    tabGroupId = pending.groupId,
+                                )
+                            }
+                        },
+                        onFinished = {
+                            hideTabGroupStripNewTabSurfaceOverlay()
+                            hideTabGroupStripBridge()
+                            TabGroupStripNewTabEnter.finishReveal()
+                        },
+                    )
+                }
+            }
+        }
+        binding.root.addView(
+            tabGroupStripSurfaceOverlayView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        tabGroupStripSurfaceOverlayView?.bringToFront()
+        // Safety: never leave overlays stuck (Browser→Home can take >2s to settle).
+        lifecycleScope.launch {
+            delay(5_000)
+            if (tabGroupStripSurfaceOverlayView != null) {
+                hideTabGroupStripNewTabSurfaceOverlay()
+                hideTabGroupStripBridge()
+                TabGroupStripNewTabEnter.clear()
+            }
+        }
+    }
+
+    fun hideTabGroupStripNewTabSurfaceOverlay() {
+        tabGroupStripSurfaceOverlayView?.let { overlay ->
+            binding.root.removeView(overlay)
+        }
+        tabGroupStripSurfaceOverlayView = null
     }
 
     @VisibleForTesting

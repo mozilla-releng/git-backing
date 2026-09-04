@@ -143,6 +143,8 @@ import org.mozilla.fenix.summarization.onboarding.FenixSummarizationFeatureConfi
 import org.mozilla.fenix.summarization.onboarding.SummarizationFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabgroups.storage.redux.middleware.TabGroupMiddleware
 import org.mozilla.fenix.tabgroups.storage.repository.DefaultTabGroupRepository
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripConfig
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripMiddleware
 import org.mozilla.fenix.telemetry.TelemetryMiddleware
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
 import org.mozilla.fenix.utils.Settings.DeleteDownloadBehavior
@@ -150,6 +152,32 @@ import org.mozilla.fenix.utils.getUndoDelay
 import org.mozilla.geckoview.GeckoRuntime
 import java.util.concurrent.TimeUnit
 import mozilla.components.service.pocket.mars.api.Placement as MarsSpocsPlacement
+
+private fun buildTabGroupStripMiddleware(
+    context: Context,
+    tabGroupRepository: org.mozilla.fenix.tabgroups.storage.repository.TabGroupRepository,
+    thumbnailStorage: ThumbnailStorage,
+): List<TabGroupStripMiddleware> {
+    return if (TabGroupStripConfig.isEnabled) {
+        listOf(
+            TabGroupStripMiddleware(
+                tabGroupRepository = tabGroupRepository,
+                thumbnailStorage = thumbnailStorage,
+                searchSourceTabId = {
+                    val searchState = context.components.appStore.state.searchState
+                    if (!searchState.isSearchActive) {
+                        null
+                    } else {
+                        searchState.sourceTabId
+                            ?: context.components.core.store.state.selectedTabId
+                    }
+                },
+            ),
+        )
+    } else {
+        emptyList()
+    }
+}
 
 /**
  * Component group for all core browser functionality.
@@ -425,7 +453,7 @@ class Core(
                 ),
                 BrowserVisualCompletenessMiddleware(visualCompletenessQueue),
                 TabGroupMiddleware(tabGroupRepository = tabGroupRepository),
-            )
+            ) + buildTabGroupStripMiddleware(context, tabGroupRepository, thumbnailStorage)
 
         BrowserStore(
             middleware = middlewareList + EngineMiddleware.create(

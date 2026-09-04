@@ -18,6 +18,7 @@ import mozilla.components.support.ktx.kotlin.isContentUrl
 import org.mozilla.fenix.GleanMetrics.ErrorPage
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.isOnline
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripNewTabEnter
 import java.lang.ref.WeakReference
 
 class AppRequestInterceptor(
@@ -109,7 +110,11 @@ class AppRequestInterceptor(
 
         val currentDestination = navController?.get()?.currentDestination?.id
         if (!listOf(R.id.homeFragment, R.id.onboardingFragment).contains(currentDestination)) {
-            navController?.get()?.navigate(NavGraphDirections.actionGlobalHome())
+            // Strip "+": AboutHomeBinding already navigates with zero anims. A second
+            // navigate here remounts Home mid-overlay and causes blank/strip flicker.
+            if (!TabGroupStripNewTabEnter.peek()) {
+                navController?.get()?.navigate(NavGraphDirections.actionGlobalHome())
+            }
         }
 
         return true

@@ -32,9 +32,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.getSystemService
@@ -46,13 +48,16 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import mozilla.components.browser.state.selector.findTab
+import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.compose.base.snackbar.Snackbar
 import mozilla.components.compose.base.snackbar.displaySnackbar
-import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
 import mozilla.components.compose.browser.toolbar.store.BrowserToolbarStore
 import mozilla.components.concept.engine.utils.ABOUT_HOME_URL
 import mozilla.components.concept.sync.AccountObserver
@@ -83,7 +88,6 @@ import org.mozilla.fenix.biometricauthentication.BiometricAuthenticationManager
 import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.tabstrip.TabStrip
-import org.mozilla.fenix.browser.tabstrip.TabStripColors
 import org.mozilla.fenix.components.HomepageThumbnailIntegration
 import org.mozilla.fenix.components.LensFeature
 import org.mozilla.fenix.components.QrScanFenixFeature
@@ -117,6 +121,10 @@ import org.mozilla.fenix.home.pocket.controller.DefaultPocketStoriesController
 import org.mozilla.fenix.home.privatebrowsing.controller.DefaultPrivateBrowsingController
 import org.mozilla.fenix.home.recentsyncedtabs.RecentSyncedTabFeature
 import org.mozilla.fenix.home.recentsyncedtabs.controller.DefaultRecentSyncedTabController
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripContent
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripNewTabEnter
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripPresenceAnimMs
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripPresenceHandoff
 import org.mozilla.fenix.home.recenttabs.RecentTabsListFeature
 import org.mozilla.fenix.home.recenttabs.controller.DefaultRecentTabsController
 import org.mozilla.fenix.home.recentvisits.RecentVisitsFeature
@@ -163,6 +171,7 @@ import org.mozilla.fenix.reviewprompt.ShowReviewPromptBinding
 import org.mozilla.fenix.search.awesomebar.AwesomeBarComposable
 import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.ui.AccessPoint
 import org.mozilla.fenix.termsofuse.store.DefaultPrivacyNoticeBannerRepository
@@ -200,6 +209,7 @@ class HomeFragment : Fragment() {
     internal var homeNavigationBar: HomeNavigationBar? = null
 
     private var awesomeBarComposable: AwesomeBarComposable? = null
+    private var homeToolbarStore: BrowserToolbarStore? = null
 
     private val browsingModeManager get() = (activity as HomeActivity).browsingModeManager
 
@@ -359,6 +369,14 @@ class HomeFragment : Fragment() {
         bundleArgs = args.toBundle()
         if (savedInstanceState != null) {
             bundleArgs.putBoolean(FOCUS_ON_ADDRESS_BAR, false)
+            // Avoid playing a strip "+" enter after process/config restore.
+            TabGroupStripNewTabEnter.clear()
+        } else if (TabGroupStripNewTabEnter.peek()) {
+            // Strip "+": no fragment transition — content corner expand + strip bridge.
+            enterTransition = null
+            exitTransition = null
+            reenterTransition = null
+            returnTransition = null
         }
         bundleArgs.getString(SESSION_TO_DELETE)?.let {
             homeViewModel.sessionToDelete = it
@@ -386,6 +404,12 @@ class HomeFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         }
 
+        if (requireComponents.settings.homepageActsAsNewTab() &&
+            !bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR)
+        ) {
+            requireComponents.appStore.dispatch(AppAction.SearchAction.SearchEnded)
+        }
+
         nullableToolbarView = buildToolbar(activity, view)
         initComposeHomepage(view = view, activity = activity)
 
@@ -400,6 +424,7 @@ class HomeFragment : Fragment() {
 
     private fun buildToolbar(activity: HomeActivity, view: View): FenixHomeToolbar {
         val toolbarStore by buildToolbarStore(activity)
+        homeToolbarStore = toolbarStore
 
         if (homepageEdgeToEdgeFeature.get() == null) {
             homepageEdgeToEdgeFeature.set(
@@ -430,20 +455,64 @@ class HomeFragment : Fragment() {
             browsingModeManager = activity.browsingModeManager,
             settings = activity.components.settings,
             directToSearchConfig = DirectToSearchConfig(
-                startSearch = bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR) ||
-                        FxNimbus.features.oneClickSearch.value().enabled,
+                startSearch = shouldStartDirectToSearch(),
                 startVoiceSearch = bundleArgs.getBoolean(START_VOICE_SEARCH),
-                sessionId = args.sessionToStartSearchFor,
+                sessionId = resolveHomeSearchTabId(),
                 source = args.searchAccessPoint,
             ),
             coroutineScope = view.toScope(),
-            tabStripContent = { TabStrip(toolbarStore) },
+            tabStripContent = { TabStrip() },
             searchSuggestionsContent = { modifier ->
                 (awesomeBarComposable ?: initializeAwesomeBarComposable(toolbarStore, modifier))
                     ?.SearchSuggestions()
             },
             navigationBarContent = { homeNavigationBar?.Content() },
+            groupStripContent = buildGroupStripContent(toolbarStore),
         )
+    }
+
+    private fun buildGroupStripContent(
+        toolbarStore: BrowserToolbarStore,
+    ): @Composable () -> Unit = {
+        TabGroupStripContent(
+            browserStore = requireComponents.core.store,
+            toolbarStore = toolbarStore,
+            tabGroupRepository = requireComponents.core.tabGroupRepository,
+            tabsUseCases = requireComponents.useCases.tabsUseCases,
+            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+            settings = requireComponents.settings,
+            onVisibilityChanged = {},
+            hideWhenBridge = false,
+            onTabSelected = { tab ->
+                if (tab.url != ABOUT_HOME_URL) {
+                    openToBrowserFromHomeAfterStripPresence()
+                }
+            },
+        )
+    }
+
+    /**
+     * Opens Browser from Home. When leaving a grouped homepage tab for an ungrouped tab, waits for
+     * the strip exit slide to finish so it is not cut off by the fragment remount.
+     */
+    private fun openToBrowserFromHomeAfterStripPresence() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val stripWasVisible = TabGroupStripPresenceHandoff.peekPendingExit() != null
+            val stillInGroup = selectedTabIsInOpenGroup()
+            if (stripWasVisible && !stillInGroup) {
+                delay(TabGroupStripPresenceAnimMs.toLong())
+            }
+            if (isAdded) {
+                (requireActivity() as HomeActivity).openToBrowser(BrowserDirection.FromHome)
+            }
+        }
+    }
+
+    private suspend fun selectedTabIsInOpenGroup(): Boolean {
+        val tabId = requireComponents.core.store.state.selectedTab?.id ?: return false
+        val data = requireComponents.core.tabGroupRepository.tabGroupDataFlow.first()
+        val groupId = data.tabGroupAssignments[tabId] ?: return false
+        return data.tabGroups.any { it.id == groupId && !it.closed }
     }
 
     private fun buildToolbarStore(activity: HomeActivity) = HomeToolbarStoreBuilder.build(
@@ -594,7 +663,25 @@ class HomeFragment : Fragment() {
                     settings.shouldShowMicrosurveyPrompt = microsurveyVisible
                 }
 
-                Box(modifier = Modifier.fillMaxSize().systemBarsPadding().displayCutoutPadding()) {
+                val homepageRevealAlpha by
+                    TabGroupStripNewTabEnter.homepageRevealAlpha.collectAsState()
+
+                LaunchedEffect(homepageRevealAlpha) {
+                    // Wait for a couple frames so Home has painted under the sheet before fade.
+                    if (homepageRevealAlpha < 0.05f) {
+                        withFrameNanos { }
+                        withFrameNanos { }
+                        TabGroupStripNewTabEnter.markHomepageComposed()
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding()
+                        .displayCutoutPadding()
+                        .graphicsLayer { alpha = homepageRevealAlpha },
+                ) {
                     if (!appState.value.mode.isPrivate) {
                         WallpaperBackground(
                             wallpaper = appState.value.wallpaperState.currentWallpaper,
@@ -623,7 +710,14 @@ class HomeFragment : Fragment() {
                         },
                         bottomBar = {
                             if (isToolbarAtTop) {
-                                homeNavigationBar?.Content()
+                                // Match browser: with top toolbar, the group strip sits at the
+                                // bottom of the screen above the navigation bar.
+                                Column {
+                                    homeToolbarStore?.let { toolbarStore ->
+                                        buildGroupStripContent(toolbarStore).invoke()
+                                    }
+                                    homeNavigationBar?.Content()
+                                }
                             } else {
                                 toolbarView.Content()
                             }
@@ -754,24 +848,19 @@ class HomeFragment : Fragment() {
     }
 
     @Composable
-    private fun TabStrip(toolbarStore: BrowserToolbarStore? = null) {
+    private fun TabStrip() {
         // Tabs will not be shown as selected on the homepage when Homepage as a New Tab is not
         // enabled.
-        val isSelectDisabled = !requireComponents.settings.enableHomepageAsNewTab
-        val toolbarState: BrowserToolbarState? = toolbarStore?.observeAsComposableState { it }?.value
+        val isSelectDisabled = !requireComponents.settings.homepageActsAsNewTab()
 
         FirefoxTheme {
             TabStrip(
                 isSelectDisabled = isSelectDisabled,
                 showTabCounterButton = false,
-                tabStripColors = TabStripColors.build(
-                    toolbarState = toolbarState,
-                    browsingModeManager = (requireActivity() as HomeActivity).browsingModeManager,
-                    settings = requireComponents.settings,
-                ),
                 onAddTabClick = {
-                    if (requireComponents.settings.enableHomepageAsNewTab) {
-                        requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTab(
+                    if (requireComponents.settings.homepageActsAsNewTab()) {
+                        awesomeBarComposable = null
+                        requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                             private = (requireActivity() as HomeActivity).browsingModeManager.mode.isPrivate,
                         )
                     } else {
@@ -780,7 +869,7 @@ class HomeFragment : Fragment() {
                 },
                 onSelectedTabClick = { url ->
                     if (url != ABOUT_HOME_URL) {
-                        (requireActivity() as HomeActivity).openToBrowser(BrowserDirection.FromHome)
+                        openToBrowserFromHomeAfterStripPresence()
                     }
                 },
                 onLastTabClose = {},
@@ -825,6 +914,7 @@ class HomeFragment : Fragment() {
 
         nullableToolbarView = null
         homeNavigationBar = null
+        homeToolbarStore = null
 
         _sessionControlController?.unregisterCallback()
         _sessionControlController = null
@@ -1027,6 +1117,60 @@ class HomeFragment : Fragment() {
                 settings.currentWallpaperName == Wallpaper.EDGE_TO_EDGE
     }
 
+    /**
+     * Whether the homepage should open directly into search mode.
+     *
+     * Fresh homepage tabs (including those created from the tab tray FAB) must not auto-open search
+     * with a prefilled URL from the previously selected tab.
+     */
+    @VisibleForTesting
+    internal fun shouldStartDirectToSearch(): Boolean {
+        if (bundleArgs.getBoolean(FOCUS_ON_ADDRESS_BAR)) {
+            return true
+        }
+
+        if (requireComponents.settings.homepageActsAsNewTab()) {
+            return false
+        }
+
+        return FxNimbus.features.oneClickSearch.value().enabled
+    }
+
+    @VisibleForTesting
+    internal fun isSelectedTabHomepage(): Boolean {
+        if (!requireComponents.settings.homepageActsAsNewTab()) {
+            return false
+        }
+
+        val selectedTab = requireComponents.core.store.state.selectedTabId
+            ?.let { requireComponents.core.store.state.findTab(it) }
+
+        return selectedTab?.content?.url == ABOUT_HOME_URL
+    }
+
+    /**
+     * Resolves which tab a homepage search should target.
+     *
+     * When homepage-as-new-tab is enabled, prefer the currently selected homepage tab over a stale
+     * [sessionToStartSearchFor] navigation argument left on a reused [HomeFragment] instance.
+     */
+    @VisibleForTesting
+    internal fun resolveHomeSearchTabId(): String? {
+        val browserStore = requireComponents.core.store
+        val selectedTabId = browserStore.state.selectedTabId
+        val selectedTab = selectedTabId?.let { browserStore.state.findTab(it) }
+
+        if (requireComponents.settings.homepageActsAsNewTab() &&
+            selectedTab?.content?.url == ABOUT_HOME_URL
+        ) {
+            return selectedTabId
+        }
+
+        return args.sessionToStartSearchFor?.takeIf { sessionId ->
+            browserStore.state.findTab(sessionId) != null
+        } ?: selectedTabId
+    }
+
     private fun initializeAwesomeBarComposable(
         toolbarStore: BrowserToolbarStore,
         modifier: Modifier,
@@ -1040,7 +1184,7 @@ class HomeFragment : Fragment() {
             browserStore = requireComponents.core.store,
             toolbarStore = toolbarStore,
             navController = findNavController(),
-            tabId = args.sessionToStartSearchFor,
+            tabId = resolveHomeSearchTabId(),
             searchAccessPoint = args.searchAccessPoint,
             isEdgeToEdgeBackgroundEnabled = isEdgeToEdgeBackgroundEnabled(),
         ).also {
@@ -1336,6 +1480,7 @@ class HomeFragment : Fragment() {
         fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
         topSitesUseCases = requireComponents.useCases.topSitesUseCase,
         mozAdsUseCases = requireComponents.useCases.mozAdsUseCases,
+        tabGroupRepository = requireComponents.core.tabGroupRepository,
         viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
         source = TopSitesSource.HOMEPAGE,
     )

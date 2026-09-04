@@ -9,20 +9,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.colorResource
-import mozilla.components.compose.browser.toolbar.store.BrowserToolbarState
-import org.mozilla.fenix.R
-import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.theme.FirefoxTheme
-import org.mozilla.fenix.utils.Settings
-import org.mozilla.fenix.wallpapers.Wallpaper
 
 /**
  * Represents the colors for the tab strip.
  *
- * @property backgroundBrush The brush used to paint the tab strip background. Use
- * [SolidColor] with a transparent color to let edge-to-edge wallpapers show through,
- * or a gradient brush for the standard tab strip background.
+ * @property backgroundBrush The brush used to paint the tab strip background, either a gradient
+ * or a [SolidColor].
  * @property tabItemBackgroundColors The background colors of the tab strip items.
  */
 data class TabStripColors(
@@ -52,50 +45,8 @@ data class TabStripColors(
     companion object {
 
         /**
-         * Builds a [TabStripColors] instance based on the provided parameters.
-         *
-         * @param toolbarState The current state of the browser toolbar.
-         * @param browsingModeManager The browsing mode manager.
-         * @param settings The application settings.
-         * @return
-         */
-        @Composable
-        internal fun build(
-            toolbarState: BrowserToolbarState?,
-            browsingModeManager: BrowsingModeManager,
-            settings: Settings,
-        ): TabStripColors {
-            val isPrivate = browsingModeManager.mode.isPrivate
-            val isEdgeToEdgeBackgroundEnabled =
-                settings.enableHomepageEdgeToEdgeBackgroundFeature &&
-                        settings.currentWallpaperName == Wallpaper.EDGE_TO_EDGE
-            val isSearching = toolbarState?.let {
-                it.isEditMode() && it.editState.query.current.isNotEmpty()
-            }
-            val shouldUseEdgeToEdgeColors =
-                isEdgeToEdgeBackgroundEnabled && !isPrivate && isSearching == false
-
-            return if (shouldUseEdgeToEdgeColors) {
-                TabStripColors(
-                    backgroundBrush = SolidColor(
-                        colorResource(R.color.homepage_tab_edge_to_edge_toolbar_background),
-                    ),
-                    tabItemBackgroundColors = TabColors(
-                        activeColor = colorResource(
-                            R.color.homepage_tab_edge_to_edge_tab_strip_item_background_active,
-                        ),
-                        inactiveColor = colorResource(
-                            R.color.homepage_tab_edge_to_edge_tab_strip_item_background_inactive,
-                        ),
-                    ),
-                )
-            } else {
-                default()
-            }
-        }
-
-        /**
-         * Returns the default [TabStripColors] instance.
+         * Returns the default [TabStripColors] instance, used on both the homepage and web tabs so
+         * the strip looks the same on either.
          */
         @Composable
         fun default() = TabStripColors(

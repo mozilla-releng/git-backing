@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -72,17 +73,21 @@ data class BrowserToolbarCFR(
  * @param cfr The [BrowserToolbarCFR] to hold properties of Toolbar's CFR.
  * @property useMinimalBottomToolbarWhenEnteringText Whether to show a smaller height addressbar
  * with just the URL when using a bottom toolbar and the user is entering text in a website.
+ * @property showDivider Whether to draw the divider on the edge facing page content. Pass `false`
+ * when another bar is stacked on that edge and already separates the two, so the bars don't show
+ * a seam between them.
  */
 @Composable
 fun BrowserToolbar(
     store: BrowserToolbarStore,
     cfr: BrowserToolbarCFR? = null,
     useMinimalBottomToolbarWhenEnteringText: Boolean = false,
+    showDivider: Boolean = true,
 ) {
     val uiState by store.observeAsComposableState { it }
     val cfrProperties = browserToolbarCFRProperties(uiState.gravity)
     val backgroundColor = MaterialTheme.colorScheme.surface
-    val outlineColor = DividerDefaults.color
+    val outlineColor = if (showDivider) DividerDefaults.color else Color.Transparent
 
     if (uiState.isEditMode()) {
         BrowserEditToolbar(

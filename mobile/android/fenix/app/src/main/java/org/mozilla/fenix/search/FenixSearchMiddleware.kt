@@ -69,6 +69,7 @@ import org.mozilla.fenix.telemetry.ACTION_SEARCH_ENGINE_SELECTED
 import org.mozilla.fenix.telemetry.SOURCE_ADDRESS_BAR
 import org.mozilla.fenix.telemetry.SURFACE_BROWSER
 import org.mozilla.fenix.telemetry.SURFACE_HOME
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
 import org.mozilla.fenix.utils.Settings
 import mozilla.components.lib.state.Action as MVIAction
 
@@ -309,11 +310,7 @@ class FenixSearchMiddleware(
         ) {
             openToBrowserAndLoad(
                 url = url,
-                createNewTab = if (settings.enableHomepageAsNewTab) {
-                    false
-                } else {
-                    store.state.tabId == null
-                },
+                createNewTab = shouldCreateNewTab(store),
                 usePrivateMode = browsingModeManager.mode.isPrivate,
                 flags = flags,
             )
@@ -337,11 +334,7 @@ class FenixSearchMiddleware(
 
             openToBrowserAndLoad(
                 url = searchTerms,
-                createNewTab = if (settings.enableHomepageAsNewTab) {
-                    false
-                } else {
-                    store.state.tabId == null
-                },
+                createNewTab = shouldCreateNewTab(store),
                 usePrivateMode = browsingModeManager.mode.isPrivate,
                 forceSearch = true,
                 searchEngine = searchEngine,
@@ -376,6 +369,16 @@ class FenixSearchMiddleware(
         }
     }
 
+    private fun resolveSearchTabId(store: Store<SearchFragmentState, SearchFragmentAction>): String? =
+        store.state.tabId ?: browserStore.state.selectedTabId
+
+    private fun shouldCreateNewTab(store: Store<SearchFragmentState, SearchFragmentAction>): Boolean {
+        if (settings.homepageActsAsNewTab()) {
+            return false
+        }
+        return resolveSearchTabId(store) == null
+    }
+
     private fun openToBrowserAndLoad(
         url: String,
         createNewTab: Boolean,
@@ -392,6 +395,8 @@ class FenixSearchMiddleware(
             forceSearch = forceSearch,
             searchEngine = searchEngine,
             flags = flags,
+            targetTabId = appStore.state.searchState.sourceTabId
+                ?: browserStore.state.selectedTabId,
         )
     }
 

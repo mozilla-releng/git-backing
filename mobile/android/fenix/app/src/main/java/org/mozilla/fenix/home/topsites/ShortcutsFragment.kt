@@ -70,6 +70,7 @@ class ShortcutsFragment : Fragment(), SystemInsetsPaddedFragment {
             fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
             topSitesUseCases = requireComponents.useCases.topSitesUseCase,
             mozAdsUseCases = requireComponents.useCases.mozAdsUseCases,
+            tabGroupRepository = requireComponents.core.tabGroupRepository,
             viewLifecycleScope = viewLifecycleOwner.lifecycleScope,
             source = TopSitesSource.SHORTCUTS_LIBRARY,
         )

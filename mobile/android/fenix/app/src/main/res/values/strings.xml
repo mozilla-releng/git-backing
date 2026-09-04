@@ -1559,6 +1559,12 @@
         <item quantity="one">%1$s tab group with %2$d tab, color %3$s</item>
         <item quantity="other">%1$s tab group with %2$d tabs, color %3$s</item>
   </plurals>
+  <!-- Content description for the tab group strip expand button. -->
+  <string name="tab_group_strip_expand_content_description">Expand tab group</string>
+  <!-- Content description for the tab group strip add tab button. -->
+  <string name="tab_group_strip_add_tab_content_description">Add tab to group</string>
+  <!-- Accessibility description for the tab preview card shown on long-press in the group strip. %1$s is the tab title. -->
+  <string name="tab_group_strip_tab_preview_content_description">Preview of %1$s</string>
   <!-- Title for the Delete tab group confirmation dialog. -->
   <string name="delete_tab_group_confirmation_dialog_title">Delete tab group?</string>
   <!-- Text shown in the body of the Delete tab group confirmation dialog. -->

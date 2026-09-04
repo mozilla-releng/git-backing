@@ -9,19 +9,23 @@ import mozilla.components.browser.state.selector.getNormalOrPrivateTabs
 import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.BrowserState
 import mozilla.components.browser.state.state.TabSessionState
+import org.mozilla.fenix.tabgroups.storage.data.TabGroupData
+import org.mozilla.fenix.tabstray.data.TabGroupTheme
 
 private const val MAX_TABS_WITH_CLOSE_BUTTON_VISIBLE = 7
 
 /**
  * The ui state of the tabs strip.
  *
- * @property tabs The list of [TabStripItem].
+ * @property tabs Flat list of tabs (for counters and menus).
+ * @property entries Tabs and expanded groups to render in strip order.
  * @property isPrivateMode Whether or not the browser is in private mode.
  * @property tabCounterMenuItems The list of [TabCounterMenuItem]s to be displayed in the tab
  * counter menu.
  */
 data class TabStripState(
     val tabs: List<TabStripItem>,
+    val entries: List<TabStripEntry> = tabs.map { TabStripEntry.Tab(it) },
     val isPrivateMode: Boolean,
     val tabCounterMenuItems: List<TabCounterMenuItem>,
 ) {
@@ -32,9 +36,39 @@ data class TabStripState(
     companion object {
         val initial = TabStripState(
             tabs = emptyList(),
+            entries = emptyList(),
             isPrivateMode = false,
             tabCounterMenuItems = emptyList(),
         )
+    }
+}
+
+/**
+ * A renderable item in the tablet tab strip: a lone tab or an expanded tab group.
+ */
+sealed interface TabStripEntry {
+    /** Stable LazyRow key. */
+    val key: String
+
+    /**
+     * An ungrouped tab.
+     */
+    data class Tab(
+        val item: TabStripItem,
+    ) : TabStripEntry {
+        override val key: String = item.id
+    }
+
+    /**
+     * An expanded tab group: name chip + member tabs + colored underline (state 1).
+     */
+    data class Group(
+        val id: String,
+        val title: String,
+        val theme: TabGroupTheme,
+        val tabs: List<TabStripItem>,
+    ) : TabStripEntry {
+        override val key: String = "group:$id"
     }
 }
 
@@ -68,12 +102,14 @@ data class TabStripItem(
  * @param isPossiblyPrivateMode Whether or not the browser is in private mode.
  * @param addTab Invoked when conditions are met for adding a new normal browsing mode tab.
  * @param closeTab Invoked when close tab is clicked.
+ * @param tabGroupData Optional open-group data used to cluster tabs into expanded group entries.
  */
 internal fun BrowserState.toTabStripState(
     isSelectDisabled: Boolean,
     isPossiblyPrivateMode: Boolean,
     addTab: () -> Unit,
     closeTab: (isPrivate: Boolean, numberOfTabs: Int) -> Unit,
+    tabGroupData: TabGroupData? = null,
 ): TabStripState {
     val isPrivateMode = if (isSelectDisabled) {
         isPossiblyPrivateMode
@@ -81,17 +117,18 @@ internal fun BrowserState.toTabStripState(
         selectedTab?.content?.private == true
     }
 
-    val tabs = getNormalOrPrivateTabs(private = isPrivateMode)
+    val sessionTabs = getNormalOrPrivateTabs(private = isPrivateMode)
+    val tabs = sessionTabs.map {
+        it.toTabStripItem(
+            isSelectDisabled = isSelectDisabled,
+            selectedTabId = selectedTabId,
+            showCloseButtonOnUnselectedTabs = sessionTabs.size <= MAX_TABS_WITH_CLOSE_BUTTON_VISIBLE,
+        )
+    }
 
     return TabStripState(
-        tabs = tabs
-            .map {
-                it.toTabStripItem(
-                    isSelectDisabled = isSelectDisabled,
-                    selectedTabId = selectedTabId,
-                    showCloseButtonOnUnselectedTabs = tabs.size <= MAX_TABS_WITH_CLOSE_BUTTON_VISIBLE,
-                )
-            },
+        tabs = tabs,
+        entries = tabs.toTabStripEntries(tabGroupData),
         isPrivateMode = isPrivateMode,
         tabCounterMenuItems = mapToMenuItems(
             isSelectEnabled = !isSelectDisabled,
@@ -101,6 +138,56 @@ internal fun BrowserState.toTabStripState(
             numberOfTabs = tabs.size,
         ),
     )
+}
+
+/**
+ * Clusters [TabStripItem]s into strip entries. Open groups are emitted once at the position of
+ * their first member; later members are folded into that group (tray-style ordering).
+ */
+internal fun List<TabStripItem>.toTabStripEntries(
+    tabGroupData: TabGroupData?,
+): List<TabStripEntry> {
+    if (tabGroupData == null || isEmpty()) {
+        return map { TabStripEntry.Tab(it) }
+    }
+
+    val openGroups = tabGroupData.tabGroups
+        .filter { !it.closed }
+        .associateBy { it.id }
+    if (openGroups.isEmpty()) {
+        return map { TabStripEntry.Tab(it) }
+    }
+
+    val assignments = tabGroupData.tabGroupAssignments
+    val emittedGroupIds = mutableSetOf<String>()
+    val entries = mutableListOf<TabStripEntry>()
+
+    for (tab in this) {
+        val groupId = assignments[tab.id]
+        val storedGroup = groupId?.let { openGroups[it] }
+        if (groupId == null || storedGroup == null) {
+            entries.add(TabStripEntry.Tab(tab))
+            continue
+        }
+        if (groupId in emittedGroupIds) {
+            continue
+        }
+        val members = filter { assignments[it.id] == groupId }
+        if (members.isEmpty()) {
+            continue
+        }
+        emittedGroupIds.add(groupId)
+        entries.add(
+            TabStripEntry.Group(
+                id = storedGroup.id,
+                title = storedGroup.title,
+                theme = storedGroup.theme.toTabGroupTheme(),
+                tabs = members,
+            ),
+        )
+    }
+
+    return entries
 }
 
 private fun mapToMenuItems(
@@ -139,4 +226,10 @@ private fun TabSessionState.toTabStripItem(
         isSelected = isSelected,
         isCloseButtonVisible = showCloseButtonOnUnselectedTabs || isSelected,
     )
+}
+
+private fun String.toTabGroupTheme(): TabGroupTheme = try {
+    TabGroupTheme.valueOf(this)
+} catch (_: IllegalArgumentException) {
+    TabGroupTheme.default
 }

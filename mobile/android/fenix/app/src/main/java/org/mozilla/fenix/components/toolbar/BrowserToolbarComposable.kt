@@ -52,6 +52,7 @@ import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction.SearchAction.SearchEnded
 import org.mozilla.fenix.components.toolbar.ToolbarPosition.BOTTOM
 import org.mozilla.fenix.components.toolbar.ToolbarPosition.TOP
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripVisibility
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.Settings
 
@@ -71,6 +72,7 @@ import org.mozilla.fenix.utils.Settings
  * @param searchSuggestionsContent [Composable] as the search suggestions content to be displayed
  * together with this toolbar.
  * @param navigationBarContent [Composable] content for the navigation bar.
+ * @param groupStripContent [Composable] content for the tab group strip shown above the address bar.
  */
 @Suppress("LongParameterList")
 class BrowserToolbarComposable(
@@ -85,6 +87,7 @@ class BrowserToolbarComposable(
     private val tabStripContent: @Composable () -> Unit,
     private val searchSuggestionsContent: @Composable (Modifier) -> Unit,
     private val navigationBarContent: (@Composable () -> Unit)?,
+    private val groupStripContent: @Composable () -> Unit = {},
 ) : ScrollableToolbar {
     init {
         if (!settings.shouldUseMinimalBottomToolbarWhenEnteringText) {
@@ -108,6 +111,9 @@ class BrowserToolbarComposable(
 
         val toolbarState by toolbarStore.stateFlow.collectAsState()
         val toolbarCFR = toolbarState.displayState.cfr
+        // Hosted either as [groupStripContent] here or as a detached view above this toolbar, so
+        // read its presence from the shared state rather than from the content lambda.
+        val isGroupStripVisible by TabGroupStripVisibility.isVisible.collectAsState()
 
         DisposableEffect(activity) {
             val toolbarController = ToolbarBehaviorController(
@@ -174,11 +180,16 @@ class BrowserToolbarComposable(
                             if (customTabSession == null) {
                                 searchSuggestionsContent(Modifier.weight(1f))
                             }
+                            if (customTabSession == null) {
+                                groupStripContent()
+                            }
                             BrowserToolbar(
                                 store = toolbarStore,
                                 cfr = toolbarCFR,
                                 useMinimalBottomToolbarWhenEnteringText =
                                     settings.shouldUseMinimalBottomToolbarWhenEnteringText,
+                                // The group strip covers this edge and draws the divider itself.
+                                showDivider = !isGroupStripVisible,
                             )
                             navigationBarContent?.invoke()
                         } else {

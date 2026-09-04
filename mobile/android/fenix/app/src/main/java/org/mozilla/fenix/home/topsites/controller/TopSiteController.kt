@@ -51,6 +51,8 @@ import org.mozilla.fenix.home.topsites.AddShortcutSource
 import org.mozilla.fenix.home.topsites.ShortcutsFragmentDirections
 import org.mozilla.fenix.home.topsites.interactor.TopSiteInteractor
 import org.mozilla.fenix.settings.SupportUtils
+import org.mozilla.fenix.tabgroups.storage.repository.TabGroupRepository
+import org.mozilla.fenix.tabgroups.strip.shouldLoadHomeItemInCurrentTab
 import org.mozilla.fenix.utils.Settings
 import java.lang.ref.WeakReference
 import androidx.appcompat.R as appcompatR
@@ -145,6 +147,7 @@ class DefaultTopSiteController(
     private val fenixBrowserUseCases: FenixBrowserUseCases,
     private val topSitesUseCases: TopSitesUseCases,
     private val mozAdsUseCases: MozAdsUseCases,
+    private val tabGroupRepository: TabGroupRepository,
     private val viewLifecycleScope: CoroutineScope,
     private val source: TopSitesSource,
 ) : TopSiteController {
@@ -318,36 +321,54 @@ class DefaultTopSiteController(
             )
         }
 
-        if (settings.enableHomepageAsNewTab) {
+        viewLifecycleScope.launch {
+            openSelectedTopSite(topSite)
+            navigateToBrowserFromTopSite()
+        }
+    }
+
+    @VisibleForTesting
+    internal suspend fun openSelectedTopSite(topSite: TopSite) {
+        val url = appendSearchAttributionToUrlIfNeeded(topSite.url)
+
+        if (shouldLoadHomeItemInCurrentTab(
+                settings = settings,
+                selectedTabId = store.state.selectedTabId,
+                tabGroupRepository = tabGroupRepository,
+            )
+        ) {
             fenixBrowserUseCases.loadUrlOrSearch(
-                searchTermOrURL = appendSearchAttributionToUrlIfNeeded(topSite.url),
+                searchTermOrURL = url,
                 newTab = false,
                 private = false,
             )
-        } else {
-            val existingTabForUrl = when (topSite) {
-                is TopSite.Frecent, is TopSite.Pinned -> {
-                    store.state.tabs.firstOrNull { topSite.url == it.content.url }
-                }
-
-                else -> null
-            }
-
-            if (existingTabForUrl == null) {
-                TopSites.openInNewTab.record(
-                    TopSites.OpenInNewTabExtra(source = source.sourceName),
-                )
-
-                addTabUseCase.invoke(
-                    url = appendSearchAttributionToUrlIfNeeded(topSite.url),
-                    selectTab = true,
-                    startLoading = true,
-                )
-            } else {
-                selectTabUseCase.invoke(existingTabForUrl.id)
-            }
+            return
         }
 
+        val existingTabForUrl = when (topSite) {
+            is TopSite.Frecent, is TopSite.Pinned -> {
+                store.state.tabs.firstOrNull { topSite.url == it.content.url }
+            }
+
+            else -> null
+        }
+
+        if (existingTabForUrl == null) {
+            TopSites.openInNewTab.record(
+                TopSites.OpenInNewTabExtra(source = source.sourceName),
+            )
+
+            addTabUseCase.invoke(
+                url = url,
+                selectTab = true,
+                startLoading = true,
+            )
+        } else {
+            selectTabUseCase.invoke(existingTabForUrl.id)
+        }
+    }
+
+    private fun navigateToBrowserFromTopSite() {
         if (navController.currentDestination?.id == R.id.shortcutsFragment) {
             navController.navigate(ShortcutsFragmentDirections.actionShortcutsFragmentToBrowserFragment())
         } else {

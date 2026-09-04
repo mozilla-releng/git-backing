@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.browser
 
+import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.DialogInterface
@@ -36,6 +37,7 @@ import androidx.core.text.HtmlCompat
 import androidx.core.view.OnApplyWindowInsetsListener
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
@@ -232,6 +234,12 @@ import org.mozilla.fenix.snackbar.FenixSnackbarDelegate
 import org.mozilla.fenix.snackbar.SnackbarBinding
 import org.mozilla.fenix.tabstray.ext.toDisplayTitle
 import org.mozilla.fenix.tabstray.redux.state.Page
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripBottomView
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripConfig
+import org.mozilla.fenix.tabgroups.strip.homepageActsAsNewTab
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripContent
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripPresenceAnimMs
+import org.mozilla.fenix.tabgroups.strip.TabGroupStripPresenceHandoff
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.theme.ThemeManager
 import org.mozilla.fenix.utils.allowUndo
@@ -279,6 +287,13 @@ abstract class BaseBrowserFragment :
 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     internal var browserNavigationBar: BrowserNavigationBar? = null
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+    @Suppress("VariableNaming")
+    internal var _tabGroupStripBottomView: TabGroupStripBottomView? = null
+
+    private var isTabGroupStripVisible = false
+    private var tabGroupStripMarginAnimator: ValueAnimator? = null
 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     @Suppress("VariableNaming")
@@ -877,9 +892,7 @@ abstract class BaseBrowserFragment :
             },
         )
 
-        val bottomToolbarHeight = getBottomToolbarHeight(
-            includeNavBarIfEnabled = customTabSessionId == null,
-        )
+        val bottomToolbarHeight = getBrowserBottomToolbarHeight()
 
         downloadFeature.onDownloadStopped = { downloadState, _, downloadJobStatus ->
             handleOnDownloadFinished(
@@ -1196,8 +1209,8 @@ abstract class BaseBrowserFragment :
                     )
                 },
                 getBottomToolbarHeightValue = { includeNavBar ->
-                    this.getBottomToolbarHeight(
-                        includeNavBar,
+                    this.getBrowserBottomToolbarHeight(
+                        includeNavBarIfEnabled = includeNavBar,
                     )
                 },
             ).apply {
@@ -1377,6 +1390,129 @@ abstract class BaseBrowserFragment :
         initializeMicrosurveyFeature(context)
     }
 
+    private fun getBrowserBottomToolbarHeight(
+        includeNavBarIfEnabled: Boolean = customTabSessionId == null,
+    ): Int = getBottomToolbarHeight(
+        includeNavBarIfEnabled = includeNavBarIfEnabled,
+        includeTabGroupStrip = isTabGroupStripVisible && customTabSessionId == null,
+    )
+
+    private fun shouldUseDetachedGroupStrip(settings: org.mozilla.fenix.utils.Settings): Boolean =
+        TabGroupStripConfig.isEnabled &&
+            customTabSessionId == null &&
+            !settings.isTabStripEnabled
+
+    private fun getDetachedTabGroupStripBottomMargin(
+        settings: org.mozilla.fenix.utils.Settings,
+    ): Int = if (settings.shouldUseBottomToolbar && !settings.isTabStripEnabled) {
+        getBottomToolbarHeight(includeTabGroupStrip = false)
+    } else {
+        0
+    }
+
+    private fun onTabGroupStripVisibilityChanged(isVisible: Boolean) {
+        if (isTabGroupStripVisible == isVisible) {
+            return
+        }
+
+        isTabGroupStripVisible = isVisible
+        updateNavigationBarForTabGroupStrip(isVisible)
+    }
+
+    private fun updateNavigationBarForTabGroupStrip(isVisible: Boolean) {
+        val settings = requireComponents.settings
+        if (settings.shouldUseBottomToolbar && !settings.isTabStripEnabled) {
+            browserNavigationBar?.layout?.let { navigationBarLayout ->
+                (navigationBarLayout.layoutParams as? CoordinatorLayout.LayoutParams)?.bottomMargin = 0
+                navigationBarLayout.requestLayout()
+            }
+            _tabGroupStripBottomView?.updateBottomMargin(
+                getDetachedTabGroupStripBottomMargin(settings),
+            )
+            return
+        }
+
+        val navigationBarLayout = browserNavigationBar?.layout ?: return
+        val params = navigationBarLayout.layoutParams as? CoordinatorLayout.LayoutParams ?: return
+        val targetMargin = if (isVisible) {
+            resources.getDimensionPixelSize(R.dimen.tab_group_strip_height)
+        } else {
+            0
+        }
+        if (isVisible && TabGroupStripPresenceHandoff.consumeSnapVisibleMargin()) {
+            tabGroupStripMarginAnimator?.cancel()
+            params.bottomMargin = targetMargin
+            navigationBarLayout.layoutParams = params
+            return
+        }
+        animateTabGroupStripBottomMargin(
+            layout = navigationBarLayout,
+            params = params,
+            targetMargin = targetMargin,
+        )
+    }
+
+    /**
+     * Animates the nav-bar bottom margin in sync with the Compose strip slide (~220ms).
+     */
+    private fun animateTabGroupStripBottomMargin(
+        layout: View,
+        params: CoordinatorLayout.LayoutParams,
+        targetMargin: Int,
+    ) {
+        val startMargin = params.bottomMargin
+        if (startMargin == targetMargin) {
+            return
+        }
+        tabGroupStripMarginAnimator?.cancel()
+        tabGroupStripMarginAnimator = ValueAnimator.ofInt(startMargin, targetMargin).apply {
+            duration = TabGroupStripPresenceAnimMs.toLong()
+            interpolator = FastOutSlowInInterpolator()
+            addUpdateListener { animator ->
+                params.bottomMargin = animator.animatedValue as Int
+                layout.layoutParams = params
+            }
+            start()
+        }
+    }
+
+    private fun buildGroupStripContent(
+        toolbarStore: BrowserToolbarStore,
+        store: BrowserStore,
+        settings: org.mozilla.fenix.utils.Settings,
+    ): @Composable () -> Unit = {
+        TabGroupStripContent(
+            browserStore = store,
+            toolbarStore = toolbarStore,
+            tabGroupRepository = requireComponents.core.tabGroupRepository,
+            tabsUseCases = requireComponents.useCases.tabsUseCases,
+            fenixBrowserUseCases = requireComponents.useCases.fenixBrowserUseCases,
+            settings = settings,
+            onVisibilityChanged = ::onTabGroupStripVisibilityChanged,
+        )
+    }
+
+    private fun initializeDetachedTabGroupStrip(
+        toolbarStore: BrowserToolbarStore,
+        store: BrowserStore,
+        settings: org.mozilla.fenix.utils.Settings,
+    ) {
+        if (!shouldUseDetachedGroupStrip(settings)) {
+            return
+        }
+
+        _tabGroupStripBottomView = TabGroupStripBottomView(
+            context = requireContext(),
+            container = binding.browserLayout,
+            bottomMargin = getDetachedTabGroupStripBottomMargin(settings),
+            content = buildGroupStripContent(
+                toolbarStore = toolbarStore,
+                store = store,
+                settings = settings,
+            ),
+        )
+    }
+
     private fun initializeBrowserToolbar(
         activity: HomeActivity,
         store: BrowserStore,
@@ -1425,7 +1561,14 @@ abstract class BaseBrowserFragment :
                 (awesomeBarComposable ?: buildAwesomeBar(activity, toolbarStore, modifier)).SearchSuggestions()
             },
             navigationBarContent = browserNavigationBar?.asComposable(),
-        )
+            groupStripContent = {},
+        ).also {
+            initializeDetachedTabGroupStrip(
+                toolbarStore = toolbarStore,
+                store = store,
+                settings = settings,
+            )
+        }
     }
 
     @VisibleForTesting
@@ -1461,8 +1604,8 @@ abstract class BaseBrowserFragment :
             TabStrip(
                 showTabCounterButton = false,
                 onAddTabClick = {
-                    if (settings.enableHomepageAsNewTab) {
-                        requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTab(
+                    if (settings.homepageActsAsNewTab()) {
+                        requireComponents.useCases.fenixBrowserUseCases.addNewHomepageTabWithoutSearch(
                             private = appStore.state.mode.isPrivate,
                         )
                     } else {
@@ -1503,6 +1646,7 @@ abstract class BaseBrowserFragment :
         browserStore = requireComponents.core.store,
         toolbarStore = toolbarStore,
         navController = findNavController(),
+        tabId = customTabSessionId ?: requireComponents.core.store.state.selectedTabId,
         showScrimWhenNoSuggestions = true,
     ).also {
         awesomeBarComposable = it
@@ -2140,9 +2284,7 @@ abstract class BaseBrowserFragment :
         val topToolbarHeight = getTopToolbarHeight(
             includeTabStripIfAvailable = customTabSessionId == null,
         )
-        val bottomToolbarHeight = getBottomToolbarHeight(
-            includeNavBarIfEnabled = customTabSessionId == null,
-        )
+        val bottomToolbarHeight = getBrowserBottomToolbarHeight()
 
         return topToolbarHeight to bottomToolbarHeight
     }
@@ -2301,6 +2443,14 @@ abstract class BaseBrowserFragment :
         }
 
         view?.let { setupIMEInsetsHandling(it) }
+
+        val settings = requireComponents.settings
+        _tabGroupStripBottomView?.updateBottomMargin(
+            getDetachedTabGroupStripBottomMargin(settings),
+        )
+        if (isTabGroupStripVisible) {
+            updateNavigationBarForTabGroupStrip(isVisible = true)
+        }
     }
 
     @VisibleForTesting
@@ -2310,9 +2460,7 @@ abstract class BaseBrowserFragment :
         val topToolbarHeight = getTopToolbarHeight(
             includeTabStripIfAvailable = customTabSessionId == null,
         )
-        val bottomToolbarHeight = getBottomToolbarHeight(
-            includeNavBarIfEnabled = customTabSessionId == null,
-        )
+        val bottomToolbarHeight = getBrowserBottomToolbarHeight()
 
         initializeEngineView(
             topToolbarHeight = if (shouldToolbarsBeHidden) 0 else topToolbarHeight,
@@ -2345,6 +2493,10 @@ abstract class BaseBrowserFragment :
 
         _bottomToolbarContainerView = null
         _browserToolbar = null
+        tabGroupStripMarginAnimator?.cancel()
+        tabGroupStripMarginAnimator = null
+        _tabGroupStripBottomView = null
+        isTabGroupStripVisible = false
         awesomeBarComposable = null
         browserNavigationBar = null
         blackScreenOverlay = null
