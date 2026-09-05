@@ -2,7 +2,9 @@
   "mcpServers": {
     "moz": {
       "type": "http",
-      "url": "https://mcp-dev.moz.tools/mcp"
+      "url": "https://mcp-dev.moz.tools/mcp",
+      "directTools": ["get_bugzilla_bug", "get_phabricator_revision"],
+      "exposure": "direct"
     },
     "firefox-devtools": {
       "type": "stdio",
@@ -17,7 +19,8 @@
         "browser.smartwindow.enabled=true",
         "--enable-privileged-context",
         "--enable-script"
-      ]
+      ],
+      "enabled": false
     }
   }
 }
