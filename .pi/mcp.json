@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "firefox-devtools": {
+      "disabled": true
+    }
+  }
+}
