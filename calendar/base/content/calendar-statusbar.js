@@ -71,6 +71,10 @@ var gCalendarStatusFeedback = {
       if (this.mProgressMode == Ci.calIStatusObserver.DETERMINED_PROGRESS) {
         this.mStatusBar.value = 0;
         this._showStatusString("getting-calendar-info-common");
+      } else {
+        // A progress element with no value is indeterminate. stopMeteors()
+        // restores a value, which is what stops the animation.
+        this.mStatusBar.removeAttribute("value");
       }
       if (this.mThrobber) {
         this.mThrobber.setAttribute("busy", true);

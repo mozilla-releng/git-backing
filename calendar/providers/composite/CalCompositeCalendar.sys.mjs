@@ -375,23 +375,28 @@ CalCompositeCalendar.prototype = {
       {
         iterators: [],
         async start(controller) {
-          for (const calendar of enabledCalendars) {
-            const iterator = cal.iterate.streamValues(
-              calendar.getItems(itemFilter, count, rangeStart, rangeEnd)
-            );
-            this.iterators.push(iterator);
-            for await (const items of iterator) {
-              controller.enqueue(items);
-            }
+          try {
+            for (const calendar of enabledCalendars) {
+              const iterator = cal.iterate.streamValues(
+                calendar.getItems(itemFilter, count, rangeStart, rangeEnd)
+              );
+              this.iterators.push(iterator);
+              for await (const items of iterator) {
+                controller.enqueue(items);
+              }
 
+              if (compositeCal.statusDisplayed) {
+                compositeCal.mStatusObserver.calendarCompleted(calendar);
+              }
+            }
+            controller.close();
+          } finally {
+            // A provider throwing mid-stream must not leave the indeterminate
+            // progress meter running for the lifetime of the window.
             if (compositeCal.statusDisplayed) {
-              compositeCal.mStatusObserver.calendarCompleted(calendar);
+              compositeCal.mStatusObserver.stopMeteors();
             }
           }
-          if (compositeCal.statusDisplayed) {
-            compositeCal.mStatusObserver.stopMeteors();
-          }
-          controller.close();
         },
 
         async cancel(reason) {
