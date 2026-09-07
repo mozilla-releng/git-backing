@@ -372,16 +372,6 @@ async function wizardCreateKey() {
   );
   kDialog.getButton("accept").classList.add("primary");
 
-  if (!gIdentity.fullName) {
-    document.getElementById("openPgpWarning").collapsed = false;
-    document.l10n.setAttributes(
-      document.getElementById("openPgpWarningDescription"),
-      "openpgp-keygen-long-expiry"
-    );
-    resizeWindow();
-    return;
-  }
-
   const sepPassphraseEnabled = Services.prefs.getBoolPref(
     "mail.openpgp.passphrases.enabled"
   );
@@ -407,6 +397,14 @@ async function wizardCreateKey() {
 
   // This also handles enable/disabling the accept/ok button.
   onProtectionChange();
+
+  if (!gIdentity.fullName) {
+    document.getElementById("openPgpWarning").collapsed = false;
+    document.l10n.setAttributes(
+      document.getElementById("openPgpWarningDescription"),
+      "openpgp-keygen-missing-username"
+    );
+  }
 
   resizeWindow();
 }

@@ -49,6 +49,7 @@ add_setup(async function () {
   );
   gIdentity = MailServices.accounts.createIdentity();
   gIdentity.email = "alice@openpgp.example";
+  gIdentity.fullName = "Alice";
   gAccount.addIdentity(gIdentity);
 
   await SpecialPowers.pushPrefEnv({
@@ -142,6 +143,56 @@ add_task(async function switch_sections() {
   );
 
   dialog.cancelDialog();
+});
+
+/**
+ * Test that an identity without a name only warns, and that the secret key
+ * protection section stays hidden while the pref is off. See bug 2069581.
+ */
+add_task(async function missing_identity_name() {
+  gIdentity.fullName = "";
+
+  // Open the key wizard from the "Add Key" button.
+  const button = tabDocument.getElementById("addOpenPgpButton");
+  EventUtils.synthesizeMouseAtCenter(button, {}, tabWindow);
+
+  const wizard = await wait_for_frame_load(
+    gTab.browser.contentWindow.gSubDialog._topDialog._frame,
+    "chrome://openpgp/content/ui/keyWizard.xhtml"
+  );
+  const doc = wizard.document;
+  const dialog = doc.documentElement.querySelector("dialog");
+
+  const keyGenView = doc.getElementById("wizardCreateKey");
+
+  // Accept the dialog since the first option should be automatically selected.
+  dialog.acceptDialog();
+  await TestUtils.waitForCondition(
+    () => wizard.getComputedStyle(keyGenView).opacity == 1,
+    "Timeout waiting for the #wizardCreateKey to appear"
+  );
+
+  Assert.ok(
+    doc.getElementById("keygenPassphraseSection").hidden,
+    "the secret key protection section should be hidden"
+  );
+
+  await TestUtils.waitForCondition(
+    () => !doc.getElementById("openPgpWarning").collapsed,
+    "Timeout waiting for the missing name warning to appear"
+  );
+  Assert.equal(
+    doc.getElementById("openPgpWarningDescription").dataset.l10nId,
+    "openpgp-keygen-missing-username",
+    "the warning should be about the missing name"
+  );
+  Assert.ok(
+    !dialog.getButton("accept").disabled,
+    "the Generate key button should still be enabled"
+  );
+
+  dialog.cancelDialog();
+  gIdentity.fullName = "Alice";
 });
 
 /**
