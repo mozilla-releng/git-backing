@@ -97,6 +97,54 @@ add_task(async function check_clean_keylist() {
 });
 
 /**
+ * Test that stepping forward and back always leaves exactly one section of the
+ * wizard visible. See bug 2069581.
+ */
+add_task(async function switch_sections() {
+  // Open the key wizard from the "Add Key" button.
+  const button = tabDocument.getElementById("addOpenPgpButton");
+  EventUtils.synthesizeMouseAtCenter(button, {}, tabWindow);
+
+  const wizard = await wait_for_frame_load(
+    gTab.browser.contentWindow.gSubDialog._topDialog._frame,
+    "chrome://openpgp/content/ui/keyWizard.xhtml"
+  );
+  const doc = wizard.document;
+  const dialog = doc.documentElement.querySelector("dialog");
+
+  const startView = doc.getElementById("wizardStart");
+  const keyGenView = doc.getElementById("wizardCreateKey");
+
+  // Accept the dialog since the first option should be automatically selected.
+  dialog.acceptDialog();
+  await TestUtils.waitForCondition(
+    () => wizard.getComputedStyle(keyGenView).opacity == 1,
+    "Timeout waiting for the #wizardCreateKey to appear"
+  );
+  Assert.ok(startView.hidden, "the start section should be hidden");
+  Assert.greater(
+    keyGenView.getBoundingClientRect().height,
+    0,
+    "the create key section should have a height"
+  );
+
+  // Return to the first screen.
+  dialog.getButton("extra1").click();
+  await TestUtils.waitForCondition(
+    () => wizard.getComputedStyle(startView).opacity == 1,
+    "Timeout waiting for the #wizardStart to reappear"
+  );
+  Assert.ok(keyGenView.hidden, "the create key section should be hidden");
+  Assert.greater(
+    startView.getBoundingClientRect().height,
+    0,
+    "the start section should have a height"
+  );
+
+  dialog.cancelDialog();
+});
+
+/**
  * Generate a new OpenPGP Key.
  */
 add_task(async function generate_new_key() {
