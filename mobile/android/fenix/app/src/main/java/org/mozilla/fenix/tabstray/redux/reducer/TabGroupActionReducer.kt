@@ -74,6 +74,9 @@ object TabGroupActionReducer {
                 state.copy(
                     tabGroupState = state.tabGroupState.copy(dragProcessingState = DragProcessingState.COMPLETED)
                 )
+            // No-op actions within the TabsTray
+            TabGroupAction.NavigateBackInvoked -> state
+            is TabGroupAction.TabAddedToNewTabGroup -> state
         }
     }
 
