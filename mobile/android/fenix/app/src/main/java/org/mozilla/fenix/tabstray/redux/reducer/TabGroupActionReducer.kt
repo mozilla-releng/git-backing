@@ -46,7 +46,7 @@ object TabGroupActionReducer {
                 )
             }
             is TabGroupAction.TabGroupClicked -> processTabGroupClick(state, action.group)
-            is TabGroupAction.TabAddedToGroup -> state
+            is TabGroupAction.TabAddedToExistingTabGroup -> state
             is TabGroupAction.SelectedTabsAddedToGroup ->
                 state.copy(
                     mode = TabsTrayState.Mode.Normal,
