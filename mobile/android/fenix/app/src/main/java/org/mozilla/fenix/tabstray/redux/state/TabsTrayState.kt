@@ -7,6 +7,7 @@ package org.mozilla.fenix.tabstray.redux.state
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
 import mozilla.components.lib.state.State
+import org.mozilla.fenix.tabgroups.TabGroupTelemetry
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsListItem
@@ -207,8 +208,8 @@ data class TabsTrayState(
      */
     @Immutable
     data class TabGroupState(
-        val groups: List<TabsTrayItem.TabGroup> = emptyList(),
-        val formState: TabGroupFormState? = null,
+        override val groups: List<TabsTrayItem.TabGroup> = emptyList(),
+        override val formState: TabGroupFormState? = null,
         internal val hasUserDismissedTabGroupOnboarding: Boolean = false,
         internal val tabGroupOnboardingImpressionCount: Int = 0,
         internal val hasUserEverHadOneTabGroup: Boolean = false,
@@ -216,7 +217,7 @@ data class TabsTrayState(
         internal val hasRecordedOnboardingImpression: Boolean = false,
         val enteringGroupId: String? = null,
         val dragProcessingState: DragProcessingState = DragProcessingState.UNINITIALIZED,
-    )
+    ) : TabGroupTelemetry.TabGroupTelemetryContext
 
     /** State for the drag handling flow for Tab Groups. */
     enum class DragProcessingState {
