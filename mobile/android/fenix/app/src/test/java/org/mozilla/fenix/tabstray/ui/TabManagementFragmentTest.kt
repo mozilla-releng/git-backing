@@ -2,9 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray
+package org.mozilla.fenix.tabstray.ui
 
 import android.content.Context
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleRegistry
 import androidx.navigation.NavController
 import io.mockk.Runs
 import io.mockk.every
@@ -13,8 +15,7 @@ import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
 import mozilla.components.support.test.robolectric.testContext
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -28,7 +29,6 @@ import org.mozilla.fenix.navigation.NavControllerProvider
 import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
-import org.mozilla.fenix.tabstray.ui.TabManagementFragment
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 
@@ -82,37 +82,37 @@ class TabManagementFragmentTest {
     @Test
     fun `WHEN all conditions are met THEN shouldShowLockPbmBanner returns true`() {
         val result = testShouldShowLockPbmBanner()
-        assertTrue(result)
+        Assert.assertTrue(result)
     }
 
     @Test
     fun `WHEN isPrivateMode is false THEN shouldShowLockPbmBanner returns false`() {
         val result = testShouldShowLockPbmBanner(isPrivateMode = false)
-        assertFalse(result)
+        Assert.assertFalse(result)
     }
 
     @Test
     fun `WHEN hasPrivateTabs is false THEN shouldShowLockPbmBanner returns false`() {
         val result = testShouldShowLockPbmBanner(hasPrivateTabs = false)
-        assertFalse(result)
+        Assert.assertFalse(result)
     }
 
     @Test
     fun `WHEN biometricAvailable is false THEN shouldShowLockPbmBanner returns false`() {
         val result = testShouldShowLockPbmBanner(biometricAvailable = false)
-        assertFalse(result)
+        Assert.assertFalse(result)
     }
 
     @Test
     fun `WHEN privateLockEnabled is true THEN shouldShowLockPbmBanner returns false`() {
         val result = testShouldShowLockPbmBanner(privateLockEnabled = true)
-        assertFalse(result)
+        Assert.assertFalse(result)
     }
 
     @Test
     fun `WHEN shouldShowBanner is false THEN shouldShowLockPbmBanner returns false`() {
         val result = testShouldShowLockPbmBanner(shouldShowBanner = false)
-        assertFalse(result)
+        Assert.assertFalse(result)
     }
 
     @Test
@@ -120,7 +120,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns false
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.NormalTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -134,7 +134,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.NormalTabs,
                 mode = TabsTrayState.Mode.Select(setOf(fakeTab(isPrivate = false))),
@@ -148,7 +148,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertTrue(
+        Assert.assertTrue(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.NormalTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -162,7 +162,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertTrue(
+        Assert.assertTrue(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.PrivateTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -176,7 +176,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.NormalTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -190,7 +190,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.PrivateTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -204,7 +204,7 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.SyncedTabs,
                 mode = TabsTrayState.Mode.Normal,
@@ -218,12 +218,29 @@ class TabManagementFragmentTest {
         val mockSettings = mockk<Settings>()
         every { mockSettings.tabManagerOpeningAnimationEnabled } returns true
         every { context.components.settings } returns mockSettings
-        assertFalse(
+        Assert.assertFalse(
             fragment.shouldPerformTransitionAnimation(
                 selectedPage = Page.SyncedTabs,
                 mode = TabsTrayState.Mode.Normal,
                 tabState = fakeTab(isPrivate = true),
             )
+        )
+    }
+
+    @Test
+    fun `GIVEN fragment is detached WHEN bookmark SnackBar is invoked THEN a crash does not result`() {
+        // Set up a spied fragment with a registry to drive the lifecycle
+        // This is a workaround since the FragmentScenario API can't be easily used alongside the components singleton
+        val detachedFragment = spyk(TabManagementFragment())
+        val registry = LifecycleRegistry.createUnsafe(detachedFragment)
+        every { detachedFragment.lifecycle } returns registry
+
+        registry.currentState = Lifecycle.State.CREATED
+        registry.currentState = Lifecycle.State.DESTROYED
+
+        detachedFragment.showBookmarkSnackbar(
+            tabSize = 1,
+            parentFolderTitle = null,
         )
     }
 
