@@ -9,6 +9,7 @@ import mozilla.components.feature.addons.Addon
 import mozilla.components.lib.state.Action
 import mozilla.components.service.fxa.manager.AccountState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
+import org.mozilla.fenix.tabgroups.flow.TabGroupFlowEntryPoint
 
 /** Actions to dispatch through the [MenuStore] to modify the [MenuState]. */
 sealed class MenuAction : Action {
@@ -191,6 +192,9 @@ sealed class MenuAction : Action {
 
         /** [Navigate] action dispatched when navigating to add site to home screen. */
         data object AddToHomeScreen : Navigate()
+
+        /** [Navigate] action dispatched when opening the tab group flow. */
+        data class OpenTabGroupFlow(val entryPoint: TabGroupFlowEntryPoint) : Navigate()
 
         /**
          * [Navigate] action dispatched when navigating to save a site to a collection.
