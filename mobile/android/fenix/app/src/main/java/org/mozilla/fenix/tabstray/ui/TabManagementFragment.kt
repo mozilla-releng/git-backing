@@ -534,7 +534,7 @@ class TabManagementFragment : Fragment() {
                                                             requireComponents.useCases.fenixBrowserUseCases
                                                                 .addNewHomepageTab(private = false)
                                                         tabsTrayStore.dispatch(
-                                                            TabGroupAction.TabAddedToGroup(
+                                                            TabGroupAction.TabAddedToExistingTabGroup(
                                                                 tabId = newTabId,
                                                                 groupId = expandedGroup.id,
                                                             )
