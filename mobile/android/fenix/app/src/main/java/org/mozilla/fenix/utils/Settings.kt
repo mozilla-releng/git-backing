@@ -3240,6 +3240,13 @@ class Settings(
             default = { DefaultTabManagementFeatureHelper.tabGroupsOnboardingEnabled },
         )
 
+    /** Whether the Tab Groups feature is visible in the browser menu. */
+    var showTabGroupsInMenu by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_show_tab_groups_in_menu),
+            default = { DefaultTabManagementFeatureHelper.showTabGroupsInMenu },
+        )
+
     /** Whether the Native Share Sheet feature is enabled. */
     var nativeShareSheetEnabled by
         booleanPreference(
