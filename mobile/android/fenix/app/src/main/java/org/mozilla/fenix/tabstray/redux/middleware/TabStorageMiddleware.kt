@@ -167,24 +167,7 @@ class TabStorageMiddleware(
 
             TabGroupAction.SaveClicked -> handleSaveClicked(store)
 
-            is TabGroupAction.SelectedTabsAddedToGroup -> {
-                val selectedTabIds = store.state.mode.selectedTabs.map { it.id }
-                val selectedTabGroupIds = store.state.mode.selectedTabGroups.map { it.id } - action.groupId
-
-                scope.launch {
-                    addTabItemsToTabGroup(
-                        groupId = action.groupId,
-                        tabIds = selectedTabIds,
-                        store = store,
-                    )
-
-                    // If group(s) were merged, delete them, but do NOT delete the destination group if it was also
-                    // selected.
-                    if (selectedTabGroupIds.isNotEmpty()) {
-                        tabGroupRepository.deleteTabGroupsById(ids = selectedTabGroupIds)
-                    }
-                }
-            }
+            is TabGroupAction.SelectedTabsAddedToGroup -> handleSelectedTabsAddedToGroup(action, store)
 
             is TabGroupAction.TabAddedToExistingTabGroup -> {
                 scope.launch {
@@ -230,6 +213,31 @@ class TabStorageMiddleware(
                         removeTabsUseCase.invoke(ids = listOf(action.tab.id))
                     }
                 }
+            }
+
+            // todo-bug-2069535: Hook up to the coordinator storage layer when it is ready
+            is TabGroupAction.TabAddedToNewTabGroup -> {}
+        }
+    }
+
+    private fun handleSelectedTabsAddedToGroup(
+        action: TabGroupAction.SelectedTabsAddedToGroup,
+        store: Store<TabsTrayState, TabsTrayAction>,
+    ) {
+        val selectedTabIds = store.state.mode.selectedTabs.map { it.id }
+        val selectedTabGroupIds = store.state.mode.selectedTabGroups.map { it.id } - action.groupId
+
+        scope.launch {
+            addTabItemsToTabGroup(
+                groupId = action.groupId,
+                tabIds = selectedTabIds,
+                store = store,
+            )
+
+            // If group(s) were merged, delete them, but do NOT delete the destination group if it was also
+            // selected.
+            if (selectedTabGroupIds.isNotEmpty()) {
+                tabGroupRepository.deleteTabGroupsById(ids = selectedTabGroupIds)
             }
         }
     }
