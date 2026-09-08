@@ -59,6 +59,7 @@ import org.mozilla.fenix.components.menu.store.MenuStore
 import org.mozilla.fenix.components.share.ShareSource
 import org.mozilla.fenix.components.usecases.ShareUseCases
 import org.mozilla.fenix.settings.SupportUtils.AMO_HOMEPAGE_FOR_ANDROID
+import org.mozilla.fenix.tabgroups.flow.TabGroupFlowEntryPoint
 import org.mozilla.fenix.utils.Settings
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromHomeScreen
 import org.mozilla.fenix.utils.Stories.markAsOpenedFromStoriesScreen
@@ -1223,6 +1224,35 @@ class MenuNavigationMiddlewareTest {
             sessionUseCases.stopLoading.invoke(customTab.id)
         }
         assertTrue(dismissWasCalled)
+    }
+
+    @Test
+    fun `WHEN OpenTabGroupFlow is invoked with add to group, THEN navigate to the group flow fragment`() = runTest {
+        val store = createStore(this)
+        val accountState = AuthenticationProblem
+        val accesspoint = MenuAccessPoint.Home
+        val directionsSlot = slot<NavDirections>()
+
+        store.dispatch(
+            MenuAction.Navigate.OpenTabGroupFlow(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
+        )
+        testScheduler.advanceUntilIdle()
+
+        verify {
+            navController.navigate(
+                capture(directionsSlot),
+                null,
+            )
+        }
+
+        val directions = directionsSlot.captured
+        val directionsBundle = directions.arguments
+
+        assertEquals(R.id.action_menuDialogFragment_to_tabGroupFlowFragment, directions.actionId)
+        assertEquals(
+            TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
+            directionsBundle.getParcelable("entryPoint", TabGroupFlowEntryPoint::class.java),
+        )
     }
 
     private fun createStore(

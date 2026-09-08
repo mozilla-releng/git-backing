@@ -197,9 +197,9 @@
         app:destination="@id/trust_panel_graph" />
     <action
         android:id="@+id/action_global_unlockPrivateTabsFragment"
+        app:destination="@+id/unlockPrivateTabsFragment"
         app:popUpTo="@id/unlockPrivateTabsFragment"
-        app:popUpToInclusive="true"
-        app:destination="@+id/unlockPrivateTabsFragment"/>
+        app:popUpToInclusive="true"/>
     <action
         android:id="@+id/action_global_customReviewPromptDialogFragment"
         app:destination="@id/customReviewPromptDialogFragment" />
@@ -209,7 +209,6 @@
     <action
         android:id="@+id/action_global_to_downloadAddonDialogFragment"
         app:destination="@id/downloadAddonDialogFragment" />
-
     <action
         android:id="@+id/action_global_aiControlsFragment"
         app:destination="@+id/aiControlsFragment"/>
@@ -237,6 +236,14 @@
             android:id="@+id/action_tabManagementFragment_to_global_protections_dashboard"
             app:destination="@id/global_protections_dashboard" />
     </fragment>
+
+    <dialog
+        android:id="@+id/TabGroupFlowFragment"
+        android:name="org.mozilla.fenix.tabgroups.flow.TabGroupFlowFragment">
+      <argument
+        android:name="entryPoint"
+        app:argType="org.mozilla.fenix.tabgroups.flow.TabGroupFlowEntryPoint" />
+    </dialog>
 
     <fragment
         android:id="@+id/startupFragment"
@@ -321,16 +328,16 @@
         android:name="org.mozilla.fenix.experiments.ResearchSurfaceDialogFragment" >
         <argument
             android:name="KEY_MESSAGE_TEXT"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
         <argument
             android:name="KEY_ACCEPT_BUTTON_TEXT"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
         <argument
             android:name="KEY_DISMISS_BUTTON_TEXT"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
     </dialog>
 
     <dialog
@@ -434,9 +441,9 @@
         <action
             android:id="@+id/action_browserFragment_to_storiesFragment"
             app:destination="@id/storiesFragment"
+            app:launchSingleTop="true"
             app:popUpTo="@id/storiesFragment"
-            app:popUpToInclusive="false"
-            app:launchSingleTop="true" />
+            app:popUpToInclusive="false" />
     </fragment>
 
     <fragment
@@ -1650,8 +1657,8 @@
         <argument
             android:name="sessionId"
             android:defaultValue="@null"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
         <argument
             android:name="translationsDialogAccessPoint"
             android:defaultValue="Translations"
@@ -1667,13 +1674,13 @@
         <argument
             android:name="sessionId"
             android:defaultValue="@null"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
         <argument
             android:name="fromShake"
             android:defaultValue="false"
-            app:nullable="false"
-            app:argType="boolean" />
+            app:argType="boolean"
+            app:nullable="false" />
         <action
             android:id="@+id/action_summarizationFragment_to_turnOnSyncFragment"
             app:destination="@id/turnOnSyncFragment" />
@@ -1754,12 +1761,12 @@
                 app:argType="org.mozilla.fenix.translations.preferences.downloadlanguages.DownloadLanguageItemTypePreference" />
             <argument
                 android:name="languageCode"
-                app:nullable="true"
-                app:argType="string" />
+                app:argType="string"
+                app:nullable="true" />
             <argument
                 android:name="languageDisplayName"
-                app:nullable="true"
-                app:argType="string" />
+                app:argType="string"
+                app:nullable="true" />
             <argument
                 android:name="modelSize"
                 app:argType="long" />
@@ -1775,8 +1782,8 @@
         <argument
             android:name="customTabSessionId"
             android:defaultValue="@null"
-            app:nullable="true"
-            app:argType="string" />
+            app:argType="string"
+            app:nullable="true" />
         <argument
             android:name="isSandboxCustomTab"
             android:defaultValue="false"
@@ -1790,8 +1797,8 @@
             <argument
                 android:name="customTabSessionId"
                 android:defaultValue="@null"
-                app:nullable="true"
-                app:argType="string" />
+                app:argType="string"
+                app:nullable="true" />
             <argument
                 android:name="isSandboxCustomTab"
                 android:defaultValue="false"
@@ -1799,9 +1806,9 @@
             <action
                android:id="@+id/action_menuDialogFragment_to_storiesFragment"
                 app:destination="@id/storiesFragment"
+                app:launchSingleTop="true"
                 app:popUpTo="@id/storiesFragment"
-                app:popUpToInclusive="false"
-                app:launchSingleTop="true" />
+                app:popUpToInclusive="false" />
             <action
                 android:id="@+id/action_menuDialogFragment_to_translationsDialogFragment"
                 app:destination="@id/translationsDialogFragment" />
@@ -1826,6 +1833,9 @@
             <action
                 android:id="@+id/action_menuDialogFragment_to_ipProtectionFragment"
                 app:destination="@id/ipProtectionFragment" />
+            <action
+              android:id="@+id/action_menuDialogFragment_to_tabGroupFlowFragment"
+              app:destination="@id/TabGroupFlowFragment" />
         </dialog>
     </navigation>
 

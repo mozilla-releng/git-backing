@@ -1,0 +1,54 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+syntax = "proto3";
+
+option java_package = "org.mozilla.fenix.tabstray.data.snapshotcache";
+option java_multiple_files = true;
+
+message CachedTabSnapshot {
+  string selected_tab_id = 1;
+
+  repeated CachedTabsTrayItem normal_items = 2;
+  int32 normal_tab_count = 3;
+  int32 selected_normal_item_index = 4;
+
+  repeated CachedTab inactive_tabs = 5;
+
+  repeated CachedTab private_items = 6;
+  int32 selected_private_item_index = 7;
+
+  repeated CachedTabGroup tab_groups = 8;
+
+  int64 cached_at_ms = 9;
+  int32 schema_version = 10;
+}
+
+message CachedTabsTrayItem {
+  oneof item {
+    CachedTab tab = 1;
+    CachedTabGroup group = 2;
+  }
+}
+
+message CachedTab {
+  string id = 1;
+  string url = 2;
+  string title = 3;
+  bool is_private = 4;
+  bool is_focused = 5;
+  bool is_inactive = 6;
+  int64 last_access = 7;
+}
+
+message CachedTabGroup {
+  string id = 1;
+  string title = 2;
+  string theme = 3;
+  repeated CachedTab tabs = 4;
+  bool is_closed = 5;
+  bool is_focused = 6;
+  int64 last_modified = 7;
+  int32 initial_scroll_index = 8;
+}

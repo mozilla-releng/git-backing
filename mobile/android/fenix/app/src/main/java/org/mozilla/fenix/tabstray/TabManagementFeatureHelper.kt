@@ -28,6 +28,9 @@ interface TabManagementFeatureHelper {
 
     /** Control whether reorder happens live during a drag and drop action for Tab Groups. */
     val tabGroupsLiveReorderEnabled: Boolean
+
+    /** Control whether Tab Group options show up in the browser menu. */
+    val showTabGroupsInMenu: Boolean
 }
 
 /** The default implementation of [TabManagementFeatureHelper]. */
@@ -50,6 +53,9 @@ data object DefaultTabManagementFeatureHelper : TabManagementFeatureHelper {
 
     override val tabGroupsOnboardingEnabled: Boolean
         get() = Config.channel.isDebug || FxNimbus.features.tabGroupsOnboarding.value().enabled
+
+    override val showTabGroupsInMenu: Boolean
+        get() = Config.channel.isDebug
 }
 
 val LocalTabManagementFeatureHelper =
