@@ -35,6 +35,13 @@ var news = Ci.nsMsgSearchScope.news; // control entry not enabled
 
 var Body = Ci.nsMsgSearchAttrib.Body;
 
+// This test distinguishes groups of messages by near-identical markers that
+// differ only in their diacritics ("huhu" vs. "hühü"), so run the body tests
+// with diacritics significant. The `matchdiacritics` property overrides this
+// per test. See mail.matchdiacritics.
+const DIACRITICS_ALWAYS = 1;
+const DIACRITICS_AUTO = 2;
+
 var Files = [
   "../../../data/base64-1",
   "../../../data/basic1",
@@ -236,6 +243,22 @@ var Tests = [
   // still be searched when the message ends on one.
   { value: "qptrailingplain", op: Contains, count: 1 },
   { value: "qptrailinghtml", op: Contains, count: 1 },
+
+  // With the default diacritics handling an unaccented search term also finds
+  // accented text, so "huhu" matches the ten "huhu" messages plus the nine
+  // "hühü" ones, while the accented term stays exact.
+  {
+    value: "huhu",
+    op: Contains,
+    count: 19,
+    matchdiacritics: DIACRITICS_AUTO,
+  },
+  {
+    value: "hühü",
+    op: Contains,
+    count: 9,
+    matchdiacritics: DIACRITICS_AUTO,
+  },
 ];
 
 function fixFile(file) {
@@ -386,6 +409,10 @@ add_task(async function run_tests() {
 function testBodySearch() {
   var test = Tests.shift();
   if (test) {
+    Services.prefs.setIntPref(
+      "mail.matchdiacritics",
+      test.matchdiacritics ?? DIACRITICS_ALWAYS
+    );
     new TestSearch(
       localAccountUtils.inboxFolder,
       test.value,
@@ -395,6 +422,7 @@ function testBodySearch() {
       testBodySearch
     );
   } else {
+    Services.prefs.clearUserPref("mail.matchdiacritics");
     do_test_finished();
   }
 }
