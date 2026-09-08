@@ -85,10 +85,10 @@ class SummarizationTelemetryMiddlewareTest {
         invokeMiddleware(createContentExtractedAction())
 
         val startedExtras = AiSummarize.started.testGetValue()!!.first().extra!!
-        assertEquals("MENU", startedExtras["trigger"])
+        assertEquals("TAB_MENU", startedExtras["trigger"])
 
         val requestedExtras = AiSummarize.requested.testGetValue()!!.first().extra!!
-        assertEquals("MENU", requestedExtras["trigger"])
+        assertEquals("TAB_MENU", requestedExtras["trigger"])
     }
 
     @Test
@@ -116,7 +116,7 @@ class SummarizationTelemetryMiddlewareTest {
         assertEquals(1, snapshot.size)
 
         val extras = snapshot.first().extra!!
-        assertEquals("MENU", extras["trigger"])
+        assertEquals("TAB_MENU", extras["trigger"])
         assertEquals(TEST_MODEL, extras["model"])
         assertEquals("120", extras["length_words"])
         assertEquals("15", extras["length_chars"])
