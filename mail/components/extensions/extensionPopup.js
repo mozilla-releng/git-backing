@@ -209,6 +209,14 @@ function getBrowser() {
 
 var gBrowserInit = {
   onDOMContentLoaded() {
+    const extraOptions = window.arguments?.[0];
+    if (
+      extraOptions instanceof Ci.nsIPropertyBag2 &&
+      extraOptions.hasKey("web-extension-popup-window")
+    ) {
+      document.documentElement.setAttribute("web-extension-popup-window", true);
+    }
+
     // This needs setting up before we create the first remote browser.
     window.docShell.treeOwner
       .QueryInterface(Ci.nsIInterfaceRequestor)
