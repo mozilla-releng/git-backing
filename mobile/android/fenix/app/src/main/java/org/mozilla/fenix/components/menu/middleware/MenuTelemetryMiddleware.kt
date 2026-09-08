@@ -207,6 +207,10 @@ class MenuTelemetryMiddleware(private val accessPoint: MenuAccessPoint) : Middle
                 Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = "report_broken_site"))
             }
 
+            is MenuAction.Navigate.OpenTabGroupFlow -> {
+                Events.browserMenuAction.record(Events.BrowserMenuActionExtra(item = action.entryPoint.telemetryName))
+            }
+
             MenuAction.Navigate.Summarizer,
             MenuAction.InitAction,
             is MenuAction.CustomMenuItemAction,
