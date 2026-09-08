@@ -498,6 +498,12 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.pref_key_show_tab_groups_in_menu).apply {
+            isVisible = Config.channel.isDebug
+            isChecked = settings.showTabGroupsInMenu
+            onPreferenceChangeListener = SharedPreferenceUpdater()
+        }
+
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_migrate_collections_to_tab_groups).apply {
             isChecked = settings.migrateCollectionsToTabGroupsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()

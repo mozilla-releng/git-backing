@@ -228,6 +228,9 @@ class TabStorageMiddleware(
                     }
                 }
             }
+
+            // todo-bug-2069535: Hook up to the coordinator storage layer when it is ready
+            is TabGroupAction.TabAddedToNewTabGroup -> {}
         }
     }
 

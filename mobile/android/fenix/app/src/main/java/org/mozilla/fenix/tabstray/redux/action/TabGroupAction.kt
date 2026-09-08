@@ -89,6 +89,13 @@ sealed interface TabGroupAction : TabsTrayAction {
     data class SelectedTabsAddedToGroup(val groupId: String) : TabGroupAction, TabsStorageAction
 
     /**
+     * Fired when the user performs an action to add a single item to a new Tab Group, such as from the menu.
+     *
+     * @property tabId THe ID of the tab.
+     */
+    data class TabAddedToNewTabGroup(val tabId: String) : TabGroupAction, TabsStorageAction
+
+    /**
      * Fired when the user performs an action to add a single item to an existing Tab Group, such as a drag and drop.
      *
      * @property tabId The ID of the tab.
@@ -151,4 +158,7 @@ sealed interface TabGroupAction : TabsTrayAction {
 
     /** Invoked when a new group's animation is played. */
     data object NewGroupAnimationFinished : TabGroupAction
+
+    /** Invoked when back navigation is requested. */
+    data object NavigateBackInvoked : TabGroupAction
 }
