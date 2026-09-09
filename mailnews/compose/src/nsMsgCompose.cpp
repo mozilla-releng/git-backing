@@ -703,9 +703,12 @@ nsMsgCompose::ConvertAndLoadComposeWindow(nsString& aPrefix, nsString& aBuf,
             }
           }
 
-          // Clean up the <br> we inserted.
-          rv = htmlEditor->DeleteNode(extraBr, false, 1);
-          NS_ENSURE_SUCCESS(rv, rv);
+          // Clean up the <br> we inserted, unless the editor already removed
+          // it as an unnecessary line break while inserting the text.
+          if (extraBr->GetParentNode()) {
+            rv = htmlEditor->DeleteNode(extraBr, false, 1);
+            NS_ENSURE_SUCCESS(rv, rv);
+          }
         }
 
         // Use our own function instead of nsEditor::EndOfDocument() because
