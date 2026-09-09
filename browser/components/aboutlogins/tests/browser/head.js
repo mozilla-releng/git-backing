@@ -5,7 +5,7 @@ let { LoginBreaches } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aboutlogins/LoginBreaches.sys.mjs"
 );
 let { BreachAlertsData } = ChromeUtils.importESModule(
-  "resource://gre/modules/BreachAlertsData.sys.mjs"
+  "moz-src:///toolkit/components/passwordmgr/BreachAlertsData.sys.mjs"
 );
 let { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"

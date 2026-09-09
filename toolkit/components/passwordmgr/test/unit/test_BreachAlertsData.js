@@ -8,7 +8,7 @@ const { RemoteSettings } = ChromeUtils.importESModule(
   "resource://services-settings/remote-settings.sys.mjs"
 );
 const { BreachAlertsData } = ChromeUtils.importESModule(
-  "resource://gre/modules/BreachAlertsData.sys.mjs"
+  "moz-src:///toolkit/components/passwordmgr/BreachAlertsData.sys.mjs"
 );
 
 const TEST_BREACHES = [

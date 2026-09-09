@@ -12,7 +12,7 @@ const { LoginBreaches } = ChromeUtils.importESModule(
 );
 
 const { BreachAlertsData } = ChromeUtils.importESModule(
-  "resource://gre/modules/BreachAlertsData.sys.mjs"
+  "moz-src:///toolkit/components/passwordmgr/BreachAlertsData.sys.mjs"
 );
 
 const { RemoteSettings } = ChromeUtils.importESModule(

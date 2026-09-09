@@ -25,8 +25,11 @@ XPIDL_SOURCES += [
 
 XPIDL_MODULE = "loginmgr"
 
-EXTRA_JS_MODULES += [
+MOZ_SRC_FILES += [
     "BreachAlertsData.sys.mjs",
+]
+
+EXTRA_JS_MODULES += [
     "BreachAlertStore.sys.mjs",
     "crypto-SDR.sys.mjs",
     "InsecurePasswordUtils.sys.mjs",
