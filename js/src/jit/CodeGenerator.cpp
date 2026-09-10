@@ -8533,8 +8533,7 @@ void CodeGenerator::emitAssertResultV(const ValueOperand input,
 
   Register temp1 = regs.takeAny();
   Register temp2 = regs.takeAny();
-  masm.push(temp1);
-  masm.push(temp2);
+  masm.pushRegs(temp1, temp2);
 
   // Don't check if the script has been invalidated. In that case invalid
   // types are expected (until we reach the OsiPoint and bailout).

@@ -7524,8 +7524,7 @@ JitCode* JitRuntime::generateDebugTrapHandler(JSContext* cx,
   VMFunctionId id = VMFunctionToId<Fn, jit::HandleDebugTrap>::id;
   TrampolinePtr code = cx->runtime()->jitRuntime()->getVMWrapper(id);
 
-  masm.push(scratch1);
-  masm.push(scratch2);
+  masm.pushRegs(scratch1, scratch2);
   EmitBaselineCallVM(code, masm);
 
   EmitBaselineLeaveStubFrame(masm);
