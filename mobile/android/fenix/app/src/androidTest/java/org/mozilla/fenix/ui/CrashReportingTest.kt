@@ -6,18 +6,18 @@ package org.mozilla.fenix.ui
 
 import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as AndroidComposeTestRuleV2
 import androidx.core.net.toUri
+import mozilla.components.lib.crash.store.CrashReportOption
 import org.junit.Rule
 import org.junit.Test
 import org.mozilla.fenix.customannotations.Converted
 import org.mozilla.fenix.customannotations.SmokeTest
 import org.mozilla.fenix.helpers.FenixTestRule
 import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
-import org.mozilla.fenix.helpers.MatcherHelper.itemWithResId
 import org.mozilla.fenix.helpers.TestAssetHelper.getGenericAsset
+import org.mozilla.fenix.helpers.TestHelper.exitMenu
 import org.mozilla.fenix.helpers.TestHelper.mDevice
-import org.mozilla.fenix.helpers.TestHelper.packageName
 import org.mozilla.fenix.helpers.perf.DetectMemoryLeaksRule
-import org.mozilla.fenix.ui.robots.clickPageObject
+import org.mozilla.fenix.ui.robots.homeScreen
 import org.mozilla.fenix.ui.robots.navigationToolbar
 
 class CrashReportingTest {
@@ -32,6 +32,7 @@ class CrashReportingTest {
             HomeActivityIntentTestRule(
                 isPocketEnabled = false,
                 isWallpaperOnboardingEnabled = false,
+                crashReportOption = CrashReportOption.Ask,
             )
         ) {
             it.activity
@@ -59,7 +60,8 @@ class CrashReportingTest {
         navigationToolbar(composeTestRule) {}
             .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
                 verifyTabCrashReporterView()
-                clickPageObject(composeTestRule, itemWithResId("$packageName:id/restoreTabButton"))
+            }
+            .clickTabCrashedRestoreButton {
                 verifyPageContent(website.content)
             }
     }
@@ -88,7 +90,7 @@ class CrashReportingTest {
 
         navigationToolbar(composeTestRule) {}
             .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
-                verifyTabCrashReporterView()
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Ask)
             }
             .openTabDrawer(composeTestRule) {
                 verifyExistingOpenTabs(firstWebPage.title)
@@ -100,6 +102,106 @@ class CrashReportingTest {
             }
             .openThreeDotMenu {
                 verifySettingsButton()
+            }
+    }
+
+    @Test
+    fun sendCrashReportCheckboxIsUncheckedWithAskBeforeSendingCrashReportOptionTest() {
+        composeTestRule.activityRule.applySettingsExceptions { it.crashReportOption = CrashReportOption.Ask }
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Ask)
+            }
+    }
+
+    @Test
+    fun sendCrashReportCheckboxIsCheckedWithSendAutomaticallyCrashReportOptionTest() {
+        composeTestRule.activityRule.applySettingsExceptions { it.crashReportOption = CrashReportOption.Auto }
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Auto)
+            }
+    }
+
+    @Test
+    fun sendCrashReportCheckboxIsHiddenAndDisabledWithNeverSendCrashReportsOptionTest() {
+        composeTestRule.activityRule.applySettingsExceptions { it.crashReportOption = CrashReportOption.Never }
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Never)
+            }
+    }
+
+    @Test
+    fun sendCrashReportCheckboxIsHiddenAndDisabledAfterSelectingNeverSendInSettingsTest() {
+        homeScreen(composeTestRule) {}
+            .openThreeDotMenu {}
+            .clickSettingsButton {}
+            .openSettingsSubMenuDataCollection {
+                clickTheCrashReportsRadioButton(composeTestRule, "Never send")
+                verifyTheCrashReportOptionStates(
+                    composeTestRule,
+                    isAskBeforeSendingCrashReportsEnabled = false,
+                    isNeverSendCrashReportsEnabled = true,
+                )
+            }
+
+        exitMenu()
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Never)
+            }
+    }
+
+    @Test
+    fun updatingCrashReportingPreferenceIsReflectedTest() {
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Ask)
+                toggleTabCrashReporterCheckbox(expectedCheckedState = true)
+            }
+            .clickTabCrashedCloseButton {}
+
+        homeScreen(composeTestRule) {}
+            .openThreeDotMenu {}
+            .clickSettingsButton {}
+            .openSettingsSubMenuDataCollection {
+                clickTheCrashReportsRadioButton(composeTestRule, "Never send")
+                verifyTheCrashReportOptionStates(
+                    composeTestRule,
+                    isAskBeforeSendingCrashReportsEnabled = false,
+                    isNeverSendCrashReportsEnabled = true,
+                )
+            }
+
+        exitMenu()
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Never)
+            }
+    }
+
+    @Test
+    fun sendCrashReportPreferenceCheckboxResetsForMultipleCrashesTest() {
+        val website = mockWebServer.getGenericAsset(1)
+        navigationToolbar(composeTestRule) {}.enterURLAndEnterToBrowser(website.url) {}
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Ask)
+                toggleTabCrashReporterCheckbox(expectedCheckedState = true)
+            }
+            .clickTabCrashedRestoreButton {
+                verifyPageContent(website.content)
+            }
+
+        navigationToolbar(composeTestRule) {}
+            .enterURLAndEnterToBrowser("about:crashcontent".toUri()) {
+                verifyTabCrashReporterView(crashReportOption = CrashReportOption.Ask)
             }
     }
 }
