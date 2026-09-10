@@ -2962,9 +2962,10 @@ static JitCode* GenerateRegExpMatchStubShared(JSContext* cx,
   AutoCreatedBy acb(masm, "GenerateRegExpMatchStubShared");
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+#else
   masm.push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
   Label notFoundZeroLastIndex;
@@ -3402,9 +3403,10 @@ JitCode* JitZone::generateRegExpSearcherStub(JSContext* cx) {
   AutoCreatedBy acb(masm, "JitZone::generateRegExpSearcherStub");
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+#else
   masm.push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
 #ifdef DEBUG
@@ -3533,9 +3535,10 @@ JitCode* JitZone::generateRegExpExecTestStub(JSContext* cx) {
   AutoCreatedBy acb(masm, "JitZone::generateRegExpExecTestStub");
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+#else
   masm.push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
   // We are free to clobber all registers, as LRegExpExecTest is a call
@@ -7036,12 +7039,10 @@ void JitRuntime::generateIonGenericCallNativeFunction(MacroAssembler& masm,
   // trampoline, this code does not use a tail call.
   masm.push(FrameDescriptor(FrameType::IonJS));
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
+  masm.pushRegs(LinkRegister, FramePointer);
 #else
-  masm.push(returnAddrReg);
+  masm.pushRegs(returnAddrReg, FramePointer);
 #endif
-
-  masm.push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
   masm.enterFakeExitFrameForNative(contextReg, scratch, isConstructing);
 
@@ -14393,9 +14394,11 @@ JitCode* JitZone::generateStringConcatStub(JSContext* cx) {
 
   Label failure;
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+  masm.adjustFrame(sizeof(intptr_t));
+#else
   masm.Push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
   // If lhs is empty, return rhs.
@@ -14499,9 +14502,11 @@ void JitRuntime::generateLazyLinkStub(MacroAssembler& masm) {
   lazyLinkStubOffset_ = startTrampolineCode(masm);
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+  masm.adjustFrame(sizeof(intptr_t));
+#else
   masm.Push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
   AllocatableGeneralRegisterSet regs(GeneralRegisterSet::Volatile());
@@ -14538,9 +14543,11 @@ void JitRuntime::generateInterpreterStub(MacroAssembler& masm) {
   interpreterStubOffset_ = startTrampolineCode(masm);
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+  masm.adjustFrame(sizeof(intptr_t));
+#else
   masm.Push(FramePointer);
+#endif
   masm.moveStackPtrTo(FramePointer);
 
   AllocatableGeneralRegisterSet regs(GeneralRegisterSet::Volatile());
