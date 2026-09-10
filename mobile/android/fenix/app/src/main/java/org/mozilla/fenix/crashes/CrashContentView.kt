@@ -86,6 +86,11 @@ constructor(
                 controller.handleCloseAndRemove(binding.sendCrashCheckbox.isChecked)
             }
         }
+
+        binding.sendCrashCheckbox.apply {
+            visibility = if (controller.isCrashReportCheckboxVisible()) VISIBLE else GONE
+            isChecked = controller.isCrashReportCheckboxInitiallyChecked()
+        }
     }
 
     /**

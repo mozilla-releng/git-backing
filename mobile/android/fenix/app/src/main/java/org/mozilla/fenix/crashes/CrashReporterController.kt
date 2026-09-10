@@ -9,6 +9,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import mozilla.components.lib.crash.store.CrashReportOption
 import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.Components
@@ -58,6 +59,16 @@ class CrashReporterController(
         return job
     }
 
+    /** Returns true if the "Send to Mozilla" checkbox should be visible, false otherwise. */
+    internal fun isCrashReportCheckboxVisible(): Boolean {
+        return settings.crashReportOption() != CrashReportOption.Never
+    }
+
+    /** Returns true if the "Send to Mozilla" checkbox should be initially checked, false otherwise. */
+    internal fun isCrashReportCheckboxInitiallyChecked(): Boolean {
+        return settings.crashReportOption() == CrashReportOption.Auto
+    }
+
     /**
      * Submits all pending non-fatal crash reports if the "Send crash" checkbox was checked and the report crashes
      * setting is enabled. Also clears the current list of non-fatal crashes irrespective of whether they are reported
@@ -70,7 +81,11 @@ class CrashReporterController(
     @VisibleForTesting
     internal fun submitPendingNonFatalCrashesIfNecessary(reportCrashes: Boolean): Job? {
         var job: Job? = null
-        if (reportCrashes && settings.isCrashReportingEnabled) {
+        if (
+            reportCrashes &&
+                settings.isCrashReportEnabledInBuild &&
+                settings.crashReportOption() != CrashReportOption.Never
+        ) {
             job =
                 components.applicationScope.launch(Dispatchers.IO) {
                     val crashes = appStore.state.nonFatalCrashes
