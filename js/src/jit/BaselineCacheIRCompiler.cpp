@@ -60,16 +60,18 @@ static uint32_t GetICStackValueOffset() {
 static void PushICFrameRegs(MacroAssembler& masm) {
   MOZ_ASSERT(JitOptions.enableICFramePointers);
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushReturnAddress();
-#endif
+  masm.pushRegs(LinkRegister, FramePointer);
+#else
   masm.push(FramePointer);
+#endif
 }
 
 static void PopICFrameRegs(MacroAssembler& masm) {
   MOZ_ASSERT(JitOptions.enableICFramePointers);
-  masm.pop(FramePointer);
 #ifdef JS_USE_LINK_REGISTER
-  masm.popReturnAddress();
+  masm.popRegs(FramePointer, LinkRegister);
+#else
+  masm.pop(FramePointer);
 #endif
 }
 
