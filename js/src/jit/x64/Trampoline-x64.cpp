@@ -272,14 +272,9 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm,
 
   masm.addq(Imm32(sizeof(EnterJITStackEntry::XMM) + 8), rsp);
 
-  masm.pop(rsi);
-  masm.pop(rdi);
+  masm.popRegs(rsi, rdi);
 #endif
-  masm.pop(r15);
-  masm.pop(r14);
-  masm.pop(r13);
-  masm.pop(r12);
-  masm.pop(rbx);
+  masm.popRegs(r15, r14, r13, r12, rbx);
 
   // Restore frame pointer and return.
   masm.pop(rbp);
@@ -536,9 +531,7 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   masm.emitPreBarrierFastPath(type, temp1, temp2, temp3, &noBarrier);
 
   // Call into C++ to mark this GC thing.
-  masm.pop(temp3);
-  masm.pop(temp2);
-  masm.pop(temp1);
+  masm.popRegs(temp3, temp2, temp1);
 
   LiveRegisterSet regs =
       LiveRegisterSet(GeneralRegisterSet(Registers::VolatileMask),
@@ -556,9 +549,7 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   masm.ret();
 
   masm.bind(&noBarrier);
-  masm.pop(temp3);
-  masm.pop(temp2);
-  masm.pop(temp1);
+  masm.popRegs(temp3, temp2, temp1);
   masm.ret();
 
   return offset;
