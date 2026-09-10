@@ -10,6 +10,8 @@
 
 #include "mozilla/Maybe.h"
 
+#include <type_traits>
+
 #include "jit/MoveResolver.h"
 #include "jit/riscv64/Assembler-riscv64.h"
 #include "wasm/WasmTypeDecls.h"
@@ -731,6 +733,39 @@ class MacroAssemblerRiscv64Compat : public MacroAssemblerRiscv64 {
   void push(FloatRegister reg) { ma_push(reg); }
   void pop(Register reg) { ma_pop(reg); }
   void pop(FloatRegister reg) { ma_pop(reg); }
+
+  template <typename... Regs>
+  void pushRegs(const Regs&... regs) {
+    static_assert((std::is_convertible_v<Regs, Register> && ...));
+    static_assert(sizeof...(Regs) > 0);
+
+    if (((static_cast<Register>(regs) == StackPointer) || ...)) {
+      (ma_push(regs), ...);
+      return;
+    }
+
+    int32_t offset = int32_t(sizeof...(Regs) * sizeof(intptr_t));
+    ma_sub64(StackPointer, StackPointer, Imm32(offset));
+    (storePtr(regs, Address(StackPointer, offset -= int32_t(sizeof(intptr_t)))),
+     ...);
+  }
+
+  template <typename... Regs>
+  void popRegs(const Regs&... regs) {
+    static_assert((std::is_convertible_v<Regs, Register> && ...));
+    static_assert(sizeof...(Regs) > 0);
+
+    if (((static_cast<Register>(regs) == StackPointer) || ...)) {
+      (ma_pop(regs), ...);
+      return;
+    }
+
+    int32_t offset = -int32_t(sizeof(intptr_t));
+    (loadPtr(Address(StackPointer, offset += int32_t(sizeof(intptr_t))), regs),
+     ...);
+    ma_add64(StackPointer, StackPointer,
+             Imm32(int32_t(sizeof...(Regs) * sizeof(intptr_t))));
+  }
 
   // Emit a branch that can be toggled to a non-operation. On LOONG64 we use
   // "andi" instruction to toggle the branch.
