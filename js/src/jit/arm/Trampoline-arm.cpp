@@ -436,10 +436,11 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
   // push the return address, while the caller must ensure that the address
   // is stored in lr on entry. This allows the VM wrapper to work with both
   // direct calls and tail calls.
-  masm.pushReturnAddress();
-
-  // Push the frame pointer to finish the exit frame, then link it up.
-  masm.Push(FramePointer);
+  // First push the return address, then the frame pointer to finish the exit
+  // frame, then link it up.
+  masm.pushRegs(LinkRegister, FramePointer);
+  // This adjustment is for Push(FramePointer).
+  masm.adjustFrame(sizeof(intptr_t));
   masm.moveStackPtrTo(FramePointer);
   masm.loadJSContext(cxreg);
   masm.enterExitFrame(cxreg, regs.getAny(), id);

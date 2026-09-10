@@ -119,10 +119,8 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm,
 
     // Push return address.
     masm.mov(&returnLabel, scratch);
-    masm.push(scratch);
-
     // Frame prologue.
-    masm.push(ebp);
+    masm.pushRegs(scratch, ebp);
     masm.mov(esp, ebp);
 
     // Reserve frame.

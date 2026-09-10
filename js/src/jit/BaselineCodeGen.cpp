@@ -6955,10 +6955,11 @@ bool BaselineCodeGen<Handler>::emitPrologue() {
 
 #ifdef JS_USE_LINK_REGISTER
   // Push link register from generateEnterJIT()'s BLR.
-  masm.pushReturnAddress();
+  masm.pushRegs(LinkRegister, FramePointer);
+#else
+  masm.push(FramePointer);
 #endif
 
-  masm.push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
 
   masm.checkStackAlignment();
