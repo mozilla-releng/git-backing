@@ -210,13 +210,8 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm,
       Return stack and registers to correct state
   **************************************************************/
 
-  // Restore non-volatile registers
-  masm.pop(edi);
-  masm.pop(esi);
-  masm.pop(ebx);
-
-  // Restore old stack frame pointer
-  masm.pop(ebp);
+  // Restore non-volatile registers, and the old stack frame pointer
+  masm.popRegs(edi, esi, ebx, ebp);
   masm.ret();
 }
 
@@ -467,9 +462,7 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   masm.emitPreBarrierFastPath(type, temp1, temp2, temp3, &noBarrier);
 
   // Call into C++ to mark this GC thing.
-  masm.pop(temp3);
-  masm.pop(temp2);
-  masm.pop(temp1);
+  masm.popRegs(temp3, temp2, temp1);
 
   LiveRegisterSet save;
   save.set() = RegisterSet(GeneralRegisterSet(Registers::VolatileMask),
@@ -487,9 +480,7 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   masm.ret();
 
   masm.bind(&noBarrier);
-  masm.pop(temp3);
-  masm.pop(temp2);
-  masm.pop(temp1);
+  masm.popRegs(temp3, temp2, temp1);
   masm.ret();
 
   return offset;
