@@ -694,14 +694,6 @@ class Settings(
             default = false,
         )
 
-    val isCrashReportingEnabled: Boolean
-        get() =
-            isCrashReportEnabledInBuild &&
-                preferences.getBoolean(
-                    appContext.getPreferenceKey(R.string.pref_key_crash_reporter),
-                    true,
-                )
-
     var crashReportChoice by
         stringPreference(
             appContext.getPreferenceKey(R.string.pref_key_crash_reporting_choice),
