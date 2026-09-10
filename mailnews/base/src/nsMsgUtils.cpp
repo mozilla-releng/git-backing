@@ -53,6 +53,8 @@
 #include "nsIInputStreamPump.h"
 #include "nsIInputStream.h"
 #include "nsIChannel.h"
+#include "nsIStandardURL.h"
+#include "nsNetCID.h"
 #include "nsIURIMutator.h"
 #include "nsReadableUtils.h"
 #include "mozilla/Preferences.h"
@@ -1936,6 +1938,20 @@ nsTArray<nsCString> StringFields(nsACString const& s) {
     }
   }
   return out;
+}
+
+nsresult MsgNewStandardURL(const nsACString& aSpec, nsIURL** aURL,
+                           int32_t aDefaultPort) {
+  NS_ENSURE_ARG_POINTER(aURL);
+
+  nsCOMPtr<nsIURL> url;
+  MOZ_TRY(NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
+              .Apply(&nsIStandardURLMutator::Init,
+                     nsIStandardURL::URLTYPE_STANDARD, aDefaultPort,
+                     PromiseFlatCString(aSpec), nullptr, nullptr, nullptr)
+              .Finalize(url));
+  url.forget(aURL);
+  return NS_OK;
 }
 
 nsresult ParseDodgyQueryURI(const char* uriString, nsIURI** outURI) {
