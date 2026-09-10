@@ -52,6 +52,7 @@ import org.mozilla.fenix.components.settings.counterPreference
 import org.mozilla.fenix.components.settings.featureFlagBooleanPreference
 import org.mozilla.fenix.components.settings.lazyFeatureFlagBooleanPreference
 import org.mozilla.fenix.components.toolbar.ToolbarPosition
+import org.mozilla.fenix.crashes.crashReportOption
 import org.mozilla.fenix.debugsettings.addresses.EmptyAddressesDebugRegionRepository
 import org.mozilla.fenix.debugsettings.addresses.SharedPrefsAddressesDebugRegionRepository
 import org.mozilla.fenix.ext.TALL_SCREEN_HEIGHT_DP
@@ -170,6 +171,9 @@ class Settings(
     }
 
     private val logger = Logger("Settings")
+
+    val isCrashReportingEnabled: Boolean
+        get() = isCrashReportEnabledInBuild && crashReportOption() != CrashReportOption.Never
 
     @VisibleForTesting
     internal val isCrashReportEnabledInBuild: Boolean = BuildConfig.CRASH_REPORTING && Config.channel.isReleased
@@ -693,14 +697,6 @@ class Settings(
             appContext.getPreferenceKey(R.string.pref_key_install_pwa_opened),
             default = false,
         )
-
-    val isCrashReportingEnabled: Boolean
-        get() =
-            isCrashReportEnabledInBuild &&
-                preferences.getBoolean(
-                    appContext.getPreferenceKey(R.string.pref_key_crash_reporter),
-                    true,
-                )
 
     var crashReportChoice by
         stringPreference(
