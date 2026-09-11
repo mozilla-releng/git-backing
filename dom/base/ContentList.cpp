@@ -1031,6 +1031,13 @@ void LabelsNodeList::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
     SetDirty();
     return;
   }
+
+  // We need to handle changes to `<label for>`.
+  if (aElement->IsHTMLElement(nsGkAtoms::label) &&
+      aAttribute == nsGkAtoms::_for && aNameSpaceID == kNameSpaceID_None) {
+    SetDirty();
+    return;
+  }
 }
 
 void LabelsNodeList::ContentAppended(nsIContent* aFirstNewContent,
