@@ -8078,8 +8078,7 @@ bool CacheIRCompiler::emitLoadDataViewValueResult(
       // We need two extra registers. Reuse the obj/littleEndian registers.
       Register bigInt = obj;
       Register bigIntScratch = littleEndian;
-      masm.push(bigInt);
-      masm.push(bigIntScratch);
+      masm.pushRegs(bigInt, bigIntScratch);
       Label fail, done;
       LiveRegisterSet save = liveVolatileRegs();
       save.takeUnchecked(bigInt);

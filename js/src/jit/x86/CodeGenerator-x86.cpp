@@ -463,8 +463,7 @@ void CodeGenerator::visitWasmAtomicBinopI64(LWasmAtomicBinopI64* ins) {
   MOZ_ASSERT(output.low == eax);
   MOZ_ASSERT(output.high == edx);
 
-  masm.Push(ecx);
-  masm.Push(ebx);
+  masm.PushRegs(ecx, ebx);
 
   Address valueAddr(esp, 0);
 
