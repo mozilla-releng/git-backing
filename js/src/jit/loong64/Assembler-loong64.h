@@ -689,13 +689,7 @@ class BOffImm16 {
     MOZ_ASSERT(IsInRange(offset));
   }
   static bool IsInRange(int offset) {
-    if ((offset) < int(unsigned(INT16_MIN) << 2)) {
-      return false;
-    }
-    if ((offset) > (INT16_MAX << 2)) {
-      return false;
-    }
-    return true;
+    return is_intN(offset, 16 + /* 2'b0 */ 2);
   }
   static const uint32_t INVALID = 0x00020000;
   BOffImm16() : data(INVALID) {}
@@ -725,13 +719,7 @@ class JOffImm26 {
     MOZ_ASSERT(IsInRange(offset));
   }
   static bool IsInRange(int offset) {
-    if ((offset) < -536870912) {
-      return false;
-    }
-    if ((offset) > 536870908) {
-      return false;
-    }
-    return true;
+    return is_intN(offset, 26 + /* 2'b0 */ 2);
   }
   static const uint32_t INVALID = 0x20000000;
   JOffImm26() : data(INVALID) {}
@@ -750,11 +738,8 @@ class Imm16 {
   int32_t decodeSigned() { return value; }
   uint32_t decodeUnsigned() { return value; }
 
-  static bool IsInSignedRange(int32_t imm) {
-    return imm >= INT16_MIN && imm <= INT16_MAX;
-  }
-
-  static bool IsInUnsignedRange(uint32_t imm) { return imm <= UINT16_MAX; }
+  static bool IsInSignedRange(int32_t imm) { return is_intN(imm, 16); }
+  static bool IsInUnsignedRange(uint32_t imm) { return is_uintN(imm, 16); }
 };
 
 class Imm8 {
@@ -766,10 +751,8 @@ class Imm8 {
   uint32_t encode(uint32_t shift) { return value << shift; }
   int32_t decodeSigned() { return value; }
   uint32_t decodeUnsigned() { return value; }
-  static bool IsInSignedRange(int32_t imm) {
-    return imm >= INT8_MIN && imm <= INT8_MAX;
-  }
-  static bool IsInUnsignedRange(uint32_t imm) { return imm <= UINT8_MAX; }
+  static bool IsInSignedRange(int32_t imm) { return is_intN(imm, 8); }
+  static bool IsInUnsignedRange(uint32_t imm) { return is_uintN(imm, 8); }
   static Imm8 Lower(Imm16 imm) { return Imm8(imm.decodeSigned() & 0xff); }
   static Imm8 Upper(Imm16 imm) {
     return Imm8((imm.decodeSigned() >> 8) & 0xff);
