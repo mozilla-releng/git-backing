@@ -258,10 +258,10 @@ AssemblerLOONG64::Condition AssemblerLOONG64::SwapCmpOperandsCondition(
 }
 
 BOffImm16::BOffImm16(InstImm inst)
-    : data((inst.encode() >> Imm16Shift) & Imm16Mask) {}
+    : data(inst.extractBitField(Imm16Shift + Imm16Bits - 1, Imm16Shift)) {}
 
 Instruction* BOffImm16::getDest(Instruction* src) const {
-  return &src[(((int32_t)data << 16) >> 16) + 1];
+  return &src[(((int32_t)(data << 16)) >> 16) + 1];
 }
 
 bool AssemblerLOONG64::oom() const {

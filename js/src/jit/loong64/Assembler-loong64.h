@@ -680,7 +680,7 @@ class BOffImm16 {
   }
   int32_t decode() {
     MOZ_ASSERT(!isInvalid());
-    return (int32_t(data << 18) >> 16);
+    return (int32_t(data << 16) >> 14);
   }
 
   explicit BOffImm16(int offset) : data((offset) >> 2 & Imm16Mask) {
@@ -710,7 +710,7 @@ class JOffImm26 {
   }
   int32_t decode() {
     MOZ_ASSERT(!isInvalid());
-    return (int32_t(data << 8) >> 6);
+    return (int32_t(data << 6) >> 4);
   }
 
   explicit JOffImm26(int offset) : data((offset) >> 2 & Imm26Mask) {
