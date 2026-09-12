@@ -5,6 +5,8 @@
 #ifndef jit_loong64_Assembler_loong64_h
 #define jit_loong64_Assembler_loong64_h
 
+#include <utility>
+
 #include "jit/CompactBuffer.h"
 #include "jit/JitCode.h"
 #include "jit/loong64/Architecture-loong64.h"
@@ -1468,6 +1470,17 @@ class AssemblerLOONG64 : public AssemblerShared {
   static bool SupportsFloat32To16() { return false; }
 
   static bool HasRoundInstruction(RoundingMode mode) { return false; }
+
+  // Split an offset into the PCADDU18I si20 field and the JIRL offs16 byte
+  // offset suitable for jump36. Returns (si20, offs16).
+  static constexpr std::pair<int32_t, int32_t> SplitJump36Offset(int64_t d) {
+    MOZ_ASSERT((d & 0x3) == 0);
+    const int64_t hi = (d + (static_cast<int64_t>(1) << 17)) >> 18;
+    const int64_t lo = d - (hi << 18);
+    MOZ_ASSERT(is_intN(hi, 20));
+    MOZ_ASSERT(BOffImm16::IsInRange(static_cast<int32_t>(lo)));
+    return std::make_pair(static_cast<int32_t>(hi), static_cast<int32_t>(lo));
+  }
 
  protected:
   InstImm invertBranch(InstImm branch, BOffImm16 skipOffset);

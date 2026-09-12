@@ -205,6 +205,8 @@ class MacroAssemblerLOONG64 : public Assembler {
 
   void ma_bl(Label* l);
 
+  void ma_jump36(int32_t offset, Register scratch);
+
   // fp instructions
   void ma_lid(FloatRegister dest, double value);
 
