@@ -93,6 +93,11 @@ interface nsIContentPrefObserver : nsISupports
  * browsing data, and passing a private browsing context will remove only
  * private browsing data.
  *
+ * Because private-browsing reads fall back to permanent storage, removing a
+ * preference for private browsing does not restore the permanently stored
+ * preference with the same key: the preference reads as not existing in private
+ * browsing until it is set again or the private-browsing session ends.
+ *
  * Callbacks
  *
  * The methods of callback objects are always called asynchronously.

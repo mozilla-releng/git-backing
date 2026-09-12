@@ -126,4 +126,6 @@ tags = "geolocation xr"
 
 ["browser_privatebrowsing_zoom.js"]
 
+["browser_privatebrowsing_zoom_reset.js"]
+
 ["browser_privatebrowsing_zoomrestore.js"]

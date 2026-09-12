@@ -271,10 +271,62 @@ add_task(async function privateBrowsingIsolatedRemoval() {
   await getOK(["b.com", "bar", loadContext], 7);
 
   await getOK(["a.com", "foo", privateLoadContext], 8);
-  // This still returns an entry because even if a PBM load context is passed we
-  // will fall back to non PBM entries with the same key.
-  await getOK(["b.com", "foo", privateLoadContext], 6);
+  // The removal shadows the non PBM entry with the same key, so private
+  // browsing does not fall back to it.
+  await getOK(["b.com", "foo", privateLoadContext], undefined);
   await getGlobalOK(["foo", privateLoadContext], 10);
+
+  await reset();
+});
+
+/**
+ * Tests that removing a pref for private browsing shadows the normal browsing
+ * pref of the same key, rather than letting it show through again.
+ */
+add_task(async function privateBrowsingRemovalShadowsNormalBrowsing() {
+  await set("a.com", "foo", 1);
+  await setGlobal("foo", 2);
+
+  info(
+    "Without a private browsing entry, private browsing sees the normal one."
+  );
+  await getOK(["a.com", "foo", privateLoadContext], 1);
+  await getGlobalOK(["foo", privateLoadContext], 2);
+
+  await new Promise(resolve =>
+    cps.removeByDomainAndName(
+      "a.com",
+      "foo",
+      privateLoadContext,
+      makeCallback(resolve)
+    )
+  );
+  await new Promise(resolve =>
+    cps.removeGlobal("foo", privateLoadContext, makeCallback(resolve))
+  );
+
+  info("Private browsing no longer has a value for either pref.");
+  await getOK(["a.com", "foo", privateLoadContext], undefined);
+  await getGlobalOK(["foo", privateLoadContext], undefined);
+  getCachedOK(["a.com", "foo", privateLoadContext], true, undefined);
+  getCachedGlobalOK(["foo", privateLoadContext], true, undefined);
+
+  info("Normal browsing is unaffected.");
+  await getOK(["a.com", "foo", loadContext], 1);
+  await getGlobalOK(["foo", loadContext], 2);
+  await dbOK([
+    ["a.com", "foo", 1],
+    [null, "foo", 2],
+  ]);
+
+  info("Setting a private browsing value again overrides the shadowing.");
+  await set("a.com", "foo", 3, privateLoadContext);
+  await getOK(["a.com", "foo", privateLoadContext], 3);
+  await getOK(["a.com", "foo", loadContext], 1);
+
+  info("Leaving private browsing drops the shadowing.");
+  Services.obs.notifyObservers(null, "last-pb-context-exited");
+  await getOK(["a.com", "foo", privateLoadContext], 1);
 
   await reset();
 });

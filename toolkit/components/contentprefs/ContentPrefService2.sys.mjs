@@ -231,6 +231,9 @@ ContentPrefService2.prototype = {
       onDone: (reason, ok) => {
         if (ok) {
           for (let [pbGroup, pbName, pbVal] of pbPrefs) {
+            if (pbVal === undefined) {
+              continue;
+            }
             cbHandleResult(callback, new ContentPref(pbGroup, pbName, pbVal));
           }
         }
@@ -290,7 +293,7 @@ ContentPrefService2.prototype = {
         let grp = row.getResultByName("grp");
         let val = row.getResultByName("value");
         this._cache.set(grp, name, val);
-        if (!pbPrefs.has(group, name)) {
+        if (!pbPrefs.has(grp, name)) {
           cbHandleResult(callback, new ContentPref(grp, name, val));
         }
       },
@@ -300,6 +303,12 @@ ContentPrefService2.prototype = {
             this._cache.set(group, name, undefined);
           }
           for (let [pbGroup, pbName, pbVal] of pbPrefs) {
+            if (pbVal === undefined) {
+              // A private browsing entry without a value shadows the normal
+              // browsing entry with the same key: the pref does not exist in
+              // private browsing, so don't report a result for it.
+              continue;
+            }
             cbHandleResult(callback, new ContentPref(pbGroup, pbName, pbVal));
           }
         }
@@ -547,12 +556,15 @@ ContentPrefService2.prototype = {
     }
 
     let isPrivate = context && context.usePrivateBrowsing;
+    let clearNonPrivate = context == null || !isPrivate;
     let stmts = [];
 
-    if (context == null || !isPrivate) {
-      // First get the matching prefs.
-      stmts.push(this._commonGetStmt(group, name, includeSubdomains));
+    // Get the matching prefs. When clearing normal browsing data this tells us
+    // what to notify about; when clearing only private browsing data it tells
+    // us which normal browsing entries we have to shadow.
+    stmts.push(this._commonGetStmt(group, name, includeSubdomains));
 
+    if (clearNonPrivate) {
       // Delete the matching prefs.
       let stmt = this._stmtWithGroupClause(
         group,
@@ -573,36 +585,24 @@ ContentPrefService2.prototype = {
     }
 
     let prefsNonPrivateBrowsing = new ContentPrefStore();
-
-    // Only execute if we have statements to run. stmts is empty for clearing
-    // only private browsing data.
-    let queryPromise = Promise.resolve([
-      Ci.nsIContentPrefCallback2.COMPLETE_OK,
-      false,
-    ]);
-
-    if (stmts.length) {
-      queryPromise = new Promise(resolve => {
-        this._execStmts(stmts, {
-          onRow: row => {
-            let grp = row.getResultByName("grp");
-            prefsNonPrivateBrowsing.set(grp, name, undefined);
-            this._cache.set(grp, name, undefined);
-          },
-          onDone: (reason, ok) => {
-            this._cache.set(group, name, undefined);
-            resolve([reason, ok]);
-          },
-          onError: nsresult => {
-            cbHandleError(callback, nsresult);
-          },
-        });
-      });
-    }
-
     let prefsPrivateBrowsing = new ContentPrefStore();
 
-    if (isPrivate || context == null) {
+    if (isPrivate) {
+      // Private browsing reads fall back to normal browsing entries with the
+      // same key, so dropping a private browsing entry would make the normal
+      // browsing one visible again. Shadow the key instead: a private browsing
+      // entry with no value reads as "this pref does not exist". The shadowing
+      // only lives as long as the private browsing session.
+      for (let [sgroup] of this._pbStore.match(
+        group,
+        name,
+        includeSubdomains
+      )) {
+        prefsPrivateBrowsing.set(sgroup, name, undefined);
+        this._pbStore.set(sgroup, name, undefined);
+      }
+      this._pbStore.set(group, name, undefined);
+    } else if (context == null) {
       for (let [sgroup] of this._pbStore.match(
         group,
         name,
@@ -613,15 +613,42 @@ ContentPrefService2.prototype = {
       }
     }
 
-    queryPromise.then(([reason, hasNonPrivateEntries]) => {
+    let queryPromise = new Promise(resolve => {
+      this._execStmts(stmts, {
+        onRow: row => {
+          let grp = row.getResultByName("grp");
+          if (clearNonPrivate) {
+            prefsNonPrivateBrowsing.set(grp, name, undefined);
+            this._cache.set(grp, name, undefined);
+          } else {
+            // Shadow the subdomain keys that only the database knows about.
+            prefsPrivateBrowsing.set(grp, name, undefined);
+            this._pbStore.set(grp, name, undefined);
+          }
+        },
+        onDone: (reason, ok) => {
+          if (clearNonPrivate) {
+            this._cache.set(group, name, undefined);
+          }
+          resolve([reason, ok]);
+        },
+        onError: nsresult => {
+          cbHandleError(callback, nsresult);
+        },
+      });
+    });
+
+    queryPromise.then(([reason, ok]) => {
       // Notify caller of completion.
       cbHandleCompletion(callback, reason);
 
+      if (!ok) {
+        return;
+      }
+
       // Notify for non PBM changes.
-      if (hasNonPrivateEntries) {
-        for (let [sgroup] of prefsNonPrivateBrowsing) {
-          this._notifyPrefRemoved(sgroup, name, false);
-        }
+      for (let [sgroup] of prefsNonPrivateBrowsing) {
+        this._notifyPrefRemoved(sgroup, name, false);
       }
 
       // Notify for PBM changes.
