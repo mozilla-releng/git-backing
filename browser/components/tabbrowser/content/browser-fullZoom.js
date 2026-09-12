@@ -441,14 +441,15 @@ var FullZoom = {
       forceValue = 1;
     }
     let token = this._getBrowserToken(browser);
-    let result = ZoomUI.getGlobalValue().then(value => {
-      if (token.isCurrent) {
-        ZoomManager.setZoomForBrowser(browser, forceValue || value);
-        this._ignorePendingZoomAccesses(browser);
-      }
-    });
-    this._removePref(browser);
-    return result;
+    return Promise.all([
+      ZoomUI.getGlobalValue().then(value => {
+        if (token.isCurrent) {
+          ZoomManager.setZoomForBrowser(browser, forceValue || value);
+          this._ignorePendingZoomAccesses(browser);
+        }
+      }),
+      this._removePref(browser),
+    ]);
   },
 
   /**
@@ -560,16 +561,41 @@ var FullZoom = {
    * Removes from the content prefs store the zoom level of the given browser.
    *
    * @param browser  The zoom of this browser will be removed.  Required.
+   * @returns {Promise<void>}
    */
-  _removePref: function FullZoom__removePref(browser) {
+  async _removePref(browser) {
     if (browser.isSyntheticDocument) {
       return;
     }
+    // Read everything we need off the browser up front. Most callers of reset()
+    // don't await it, and some tear the browser down immediately afterwards, so
+    // the browser may be gone by the time an await below resumes.
+    let spec = browser.currentURI?.spec;
     let ctxt = this._loadContextFromBrowser(browser);
-    this._cps2.removeByDomainAndName(browser.currentURI.spec, this.name, ctxt, {
-      handleCompletion: () => {
-        this._isNextContentPrefChangeInternal = true;
-      },
+    if (!spec || !ctxt) {
+      return;
+    }
+
+    // Private browsing reads fall back to the normal browsing store, so
+    // removing the pref would re-expose a zoom level saved for this site
+    // outside private browsing. Record the default zoom level instead; it is
+    // discarded along with the rest of the private browsing state.
+    let defaultZoom = ctxt.usePrivateBrowsing
+      ? await ZoomUI.getGlobalValue()
+      : null;
+
+    await new Promise(resolve => {
+      let callback = {
+        handleCompletion: () => {
+          this._isNextContentPrefChangeInternal = true;
+          resolve();
+        },
+      };
+      if (ctxt.usePrivateBrowsing) {
+        this._cps2.set(spec, this.name, defaultZoom, ctxt, callback);
+      } else {
+        this._cps2.removeByDomainAndName(spec, this.name, ctxt, callback);
+      }
     });
   },
 
