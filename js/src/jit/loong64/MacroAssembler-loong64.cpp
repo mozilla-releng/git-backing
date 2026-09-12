@@ -1105,36 +1105,19 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
     // LongJump
     if (code.encode() == inst_beq.encode()) {
       // Handle long jump
-      addLongJump(nextOffset(), BufferOffset(label->offset()));
-      if (scratch == Register::Invalid()) {
-        UseScratchRegisterScope temps(asMasm());
-        Register scratch = temps.Acquire();
-        ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-        as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-      } else {
-        ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-        as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-      }
-      as_nop();
+      UseScratchRegisterScope temps(asMasm());
+      ma_jump36(offset,
+                scratch != Register::Invalid() ? scratch : temps.Acquire());
       return;
     }
 
     // OpenLongJump
     // Handle long conditional branch, the target offset is based on self,
-    // point to next instruction of nop at below.
-    InstImm code_r = invertBranch(code, BOffImm16(5 * sizeof(uint32_t)));
-    emit(code_r.encode());
-    addLongJump(nextOffset(), BufferOffset(label->offset()));
-    if (scratch == Register::Invalid()) {
-      UseScratchRegisterScope temps(asMasm());
-      Register scratch = temps.Acquire();
-      ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-      as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-    } else {
-      ma_liPatchable(scratch, ImmWord(LabelBase::INVALID_OFFSET));
-      as_jirl(zero, scratch, BOffImm16(0), target);  // jr scratch
-    }
-    as_nop();
+    // point to next instruction at below.
+    emit(invertBranch(code, BOffImm16(3 * sizeof(uint32_t))).encode());
+    UseScratchRegisterScope temps(asMasm());
+    ma_jump36(label->offset() - nextOffset().getOffset(),
+              scratch != Register::Invalid() ? scratch : temps.Acquire());
     return;
   }
 
@@ -1160,18 +1143,15 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
 
   bool conditional = code.encode() != inst_beq.encode();
 
-  // Make the whole branch continous in the buffer. The '5'
-  // instructions are writing at below (contain conditional nop).
-  m_buffer.ensureSpace(5 * sizeof(uint32_t));
+  // Make the whole branch continous in the buffer, the jump36 pair plus 1 for
+  // the conditional inverted-branch skip.
+  m_buffer.ensureSpace((conditional ? 3 : 2) * sizeof(uint32_t));
 
-  BufferOffset bo = emit(code.encode(), target);  // invert
+  BufferOffset bo = emit(code.encode(), target);
   writeInst(nextInChain);
   if (!oom()) {
     label->use(bo.getOffset());
   }
-  // Leave space for potential long jump.
-  as_nop();
-  as_nop();
   if (conditional) {
     as_nop();
   }

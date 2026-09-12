@@ -2228,36 +2228,29 @@ void Assembler::bind(InstImm* inst, uintptr_t branch, uintptr_t target) {
   }
 
   if (BOffImm16::IsInRange(offset)) {
-    // Skip trailing nops .
-    bool skipNops = (inst[0].encode() != inst_jirl.encode() &&
-                     inst[0].encode() != inst_beq.encode());
+    bool conditional = inst[0].encode() != inst_beq.encode();
 
     inst[0].setBOffImm16(BOffImm16(offset));
-    inst[1].makeNop();
-
-    if (skipNops) {
-      inst[2] = InstImm(op_bge, BOffImm16(3 * sizeof(uint32_t)), zero, zero);
-      // There are 2 nops after this
+    if (conditional) {
+      // Skip the trailing nop on the fallthrough path.
+      inst[1] = InstImm(op_bge, BOffImm16(2 * sizeof(uint32_t)), zero, zero);
+    } else {
+      inst[1].makeNop();
     }
     return;
   }
 
   if (inst[0].encode() == inst_beq.encode()) {
-    // Handle long unconditional jump. Only four 4 instruction.
-    addLongJump(BufferOffset(branch), BufferOffset(target));
     Register scratch = temps.Acquire();
-    Assembler::WriteLoad64Instructions(inst, scratch,
-                                       LabelBase::INVALID_OFFSET);
-    inst[3] = InstImm(op_jirl, BOffImm16(0), scratch, zero);
+    const auto [si20, offs16] = SplitJump36Offset(offset);
+    inst[0] = InstImm(op_pcaddu18i, si20, scratch, false);
+    inst[1] = InstImm(op_jirl, BOffImm16(offs16), scratch, zero);
   } else {
-    // Handle long conditional jump.
-    inst[0] = invertBranch(inst[0], BOffImm16(5 * sizeof(uint32_t)));
-    // No need for a "nop" here because we can clobber scratch.
-    addLongJump(BufferOffset(branch + sizeof(uint32_t)), BufferOffset(target));
+    inst[0] = invertBranch(inst[0], BOffImm16(3 * sizeof(uint32_t)));
     Register scratch = temps.Acquire();
-    Assembler::WriteLoad64Instructions(&inst[1], scratch,
-                                       LabelBase::INVALID_OFFSET);
-    inst[4] = InstImm(op_jirl, BOffImm16(0), scratch, zero);
+    const auto [si20, offs16] = SplitJump36Offset(offset - sizeof(uint32_t));
+    inst[1] = InstImm(op_pcaddu18i, si20, scratch, false);
+    inst[2] = InstImm(op_jirl, BOffImm16(offs16), scratch, zero);
   }
 }
 
