@@ -1491,14 +1491,6 @@ class AssemblerLOONG64 : public AssemblerShared {
     }
   }
 
-  void addLongJump(BufferOffset src, BufferOffset dst) {
-    CodeLabel cl;
-    cl.patchAt()->bind(src.getOffset());
-    cl.target()->bind(dst.getOffset());
-    cl.setLinkMode(CodeLabel::JumpImmediate);
-    addCodeLabel(std::move(cl));
-  }
-
  public:
   void flushBuffer() {}
 
