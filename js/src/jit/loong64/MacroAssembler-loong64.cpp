@@ -1053,7 +1053,7 @@ void MacroAssemblerLOONG64::ma_bl(Label* label) {
   uint32_t nextInChain =
       label->used() ? label->offset() : LabelBase::INVALID_OFFSET;
 
-  // Make the whole branch continous in the buffer. The '5'
+  // Make the whole branch continuous in the buffer. The '5'
   // instructions are writing at below.
   m_buffer.ensureSpace(5 * sizeof(uint32_t));
 
@@ -1128,7 +1128,7 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
       label->used() ? label->offset() : LabelBase::INVALID_OFFSET;
 
   if (jumpKind == ShortJump) {
-    // Make the whole branch continous in the buffer.
+    // Make the whole branch continuous in the buffer.
     m_buffer.ensureSpace(2 * sizeof(uint32_t));
 
     // Indicate that this is short jump with offset 4.
@@ -1143,7 +1143,7 @@ void MacroAssemblerLOONG64::branchWithCode(InstImm code, Label* label,
 
   bool conditional = code.encode() != inst_beq.encode();
 
-  // Make the whole branch continous in the buffer, the jump36 pair plus 1 for
+  // Make the whole branch continuous in the buffer, the jump36 pair plus 1 for
   // the conditional inverted-branch skip.
   m_buffer.ensureSpace((conditional ? 3 : 2) * sizeof(uint32_t));
 
