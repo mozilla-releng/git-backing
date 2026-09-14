@@ -646,6 +646,14 @@ bool TextEditor::IsCopyToClipboardAllowedInternal() const {
     return true;
   }
 
+  // The reveal button makes the value visible to the user, so copying it
+  // leaks nothing they cannot already read off the screen.
+  if (const Element* const textControlElement = GetExposedRoot()) {
+    if (textControlElement->State().HasState(ElementState::REVEALED)) {
+      return true;
+    }
+  }
+
   // If we're a password editor, we should allow selected text to be copied
   // to the clipboard only when selection range is in unmasked range.
   if (IsAllMasked() || IsMaskingPassword() || !UnmaskedLength()) {
@@ -1017,6 +1025,14 @@ void TextEditor::MaskString(nsString& aString, const Text& aTextNode,
   uint32_t unmaskStart = UINT32_MAX, unmaskLength = 0;
   const TextEditor* const textEditor =
       nsContentUtils::GetExtantTextEditorFromAnonymousNode(&aTextNode);
+  if (textEditor) {
+    // The reveal button shows the whole value, so nothing should be masked.
+    const Element* const textControlElement = textEditor->GetExposedRoot();
+    if (textControlElement &&
+        textControlElement->State().HasState(ElementState::REVEALED)) {
+      return;
+    }
+  }
   if (textEditor && textEditor->UnmaskedLength() > 0) {
     unmaskStart = textEditor->UnmaskedStart();
     unmaskLength = textEditor->UnmaskedLength();
