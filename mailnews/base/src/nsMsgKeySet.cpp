@@ -5,6 +5,7 @@
 #include "plstr.h"
 #include "prlog.h"
 
+#include "mozilla/CheckedInt.h"
 #include "nsMsgKeySet.h"
 #include "prprf.h"
 #include "prmem.h"
@@ -71,12 +72,16 @@ nsMsgKeySet::nsMsgKeySet(/* MSG_NewsHost* host*/) {
 nsMsgKeySet::~nsMsgKeySet() { PR_FREEIF(m_data); }
 
 bool nsMsgKeySet::Grow() {
-  int32_t new_size;
-  int32_t* new_data;
-  new_size = m_data_size * 2;
-  new_data = (int32_t*)PR_REALLOC(m_data, sizeof(int32_t) * new_size);
+  mozilla::CheckedInt<int32_t> new_size =
+      mozilla::CheckedInt<int32_t>(m_data_size) * 2;
+  if (!new_size.isValid()) return false;
+  mozilla::CheckedInt<uint32_t> new_bytes =
+      mozilla::CheckedInt<uint32_t>(new_size.value()) * sizeof(int32_t);
+  if (!new_bytes.isValid()) return false;
+
+  int32_t* new_data = (int32_t*)PR_REALLOC(m_data, new_bytes.value());
   if (!new_data) return false;
-  m_data_size = new_size;
+  m_data_size = new_size.value();
   m_data = new_data;
   return true;
 }
@@ -310,7 +315,10 @@ bool nsMsgKeySet::Optimize() {
   input_size = m_length;
   output_size = input_size + 1;
   input_tail = m_data;
-  output_data = (int32_t*)PR_Malloc(sizeof(int32_t) * output_size);
+  mozilla::CheckedInt<uint32_t> output_bytes =
+      mozilla::CheckedInt<uint32_t>(output_size) * sizeof(int32_t);
+  if (output_size < 0 || !output_bytes.isValid()) return false;
+  output_data = (int32_t*)PR_Malloc(output_bytes.value());
   if (!output_data) return false;
 
   output_tail = output_data;
@@ -730,7 +738,10 @@ int nsMsgKeySet::AddRange(int32_t start, int32_t end) {
   }
 
   tmplength = m_length + 2;
-  tmp = (int32_t*)PR_Malloc(sizeof(int32_t) * tmplength);
+  mozilla::CheckedInt<uint32_t> tmp_bytes =
+      mozilla::CheckedInt<uint32_t>(tmplength) * sizeof(int32_t);
+  if (tmplength < 0 || !tmp_bytes.isValid()) return -1;
+  tmp = (int32_t*)PR_Malloc(tmp_bytes.value());
 
   if (!tmp)
     // out of memory
