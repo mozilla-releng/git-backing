@@ -1043,10 +1043,32 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
 #endif
   // Store last known screenPoint and clientPoint so pointer lock
   // can use these values as constants.
-  if (aEvent->IsTrusted() &&
-      ((mouseEvent && mouseEvent->IsReal()) ||
-       aEvent->mClass == eWheelEventClass) &&
-      !PointerLockManager::IsLocked()) {
+  const bool shouldStoreLastKnownPoints = [&]() {
+    if (!aEvent->IsTrusted()) {
+      return false;
+    }
+    if (PointerLockManager::IsLocked()) {
+      return false;
+    }
+    if (mouseEvent) {
+      if (!mouseEvent->IsReal()) {
+        return false;
+      }
+      // An event with a movement delta was either generated while the native
+      // pointer was locked, or is the synthesized repositioning mousemove. In
+      // either case, we should not update the last known position.
+      // We need this check because the initial synthesized mousemove might
+      // arrive in the content process before the pointer lock request is
+      // resolved.
+      if (mouseEvent->mMovement) {
+        return false;
+      }
+      return true;
+    }
+    return aEvent->mClass == eWheelEventClass;
+  }();
+
+  if (shouldStoreLastKnownPoints) {
     // XXX Probably doesn't matter much, but storing these in CSS pixels instead
     // of device pixels means behavior can be a bit odd if you zoom while
     // pointer-locked.
@@ -5331,6 +5353,7 @@ static UniquePtr<WidgetMouseEvent> CreateMouseOrPointerWidgetEvent(
   newEvent->mModifiers = aMouseEvent->mModifiers;
   newEvent->mInputSource = aMouseEvent->mInputSource;
   newEvent->pointerId = aMouseEvent->pointerId;
+  newEvent->mMovement = aMouseEvent->mMovement;
   // NOTE: If you need to change this if-expression, you need to update
   // WidgetMouseEventBase::ComputeMouseButtonPressure() too.
   if (!aMouseEvent->mFlags.mDispatchedAtLeastOnce &&
