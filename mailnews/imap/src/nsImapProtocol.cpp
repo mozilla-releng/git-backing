@@ -522,6 +522,8 @@ nsImapProtocol::nsImapProtocol()
       mMonitor("nsImapProtocol.mMonitor"),
       m_parser(*this) {
   m_urlInProgress = false;
+  m_parkedInWait = false;
+  m_streamsClosed = false;
   m_idle = false;
   m_retryUrlOnError = false;
   m_useIdle = true;  // by default, use it
@@ -1171,7 +1173,9 @@ bool nsImapProtocol::RunImapThreadMainLoop() {
   }
 
   // close streams via UI thread if it's not already done
-  if (m_imapProtocolSink) m_imapProtocolSink->CloseStreams();
+  if (m_imapProtocolSink && !m_streamsClosed) {
+    m_imapProtocolSink->CloseStreams();
+  }
 
   m_imapMailFolderSink = nullptr;
   m_imapMailFolderSinkSelected = nullptr;
@@ -1180,36 +1184,53 @@ bool nsImapProtocol::RunImapThreadMainLoop() {
   return true;
 }
 
-//
-// Must be called from UI thread only
-//
-NS_IMETHODIMP nsImapProtocol::CloseStreams() {
-  // make sure that it is called by the UI thread
-  MOZ_ASSERT(NS_IsMainThread(),
-             "CloseStreams() should not be called from an off UI thread");
+/**
+ * Hand the connection's streams and channel over to the caller, which must
+ * then close them via CloseDetachedStreams() with no monitor held. Returns
+ * false if someone else already took them, in which case the caller has
+ * nothing to close.
+ *
+ * Must be called with mMonitor held, and only while the imap thread is known
+ * not to be using the streams - either because it is blocked waiting for this
+ * call (see ImapProtocolSinkProxy::CloseStreams()) or because it is parked in
+ * ImapThreadMainLoop() and the caller holds m_urlReadyToRunMonitor.
+ */
+bool nsImapProtocol::DetachStreams(nsCOMPtr<nsISocketTransport>& aTransport,
+                                   nsCOMPtr<nsIImapMockChannel>& aMockChannel) {
+  MOZ_ASSERT(NS_IsMainThread());
 
-  {
-    ReentrantMonitorAutoEnter mon(mMonitor);
-    if (m_transport) {
-      // make sure the transport closes (even if someone is still indirectly
-      // referencing it).
-      m_transport->Close(NS_ERROR_ABORT);
-      m_transport = nullptr;
-    }
-    m_inputStream = nullptr;
-    m_outputStream = nullptr;
-    m_channelListener = nullptr;
-    if (m_mockChannel) {
-      m_mockChannel->Close();
-      m_mockChannel = nullptr;
-    }
-    m_channelInputStream = nullptr;
-    m_channelOutputStream = nullptr;
-
-    // Close scope because we must let go of the monitor before calling
-    // RemoveConnection to unblock anyone who tries to get a monitor to the
-    // protocol object while holding onto a monitor to the server.
+  if (m_streamsClosed.exchange(true)) {
+    return false;
   }
+  aTransport = std::move(m_transport);
+  aMockChannel = std::move(m_mockChannel);
+  m_inputStream = nullptr;
+  m_outputStream = nullptr;
+  m_channelListener = nullptr;
+  m_channelInputStream = nullptr;
+  m_channelOutputStream = nullptr;
+  return true;
+}
+
+/**
+ * Close what DetachStreams() handed over. No monitor of this protocol object
+ * or of its server may be held: closing the mock channel fires url state and
+ * load group notifications, and the pref writes fire pref observers, all of
+ * which can run arbitrary code.
+ */
+void nsImapProtocol::CloseDetachedStreams(nsISocketTransport* aTransport,
+                                          nsIImapMockChannel* aMockChannel) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Make sure the transport closes (even if someone is still indirectly
+  // referencing it).
+  if (aTransport) {
+    aTransport->Close(NS_ERROR_ABORT);
+  }
+  if (aMockChannel) {
+    aMockChannel->Close();
+  }
+
   nsCOMPtr<nsIMsgIncomingServer> me_server = do_QueryReferent(m_server);
   if (me_server) {
     nsresult result;
@@ -1225,6 +1246,23 @@ NS_IMETHODIMP nsImapProtocol::CloseStreams() {
     Preferences::SetInt("mail.imap.chunk_size", gChunkSize);
     Preferences::SetInt("mail.imap.min_chunk_size_threshold", gChunkThreshold);
     gChunkSizeDirty = false;
+  }
+}
+
+NS_IMETHODIMP nsImapProtocol::CloseStreams() {
+  // make sure that it is called by the UI thread
+  MOZ_ASSERT(NS_IsMainThread(),
+             "CloseStreams() should not be called from an off UI thread");
+
+  nsCOMPtr<nsISocketTransport> transport;
+  nsCOMPtr<nsIImapMockChannel> mockChannel;
+  bool detached;
+  {
+    ReentrantMonitorAutoEnter mon(mMonitor);
+    detached = DetachStreams(transport, mockChannel);
+  }
+  if (detached) {
+    CloseDetachedStreams(transport, mockChannel);
   }
   return NS_OK;
 }
@@ -1264,28 +1302,47 @@ nsImapProtocol::TellThreadToDie(bool aIsSafeToClose) {
   MOZ_DIAGNOSTIC_ASSERT(
       NS_IsMainThread(),
       "TellThreadToDie(aIsSafeToClose) should only be called from UI thread");
-  ReentrantMonitorAutoEnter mon(mMonitor);
 
-  nsCOMPtr<nsIMsgIncomingServer> me_server = do_QueryReferent(m_server);
-  if (me_server) {
-    nsresult rv;
-    nsCOMPtr<nsIImapIncomingServer> aImapServer(
-        do_QueryInterface(me_server, &rv));
-    if (NS_SUCCEEDED(rv)) aImapServer->RemoveConnection(this);
-    m_server = nullptr;
-    me_server = nullptr;
-  }
+  nsCOMPtr<nsISocketTransport> transport;
+  nsCOMPtr<nsIImapMockChannel> mockChannel;
+  bool detached = false;
   {
-    ReentrantMonitorAutoEnter deathMon(m_threadDeathMonitor);
-    m_safeToCloseConnection = aIsSafeToClose;
-    m_threadShouldDie = true;
+    ReentrantMonitorAutoEnter mon(mMonitor);
+
+    nsCOMPtr<nsIMsgIncomingServer> me_server = do_QueryReferent(m_server);
+    if (me_server) {
+      nsresult rv;
+      nsCOMPtr<nsIImapIncomingServer> aImapServer(
+          do_QueryInterface(me_server, &rv));
+      if (NS_SUCCEEDED(rv)) aImapServer->RemoveConnection(this);
+      m_server = nullptr;
+      me_server = nullptr;
+    }
+    {
+      ReentrantMonitorAutoEnter deathMon(m_threadDeathMonitor);
+      m_safeToCloseConnection = aIsSafeToClose;
+      m_threadShouldDie = true;
+    }
+    if (m_transport) {
+      m_transport->Close(NS_ERROR_ABORT);
+    }
+    ReentrantMonitorAutoEnter readyMon(m_urlReadyToRunMonitor);
+    // A parked imap thread cannot touch the streams again without reacquiring
+    // m_urlReadyToRunMonitor, so take them over instead of letting it dispatch
+    // a synchronous CloseStreams() back to us once it wakes up. Shutdown tells
+    // every cached connection to die at once, and those round trips would
+    // otherwise be serviced from the event queue drain that the shutdown
+    // terminator is already timing. See bug 1547541.
+    if (m_parkedInWait) {
+      detached = DetachStreams(transport, mockChannel);
+    }
+    m_nextUrlReadyToRun = true;
+    readyMon.Notify();
   }
-  if (m_transport) {
-    m_transport->Close(NS_ERROR_ABORT);
+
+  if (detached) {
+    CloseDetachedStreams(transport, mockChannel);
   }
-  ReentrantMonitorAutoEnter readyMon(m_urlReadyToRunMonitor);
-  m_nextUrlReadyToRun = true;
-  readyMon.Notify();
   return NS_OK;
 }
 
@@ -1407,9 +1464,11 @@ void nsImapProtocol::TellThreadToDie() {
       Logout(true, connectionIdle);
   }
   PR_CExitMonitor(this);
-  // close streams via UI thread
+  // close streams via UI thread, unless the UI thread already did it for us
   if (m_imapProtocolSink) {
-    m_imapProtocolSink->CloseStreams();
+    if (!m_streamsClosed) {
+      m_imapProtocolSink->CloseStreams();
+    }
     m_imapProtocolSink = nullptr;
   }
   Log("TellThreadToDie", nullptr, "close socket connection");
@@ -1507,7 +1566,9 @@ void nsImapProtocol::ImapThreadMainLoop() {
         if (m_nextUrlReadyToRun || m_idleResponseReadyToHandle) {
           break;
         }
+        m_parkedInWait = true;
         rv = mon.Wait(sleepTime);
+        m_parkedInWait = false;
         if (NS_FAILED(rv)) {
           break;
         }

@@ -883,18 +883,22 @@ NS_IMETHODIMP nsImapIncomingServer::PerformBiff(nsIMsgWindow* aMsgWindow) {
 
 NS_IMETHODIMP
 nsImapIncomingServer::CloseCachedConnections() {
-  nsCOMPtr<nsIImapProtocol> connection;
+  // Snapshot the cache: TellThreadToDie() removes the connection from it, and
+  // may now also close the streams, which runs notifications that can reach
+  // arbitrary code.
+  nsTArray<nsCOMPtr<nsIImapProtocol>> connections;
   PR_CEnterMonitor(this);
-
-  // iterate through the connection cache closing open connections.
   int32_t cnt = m_connectionCache.Count();
+  connections.SetCapacity(cnt);
+  for (int32_t i = 0; i < cnt; i++) {
+    connections.AppendElement(m_connectionCache[i]);
+  }
+  PR_CExitMonitor(this);
 
-  for (int32_t i = cnt; i > 0; --i) {
-    connection = m_connectionCache[i - 1];
+  for (const auto& connection : connections) {
     if (connection) connection->TellThreadToDie(true);
   }
 
-  PR_CExitMonitor(this);
   return NS_OK;
 }
 

@@ -439,7 +439,22 @@ class nsImapProtocol : public nsIImapProtocol,
 
   bool m_nextUrlReadyToRun;
   bool m_idleResponseReadyToHandle;
+  // True while the imap thread is parked in ImapThreadMainLoop()'s wait for a
+  // URL or an idle response. Only written by the imap thread, and only ever
+  // read or written while holding m_urlReadyToRunMonitor. While it is set, the
+  // imap thread cannot touch the streams without reacquiring that monitor, so
+  // whoever holds it may take the streams over on the imap thread's behalf.
+  bool m_parkedInWait;
+  // Set by whoever detaches the streams first, so that the imap thread can skip
+  // its synchronous CloseStreams() round trip to the UI thread when the UI
+  // thread got there first.
+  std::atomic<bool> m_streamsClosed;
   nsWeakPtr m_server;
+
+  bool DetachStreams(nsCOMPtr<nsISocketTransport>& aTransport,
+                     nsCOMPtr<nsIImapMockChannel>& aMockChannel);
+  void CloseDetachedStreams(nsISocketTransport* aTransport,
+                            nsIImapMockChannel* aMockChannel);
 
   RefPtr<ImapMailFolderSinkProxy> m_imapMailFolderSink;
   RefPtr<ImapMailFolderSinkProxy> m_imapMailFolderSinkSelected;
