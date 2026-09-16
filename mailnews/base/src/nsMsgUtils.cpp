@@ -48,6 +48,7 @@
 #include "nsReadLine.h"
 #include "nsIParserUtils.h"
 #include "nsIDocumentEncoder.h"
+#include "nsURLHelper.h"
 #include "mozilla/Components.h"
 #include "locale.h"
 #include "nsIInputStreamPump.h"
@@ -1634,6 +1635,25 @@ void MsgRemoveQueryPart(nsCString& aSpec) {
   if (ind != kNotFound) aSpec.SetLength(ind);
   ind = aSpec.Find("/;");
   if (ind != kNotFound) aSpec.SetLength(ind);
+}
+
+bool MsgPartUrlNeedsAttachmentDisposition(nsIURI* aUrl) {
+  nsAutoCString spec;
+  if (NS_FAILED(aUrl->GetSpec(spec)) || spec.Find("part=") == kNotFound) {
+    return false;
+  }
+
+  // The type parameter may be escaped, so get the unescaped value rather than
+  // searching the spec for it.
+  nsAutoCString type;
+  nsAutoCString query;
+  if (NS_SUCCEEDED(aUrl->GetQuery(query))) {
+    mozilla::URLParams::Extract(query, "type"_ns, type);
+  }
+
+  return !type.LowerCaseEqualsLiteral("message/rfc822") &&
+         !type.LowerCaseEqualsLiteral("application/x-message-display") &&
+         !type.LowerCaseEqualsLiteral("application/pdf");
 }
 
 // Perform C-style string escaping.

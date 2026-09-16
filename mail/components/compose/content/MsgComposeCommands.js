@@ -9391,11 +9391,13 @@ function OpenSelectedAttachment() {
       handlerInfo.preferredAction == Ci.nsIHandlerInfo.handleInternally
     ) {
       // Add the content type to avoid a "how do you want to open this?"
-      // dialog. The type may already be there, but that doesn't matter.
+      // dialog. For attachments of a message the MIME code has already put it
+      // in the URL.
       let url = attachment.url;
-      if (!url.includes("type=")) {
-        url += url.includes("?") ? "&" : "?";
-        url += "type=application/pdf";
+      const parsedURL = URL.parse(url);
+      if (parsedURL && !parsedURL.searchParams.has("type")) {
+        parsedURL.searchParams.set("type", "application/pdf");
+        url = parsedURL.href;
       }
       const tabmail = Services.wm
         .getMostRecentWindow("mail:3pane")
