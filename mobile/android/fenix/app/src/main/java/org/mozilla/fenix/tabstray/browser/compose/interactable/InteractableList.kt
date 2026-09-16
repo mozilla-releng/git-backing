@@ -653,7 +653,7 @@ private fun findOverscroll(
  * @param state List reordering state.
  * @param key Key of the item to be displayed.
  * @param position Position in the list of the item to be displayed.
- * @param enteringGroupId The id of the group entering composition, if any. Can be null.
+ * @param enteringItemKey The key of the item entering composition, if any. Can be null.
  * @param content Content of the item to be displayed.
  */
 @Composable
@@ -661,7 +661,7 @@ fun LazyItemScope.InteractableDragItemContainer(
     state: ListInteractionState,
     key: Any,
     position: Int,
-    enteringGroupId: String? = null,
+    enteringItemKey: String? = null,
     content: @Composable (itemInteractionState: ItemInteractionState) -> Unit,
 ) {
     val modifier =
@@ -690,14 +690,15 @@ fun LazyItemScope.InteractableDragItemContainer(
             }
         }.defaultListItemAnimation(
             lazyListItemScope = this,
-            enteringGroupId = enteringGroupId,
+            // suppress item transitions when group entrance animation is playing
+            suppressTransitions = enteringItemKey != null,
         )
     Box(modifier = modifier, propagateMinConstraints = true) {
         content(
             ItemInteractionState(
                 isHoveredByItem = key == state.hoveredItem.key,
                 isDragged = key == state.draggedItem.key,
-                isEnteringGroup = key == enteringGroupId,
+                isEntering = key == enteringItemKey,
             )
         )
     }
