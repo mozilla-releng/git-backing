@@ -1042,10 +1042,17 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
 #endif
   // Store last known screenPoint and clientPoint so pointer lock
   // can use these values as constants.
+  // A movement delta means the event was generated while the pointer was
+  // locked, in particular the synthesized move which re-centers the pointer,
+  // see ResetPointerToWindowCenterWhilePointerLocked(). IsLocked() alone does
+  // not cover it: that move is sent at input priority and can reach a content
+  // process before the reply which grants the lock, which would record the
+  // center of the window as the position at which the pointer got locked.
   if (aEvent->IsTrusted() &&
       ((mouseEvent && mouseEvent->IsReal()) ||
        aEvent->mClass == eWheelEventClass) &&
-      !PointerLockManager::IsLocked()) {
+      !PointerLockManager::IsLocked() &&
+      (!mouseEvent || !mouseEvent->mMovement)) {
     // XXX Probably doesn't matter much, but storing these in CSS pixels instead
     // of device pixels means behavior can be a bit odd if you zoom while
     // pointer-locked.
@@ -5330,6 +5337,7 @@ static UniquePtr<WidgetMouseEvent> CreateMouseOrPointerWidgetEvent(
   newEvent->mModifiers = aMouseEvent->mModifiers;
   newEvent->mInputSource = aMouseEvent->mInputSource;
   newEvent->pointerId = aMouseEvent->pointerId;
+  newEvent->mMovement = aMouseEvent->mMovement;
   // NOTE: If you need to change this if-expression, you need to update
   // WidgetMouseEventBase::ComputeMouseButtonPressure() too.
   if (!aMouseEvent->mFlags.mDispatchedAtLeastOnce &&
