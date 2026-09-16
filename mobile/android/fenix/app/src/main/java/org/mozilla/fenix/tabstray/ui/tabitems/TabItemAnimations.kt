@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.AcornCorners
-import org.mozilla.fenix.tabstray.browser.compose.TabItemInteractionState
+import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
 import org.mozilla.fenix.theme.FirefoxTheme
 
 /** Object holding alpha values for tab items */
@@ -47,7 +47,7 @@ object Alpha {
 
 /** Animates the tab item's alpha value to be slightly transparent when it is dragged. */
 @Composable
-private fun tabGridItemAnimatedAlpha(interactionState: TabItemInteractionState): State<Float> {
+private fun tabGridItemAnimatedAlpha(interactionState: ItemInteractionState): State<Float> {
     return animateFloatAsState(
         targetValue =
             if (interactionState.isDragged) {
@@ -61,7 +61,7 @@ private fun tabGridItemAnimatedAlpha(interactionState: TabItemInteractionState):
 
 /** Animates the tab item's alpha value to be slightly transparent when it is dragged, after being moved. */
 @Composable
-private fun tabListItemAnimatedAlpha(interactionState: TabItemInteractionState): State<Float> {
+private fun tabListItemAnimatedAlpha(interactionState: ItemInteractionState): State<Float> {
     return animateFloatAsState(
         targetValue =
             if (interactionState.isDragged && !interactionState.isHeld) {
@@ -75,7 +75,7 @@ private fun tabListItemAnimatedAlpha(interactionState: TabItemInteractionState):
 
 /** Animates the tab item's size to be slightly reduced when it is dragged. */
 @Composable
-private fun tabGridItemAnimatedScale(interactionState: TabItemInteractionState): State<Float> {
+private fun tabGridItemAnimatedScale(interactionState: ItemInteractionState): State<Float> {
     val targetValue =
         when {
             interactionState.isDragged -> Scale.DRAG_ACTIVE
@@ -90,7 +90,7 @@ private fun tabGridItemAnimatedScale(interactionState: TabItemInteractionState):
 
 /** Animates the tab item's size to be slightly reduced when it is dragged, after being moved. */
 @Composable
-private fun tabListItemAnimatedScale(interactionState: TabItemInteractionState): State<Float> {
+private fun tabListItemAnimatedScale(interactionState: ItemInteractionState): State<Float> {
     val targetValue =
         when {
             interactionState.isHeld -> Scale.NO_INTERACTION
@@ -113,7 +113,7 @@ private fun tabListItemAnimatedScale(interactionState: TabItemInteractionState):
  * @param interactionState: State holding the hovered and dragged statuses.
  */
 @Composable
-fun Modifier.tabItemGridInteractionAnimation(interactionState: TabItemInteractionState): Modifier {
+fun Modifier.tabItemGridInteractionAnimation(interactionState: ItemInteractionState): Modifier {
     return this.tabItemInteractionAnimation(
         tabItemScaleState = tabGridItemAnimatedScale(interactionState),
         tabItemAlphaState = tabGridItemAnimatedAlpha(interactionState),
@@ -134,7 +134,7 @@ fun Modifier.tabItemGridInteractionAnimation(interactionState: TabItemInteractio
  */
 @Composable
 fun Modifier.tabItemGroupListInteractionAnimation(
-    interactionState: TabItemInteractionState,
+    interactionState: ItemInteractionState,
     key: String? = null,
     onGroupEntranceAnimationPlayed: () -> Unit = {},
 ): Modifier {
@@ -163,7 +163,7 @@ fun Modifier.tabItemGroupListInteractionAnimation(
  * @param interactionState: State holding the hovered and dragged statuses.
  */
 @Composable
-fun Modifier.tabItemListInteractionAnimation(interactionState: TabItemInteractionState): Modifier {
+fun Modifier.tabItemListInteractionAnimation(interactionState: ItemInteractionState): Modifier {
     return this.tabItemInteractionAnimation(
         tabItemScaleState = tabListItemAnimatedScale(interactionState),
         tabItemAlphaState = tabListItemAnimatedAlpha(interactionState),
@@ -180,7 +180,7 @@ fun Modifier.tabItemListInteractionAnimation(interactionState: TabItemInteractio
  */
 @Composable
 private fun tabGroupAppearanceAlpha(
-    interactionState: TabItemInteractionState,
+    interactionState: ItemInteractionState,
     key: String?,
 ): State<Float> {
     val alpha = remember { Animatable(1f) }
@@ -205,7 +205,7 @@ private fun tabGroupAppearanceAlpha(
  */
 @Composable
 private fun tabGroupAppearanceScale(
-    interactionState: TabItemInteractionState,
+    interactionState: ItemInteractionState,
     key: String?,
     onGroupEntranceAnimationPlayed: () -> Unit,
 ): State<Float> {
@@ -245,7 +245,7 @@ private fun tabGroupAppearanceScale(
  */
 @Composable
 internal fun Modifier.tabGroupEntranceAnimation(
-    interactionState: TabItemInteractionState,
+    interactionState: ItemInteractionState,
     key: String?,
     onGroupEntranceAnimationPlayed: () -> Unit,
 ): Modifier {
@@ -275,7 +275,7 @@ private fun Modifier.tabItemInteractionAnimation(
     tabItemAlphaState: State<Float>,
     tabItemScaleState: State<Float>,
     cornerSize: Dp,
-    interactionState: TabItemInteractionState,
+    interactionState: ItemInteractionState,
 ): Modifier {
     val backdropColor = MaterialTheme.colorScheme.secondaryContainer
     val backdropBorder = MaterialTheme.colorScheme.tertiary
