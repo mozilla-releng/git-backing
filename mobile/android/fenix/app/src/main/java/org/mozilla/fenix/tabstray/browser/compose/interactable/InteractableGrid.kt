@@ -50,7 +50,6 @@ import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
 import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
 import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
 import org.mozilla.fenix.tabstray.ui.tabitems.defaultGridItemAnimation
-import org.mozilla.fenix.tabstray.ui.tabitems.tabGroupEntranceAnimation
 
 /**
  * Remember the interactable state for grid items.
@@ -733,8 +732,8 @@ private fun findOverscroll(
  * @param key Key of the item to be displayed.
  * @param position Position in the grid of the item to be displayed.
  * @param swipingActive Whether the container is being swiped.
- * @param enteringGroupId The id of the group entering composition, if any. Can be null.
- * @param onGroupEntranceAnimationPlayed Invoked when the group entrance animation is finished playing.
+ * @param enteringItemKey The key of the item entering composition, if any. Can be null.
+ * @param enteringItemDecoration Decoration to be applied to items entering composition.
  * @param content Content of the item to be displayed.
  */
 @Composable
@@ -743,15 +742,15 @@ fun LazyGridItemScope.InteractableDragItemContainer(
     key: String,
     position: Int,
     swipingActive: Boolean,
-    enteringGroupId: String?,
-    onGroupEntranceAnimationPlayed: () -> Unit,
+    enteringItemKey: String? = null,
+    enteringItemDecoration: @Composable (ItemInteractionState) -> Modifier = { Modifier },
     content: @Composable (interactionState: ItemInteractionState) -> Unit,
 ) {
     val itemInteractionState =
         ItemInteractionState(
             isHoveredByItem = key == state.hoveredItem.key,
             isDragged = key == state.draggedItem.key,
-            isEnteringGroup = key == enteringGroupId,
+            isEntering = key == enteringItemKey,
         )
     /*
      * This outer box allows us to retrieve the global layout coordinates, so we can continue to render
@@ -764,7 +763,7 @@ fun LazyGridItemScope.InteractableDragItemContainer(
             Modifier.zIndex(
                     if (swipingActive) {
                         Elevation.SWIPE_ACTIVE
-                    } else if (key == enteringGroupId) {
+                    } else if (key == enteringItemKey) {
                         Elevation.ENTERING_ITEM
                     } else if (key == state.draggedItem.key || key == state.previousKeyOfDraggedItem) {
                         Elevation.DRAGGED_ITEM
@@ -777,21 +776,20 @@ fun LazyGridItemScope.InteractableDragItemContainer(
                         state.onDraggedItemPositioned(it)
                     }
                 }
-                // The group entrance animation values must be hoisted above the rest of the grid
-                // to prevent clipping when the group item is oversized past its bounds.
+                // The entrance decoration animation values must be hoisted above the rest of the grid
+                // to prevent clipping if an item is oversized past its bounds.
                 // This only impacts the grid view.
-                .tabGroupEntranceAnimation(
-                    interactionState = itemInteractionState,
-                    key = key,
-                    onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+                .thenConditional(
+                    modifier = enteringItemDecoration(itemInteractionState),
+                    predicate = { itemInteractionState.isEntering },
                 )
                 .thenConditional(
                     modifier =
                         Modifier.defaultGridItemAnimation(
                             lazyGridItemScope = this,
-                            enteringGroupId = enteringGroupId,
+                            suppressTransitions = enteringItemKey != null,
                         ),
-                    { key != state.draggedItem.key && key != state.previousKeyOfDraggedItem },
+                    predicate = { key != state.draggedItem.key && key != state.previousKeyOfDraggedItem },
                 )
     ) {
         Box(

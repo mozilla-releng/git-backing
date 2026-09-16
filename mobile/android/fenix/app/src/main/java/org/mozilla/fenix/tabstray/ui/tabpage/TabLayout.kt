@@ -131,6 +131,7 @@ import org.mozilla.fenix.tabstray.ui.tabitems.TabsTrayItemClickHandler
 import org.mozilla.fenix.tabstray.ui.tabitems.TabsTrayItemSelectionState
 import org.mozilla.fenix.tabstray.ui.tabitems.gridItemAspectRatio
 import org.mozilla.fenix.tabstray.ui.tabitems.tabGridColumnCount
+import org.mozilla.fenix.tabstray.ui.tabitems.tabGroupEntranceAnimation
 import org.mozilla.fenix.tabstray.ui.tabitems.tabItemGroupListInteractionAnimation
 import org.mozilla.fenix.tabstray.ui.tabitems.tabListItemShapeStyling
 import org.mozilla.fenix.theme.FirefoxTheme
@@ -1037,8 +1038,14 @@ private fun LazyGridItemScope.InteractableTabGridItemContent(
         position = gridIndex + if (hasHeader) 1 else 0,
         key = tabsTrayItem.id,
         swipingActive = swipingActive,
-        enteringGroupId = enteringGroupId,
-        onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+        enteringItemKey = enteringGroupId,
+        enteringItemDecoration = { interactionState ->
+            Modifier.tabGroupEntranceAnimation(
+                interactionState = interactionState,
+                key = tabsTrayItem.id,
+                onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
+            )
+        },
     ) { interactionState ->
         val selectionState =
             TabsTrayItemSelectionState(
@@ -1397,7 +1404,7 @@ private fun LazyListScope.interactableTabListContent(
             state = listInteractionState,
             position = position + if (header != null) 1 else 0,
             key = tab.id,
-            enteringGroupId = enteringGroupId,
+            enteringItemKey = enteringGroupId,
         ) { itemInteractionState ->
             TabListItemContent(
                 tab = tab,

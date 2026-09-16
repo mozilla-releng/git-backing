@@ -184,8 +184,8 @@ private fun tabGroupAppearanceAlpha(
     key: String?,
 ): State<Float> {
     val alpha = remember { Animatable(1f) }
-    LaunchedEffect(key, interactionState.isEnteringGroup) {
-        if (interactionState.isEnteringGroup) {
+    LaunchedEffect(key, interactionState.isEntering) {
+        if (interactionState.isEntering) {
             alpha.snapTo(targetValue = 0f)
             alpha.animateTo(
                 targetValue = 1f,
@@ -211,8 +211,8 @@ private fun tabGroupAppearanceScale(
 ): State<Float> {
     // This must be the default, else all group items will be incorrectly scaled
     val scale = remember { Animatable(Scale.NO_INTERACTION) }
-    LaunchedEffect(key, interactionState.isEnteringGroup) {
-        if (interactionState.isEnteringGroup) {
+    LaunchedEffect(key, interactionState.isEntering) {
+        if (interactionState.isEntering) {
             scale.snapTo(targetValue = Scale.NEW_GROUP_ENTRANCE_START)
             scale.animateTo(
                 targetValue = Scale.NEW_GROUP_ENTRANCE_PEAK,
@@ -249,7 +249,7 @@ internal fun Modifier.tabGroupEntranceAnimation(
     key: String?,
     onGroupEntranceAnimationPlayed: () -> Unit,
 ): Modifier {
-    if (!interactionState.isEnteringGroup) return this
+    if (!interactionState.isEntering) return this
     val entranceScale =
         tabGroupAppearanceScale(
             interactionState = interactionState,
@@ -315,41 +315,34 @@ private fun Modifier.tabItemInteractionAnimation(
 }
 
 /**
- * The default animations for a tab GridItem.
+ * The default animations for a GridItem.
  *
  * @param lazyGridItemScope The [LazyGridItemScope] (needed to define animateItem())
- * @param enteringGroupId The id of the group entering composition, if any. Can be null.
+ * @param suppressTransitions Whether transition animations should be suppressed. Items are by default clipped to their
+ *   bounds while fade in/out animations are playing, so this can be helpful if you would like to e.g. play an
+ *   overshooting scale animation for an item entering composition.
  */
 @Composable
 fun Modifier.defaultGridItemAnimation(
     lazyGridItemScope: LazyGridItemScope,
-    enteringGroupId: String?,
+    suppressTransitions: Boolean,
 ): Modifier =
     with(lazyGridItemScope) {
-        /*
-         * We need to explicitly set each of the LazyGrid animations to NULL to prevent some defaults
-         * from occurring while the group entrance animation is playing.  Items are by default
-         * clipped to their bounds while fade in/out animations are playing, and the group animation
-         * scales to overshoot its bounds.
-         *
-         * Additionally, per the spec, we don't want to see 'ghost' items of the tabs that are being
-         * combined to show the group, and the group should start at its placed position.
-         */
         this@defaultGridItemAnimation.animateItem(
             fadeOutSpec =
-                if (enteringGroupId != null) {
+                if (suppressTransitions) {
                     null
                 } else {
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
                 },
             placementSpec =
-                if (enteringGroupId != null) {
+                if (suppressTransitions) {
                     null
                 } else {
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
                 },
             fadeInSpec =
-                if (enteringGroupId != null) {
+                if (suppressTransitions) {
                     null
                 } else {
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
@@ -361,28 +354,23 @@ fun Modifier.defaultGridItemAnimation(
  * The default animations for a tab ListItem.
  *
  * @param lazyListItemScope The [LazyItemScope] (needed to define animateItem())
- * @param enteringGroupId The id of the group entering composition, if any. Can be null.
+ * @param suppressTransitions Whether transition animations should be suppressed
  */
 @Composable
 fun Modifier.defaultListItemAnimation(
     lazyListItemScope: LazyItemScope,
-    enteringGroupId: String?,
+    suppressTransitions: Boolean,
 ): Modifier =
     with(lazyListItemScope) {
         this@defaultListItemAnimation.animateItem(
-            // When the group entrance animation is playing, all fade-out animations should be suppressed.
-            // You should not see the exiting tabs fade out that are becoming a group.
             fadeOutSpec =
-                if (enteringGroupId != null) {
+                if (suppressTransitions) {
                     null
                 } else {
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
                 },
-            // When the group entrance animation is playing, all grid shuffle animations should be suppressed.
-            // The group should appear to enter at the place it was dropped (without translating up/down/left/right).
-            // Nearby tabs should not appear to shuffle to make room for the group.
             placementSpec =
-                if (enteringGroupId != null) {
+                if (suppressTransitions) {
                     null
                 } else {
                     spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
