@@ -94,8 +94,8 @@ import org.mozilla.fenix.compose.rememberSwipeToDismissBoxState
 import org.mozilla.fenix.tabgroups.TabGroupCard
 import org.mozilla.fenix.tabgroups.TabGroupRow
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
+import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
 import org.mozilla.fenix.tabstray.browser.compose.ReorderableDragItemContainer
-import org.mozilla.fenix.tabstray.browser.compose.TabItemInteractionState
 import org.mozilla.fenix.tabstray.browser.compose.createListReorderState
 import org.mozilla.fenix.tabstray.browser.compose.detectListPressAndDrag
 import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionState
@@ -110,8 +110,8 @@ import org.mozilla.fenix.tabstray.browser.compose.legacy.GridReorderState
 import org.mozilla.fenix.tabstray.browser.compose.legacy.ReorderableDragItemContainer
 import org.mozilla.fenix.tabstray.browser.compose.legacy.createGridReorderState
 import org.mozilla.fenix.tabstray.browser.compose.legacy.detectGridPressAndDragGestures
-import org.mozilla.fenix.tabstray.controller.NoOpTabInteractionHandler
-import org.mozilla.fenix.tabstray.controller.TabInteractionHandler
+import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
+import org.mozilla.fenix.tabstray.controller.NoOpItemInteractionHandler
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.data.createTab
@@ -177,7 +177,7 @@ private val ignoredItems = setOf(HEADER_ITEM_KEY, SPAN_ITEM_KEY, TAB_GROUP_ONBOA
  * @param selectionMode [TabsTrayState.Mode] indicating whether the Tabs Tray is in single selection or multi-selection
  *   and contains the set of selected tabs.
  * @param focusEnabled Whether the focus indication state is enabled.
- * @param tabInteractionHandler Handles tab interactions such as moves and drag and drop.
+ * @param itemInteractionHandler Handles tab interactions such as moves and drag and drop.
  * @param modifier [Modifier] to be applied to the layout.
  * @param reorderingEnabled Whether tabs can be reordered by dragging.
  * @param trackersBlockedCount The number of trackers blocked to display in the footer card.
@@ -210,7 +210,7 @@ fun TabLayout(
     selectedItemIndex: Int,
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
     trackersBlockedCount: Int? = null,
@@ -242,7 +242,7 @@ fun TabLayout(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -271,7 +271,7 @@ fun TabLayout(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -305,7 +305,7 @@ private fun TabList(
     selectedItemIndex: Int,
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     enteringGroupId: String?,
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
@@ -335,7 +335,7 @@ private fun TabList(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -364,7 +364,7 @@ private fun TabList(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -392,7 +392,7 @@ private fun TabGrid(
     selectedItemIndex: Int,
     selectionMode: TabsTrayState.Mode,
     focusEnabled: Boolean,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     enteringGroupId: String?,
     modifier: Modifier = Modifier,
     reorderingEnabled: Boolean = true,
@@ -424,7 +424,7 @@ private fun TabGrid(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -451,7 +451,7 @@ private fun TabGrid(
             onTabClose = onTabClose,
             onItemClick = onItemClick,
             onItemLongClick = onItemLongClick,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onEditTabGroupClick = onEditTabGroupClick,
             onCloseTabGroupClick = onCloseTabGroupClick,
             onShareTabGroupClick = onShareTabGroupClick,
@@ -545,7 +545,7 @@ private fun ReorderableTabGrid(
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onItemLongClick: (TabsTrayItem) -> Unit,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onCloseTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
     onShareTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -573,7 +573,7 @@ private fun ReorderableTabGrid(
         createGridReorderState(
             gridState = gridState,
             onMove = { initialTab, newTab ->
-                tabInteractionHandler.onMove(
+                itemInteractionHandler.onMove(
                     (initialTab.key as String),
                     (newTab.key as String),
                     initialTab.index < newTab.index,
@@ -587,7 +587,7 @@ private fun ReorderableTabGrid(
                     }
             },
             ignoredItems = ignoredItems.toList(),
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
         )
     // Prevent a race between multi-select and drag by updating the select mode only if the dragging key is null
     LaunchedEffect(selectionMode, reorderState.draggingItemKey) {
@@ -671,7 +671,7 @@ private fun InteractableTabGrid(
     selectedItemIndex: Int,
     focusEnabled: Boolean,
     selectionMode: TabsTrayState.Mode,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
     trackersBlockedCount: Int? = null,
@@ -708,7 +708,7 @@ private fun InteractableTabGrid(
     val gridInteractionState =
         createGridInteractionState(
             gridState = gridState,
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             onLongPress = rememberReactiveLongPressGrid(tabs = tabs, onItemLongClick = onItemLongClick),
             liveReorderEnabled = liveReorderEnabled,
             ignoredItems = ignoredItems,
@@ -805,7 +805,7 @@ private fun InteractableTabGrid(
                         tabIndex = tabIndex,
                         reorderGeometry = reorderGeometry,
                         enabled = !isInMultiSelectMode,
-                        tabInteractionHandler = tabInteractionHandler,
+                        itemInteractionHandler = itemInteractionHandler,
                     )
                 InteractableTabGridItemContent(
                     tabsTrayItem = tab,
@@ -1110,7 +1110,7 @@ private fun TabListItemContent(
     tab: TabsTrayItem,
     tabShapeInfo: TabListShapeInfo,
     selectionState: TabsTrayItemSelectionState,
-    tabInteractionState: TabItemInteractionState,
+    itemInteractionState: ItemInteractionState,
     listInteractionState: ListInteractionState,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -1133,7 +1133,7 @@ private fun TabListItemContent(
                         selectionState = selectionState,
                     ),
                 selectionState = selectionState,
-                interactionState = tabInteractionState,
+                interactionState = itemInteractionState,
                 shouldClickListen = shouldClickListen,
                 onCloseClick = onTabClose,
                 onClick = onItemClick,
@@ -1153,7 +1153,7 @@ private fun TabListItemContent(
                         // The interaction animation must be applied before the background for the
                         // conditional transparency to behave as expected
                         .tabItemGroupListInteractionAnimation(
-                            interactionState = tabInteractionState,
+                            interactionState = itemInteractionState,
                             key = tab.id,
                             onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
                         )
@@ -1197,7 +1197,7 @@ private fun InteractableTabList(
     selectedItemIndex: Int,
     liveReorderEnabled: Boolean,
     selectionMode: TabsTrayState.Mode,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     modifier: Modifier = Modifier,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -1233,7 +1233,7 @@ private fun InteractableTabList(
             listState = state,
             ignoredItems = ignoredItems,
             onLongPress = rememberReactiveLongPressList(tabs = tabs, onItemLongClick = onItemLongClick),
-            tabInteractionHandler = tabInteractionHandler,
+            itemInteractionHandler = itemInteractionHandler,
             dragAndDropEnabled = dragAndDropEnabled,
             liveReorderEnabled = liveReorderEnabled,
         )
@@ -1322,7 +1322,7 @@ private fun InteractableTabList(
                 onGroupEntranceAnimationPlayed = onGroupEntranceAnimationPlayed,
                 tabCollectionSemantics = collectionSemantics,
                 tabReorderGeometry = reorderGeometry,
-                tabInteractionHandler = tabInteractionHandler,
+                itemInteractionHandler = itemInteractionHandler,
             )
         }
     }
@@ -1340,7 +1340,7 @@ private fun LazyListScope.interactableTabListContent(
     focusEnabled: Boolean,
     tabCollectionSemantics: TabCollectionSemantics,
     tabReorderGeometry: TabReorderGeometry,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
     onEditTabGroupClick: (TabsTrayItem.TabGroup) -> Unit,
@@ -1391,14 +1391,14 @@ private fun LazyListScope.interactableTabListContent(
                 tabIndex = tabIndex,
                 reorderGeometry = tabReorderGeometry,
                 enabled = !isInMultiSelectMode,
-                tabInteractionHandler = tabInteractionHandler,
+                itemInteractionHandler = itemInteractionHandler,
             )
         InteractableDragItemContainer(
             state = listInteractionState,
             position = position + if (header != null) 1 else 0,
             key = tab.id,
             enteringGroupId = enteringGroupId,
-        ) { tabInteractionState ->
+        ) { itemInteractionState ->
             TabListItemContent(
                 tab = tab,
                 tabShapeInfo = shapeInfo,
@@ -1409,7 +1409,7 @@ private fun LazyListScope.interactableTabListContent(
                         isSelected = selectionMode.contains(tab) || isHeld,
                         focusEnabled = focusEnabled,
                     ),
-                tabInteractionState = tabInteractionState.copy(isHeld = isHeld),
+                itemInteractionState = itemInteractionState.copy(isHeld = isHeld),
                 listInteractionState = listInteractionState,
                 onTabClose = onTabClose,
                 onItemClick = onItemClick,
@@ -1536,7 +1536,7 @@ private fun ReorderableTabList(
     displayTabGroupOnboarding: Boolean,
     selectedItemIndex: Int,
     selectionMode: TabsTrayState.Mode,
-    tabInteractionHandler: TabInteractionHandler,
+    itemInteractionHandler: ItemInteractionHandler,
     modifier: Modifier = Modifier,
     onTabClose: (TabsTrayItem.Tab) -> Unit,
     onItemClick: (TabsTrayItem) -> Unit,
@@ -1571,7 +1571,7 @@ private fun ReorderableTabList(
         createListReorderState(
             listState = state,
             onMove = { initialTab, newTab ->
-                tabInteractionHandler.onMove(
+                itemInteractionHandler.onMove(
                     sourceKey = initialTab.key as String,
                     targetKey = newTab.key as String,
                     placeAfter = initialTab.index < newTab.index,
@@ -1586,7 +1586,7 @@ private fun ReorderableTabList(
             },
             ignoredItems = ignoredItems.toList(),
             onExitLongPress = { sourceKey ->
-                tabInteractionHandler.onDragStart(
+                itemInteractionHandler.onDragStart(
                     sourceKey = sourceKey as String,
                     preserveSelectMode = isInMultiSelectMode,
                 )
@@ -1824,7 +1824,7 @@ private fun TabListPreview(
                 tabs = tabs,
                 selectedItemIndex = previewModel.value.selectedTabIndex,
                 selectionMode = TabsTrayState.Mode.Normal,
-                tabInteractionHandler = NoOpTabInteractionHandler,
+                itemInteractionHandler = NoOpItemInteractionHandler,
                 displayTabsInGrid = false,
                 dragAndDropEnabled = false,
                 displayTabGroupOnboarding = false,
@@ -1865,7 +1865,7 @@ private fun TabGridPreview(
         TabLayout(
             tabs = tabs,
             selectionMode = TabsTrayState.Mode.Normal,
-            tabInteractionHandler = NoOpTabInteractionHandler,
+            itemInteractionHandler = NoOpItemInteractionHandler,
             selectedItemIndex = previewModel.value.selectedTabIndex,
             modifier = Modifier.background(MaterialTheme.colorScheme.surface),
             displayTabsInGrid = true,
@@ -1907,7 +1907,7 @@ private fun TabListWindowSizePreview() {
                 tabs = tabs,
                 selectedItemIndex = previewModel.selectedTabIndex,
                 selectionMode = TabsTrayState.Mode.Normal,
-                tabInteractionHandler = NoOpTabInteractionHandler,
+                itemInteractionHandler = NoOpItemInteractionHandler,
                 displayTabsInGrid = false,
                 dragAndDropEnabled = false,
                 displayTabGroupOnboarding = false,
@@ -1946,7 +1946,7 @@ private fun TabGridWindowSizePreview() {
         TabLayout(
             tabs = tabs,
             selectionMode = TabsTrayState.Mode.Normal,
-            tabInteractionHandler = NoOpTabInteractionHandler,
+            itemInteractionHandler = NoOpItemInteractionHandler,
             selectedItemIndex = previewModel.selectedTabIndex,
             modifier = Modifier.background(MaterialTheme.colorScheme.surface),
             displayTabsInGrid = true,
@@ -2021,7 +2021,7 @@ private fun MultiSelectPreview(
                     selectedTabs = selectedTabs.toSet(),
                     selectedTabGroups = selectedTabGroups.toSet(),
                 ),
-            tabInteractionHandler = NoOpTabInteractionHandler,
+            itemInteractionHandler = NoOpItemInteractionHandler,
             modifier = Modifier.background(MaterialTheme.colorScheme.surface),
             displayTabsInGrid = displayTabsInGrid,
             dragAndDropEnabled = false,

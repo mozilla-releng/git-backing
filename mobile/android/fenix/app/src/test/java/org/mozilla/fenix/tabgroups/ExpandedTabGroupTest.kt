@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 import org.mozilla.fenix.tabstray.LocalTabManagementFeatureHelper
 import org.mozilla.fenix.tabstray.TabManagementFeatureHelper
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
-import org.mozilla.fenix.tabstray.controller.NoOpTabInteractionHandler
+import org.mozilla.fenix.tabstray.controller.NoOpItemInteractionHandler
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.data.createTab
 import org.mozilla.fenix.tabstray.data.createTabGroup
@@ -52,7 +52,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -79,7 +79,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -104,7 +104,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(tabs = mutableListOf(tab)),
                             actions = expandedTabGroupActions(),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -126,7 +126,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(tabs = mutableListOf(tab)),
                             actions = expandedTabGroupActions(),
                             displayTabsInGrid = false,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -149,7 +149,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(tabs = mutableListOf(tab)),
                             actions = expandedTabGroupActions(onItemClick = { if (it == tab) itemClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -173,7 +173,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(tabs = mutableListOf(tab)),
                             actions = expandedTabGroupActions(onTabClose = { if (it == tab) itemClosed = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -197,7 +197,7 @@ class ExpandedTabGroupTest {
                             group = group,
                             actions = expandedTabGroupActions(onDeleteTabGroupClick = { deleteClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -222,7 +222,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(onEditTabGroupClick = { editClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -247,7 +247,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(onCloseTabGroupClick = { closeClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -272,7 +272,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(onUngroupTabGroupClick = { ungroupClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
@@ -297,7 +297,7 @@ class ExpandedTabGroupTest {
                             group = fakeTabGroup(),
                             actions = expandedTabGroupActions(onAddNewTabClick = { addNewTabClicked = true }),
                             displayTabsInGrid = true,
-                            tabInteractionHandler = NoOpTabInteractionHandler,
+                            itemInteractionHandler = NoOpItemInteractionHandler,
                         )
                     }
                 }
