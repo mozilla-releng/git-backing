@@ -316,7 +316,16 @@ class ExchangeMessageSyncHandler : public IExchangeMessageSyncListener,
         mDB->GetMsgHdrForEwsItemID(ewsId, getter_AddRefs(existingHeader));
     NS_ENSURE_SUCCESS(rv, rv);
     if (!existingHeader) {
-      return NS_ERROR_NOT_AVAILABLE;
+      // We might not have a header for this message, e.g. if it was deleted
+      // locally before we got around to processing the read status change (as
+      // happens when a draft is replaced by a newer revision of itself). This
+      // is not a reason to fail the whole sync.
+      MOZ_LOG_FMT(
+          gExchangeLog, mozilla::LogLevel::Warning,
+          "ExchangeMessageSync onReadStatusChanged() - message doesn't exist "
+          "(ewsId={})",
+          ewsId);
+      return NS_OK;  // Keep running.
     }
 
     return existingHeader->MarkRead(isRead);
