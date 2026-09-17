@@ -229,6 +229,9 @@ tasks:
                                 # This causes cached_task digest generation to be random for
                                 # some tasks. Disable bytecode generation to work around that.
                                 PYTHONDONTWRITEBYTECODE: '1'
+                                # DO NOT LAND: taskcluster-taskgraph is pinned to a git ref in
+                                # taskcluster/requirements.txt, which pip can't hash-check.
+                                PIP_DISABLE_REQUIRE_HASHES: '1'
                               - $if: 'tasks_for == "action"'
                                 then:
                                     ACTION_TASK_GROUP_ID: '${action.taskGroupId}'  # taskGroupId of the target task
@@ -547,6 +550,9 @@ tasks:
                                             # This causes cached_task digest generation to be random for
                                             # some tasks. Disable bytecode generation to work around that.
                                             PYTHONDONTWRITEBYTECODE: '1'
+                                            # DO NOT LAND: taskcluster-taskgraph is pinned to a git ref in
+                                            # taskcluster/requirements.txt, which pip can't hash-check.
+                                            PIP_DISABLE_REQUIRE_HASHES: '1'
                                           - $switch:
                                                 'isPullRequest':
                                                     GECKO_PULL_REQUEST_NUMBER: "${prNumber}"
