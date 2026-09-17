@@ -657,13 +657,18 @@ function _maybeSynthesizeDragOver(left, top, aEvent, aWindow) {
  * @property {boolean} [isWidgetEventSynthesized] - Controls WidgetMouseEvent.mReason value.
  * @property {boolean} [metaKey] - If set to `true`, the Meta key will
  *     be considered pressed.
+ * @property {number} [movementX] - Raw movement delta in CSS pixels, standing
+ *     in for the delta a platform widget reports while the native pointer is
+ *     locked. Must be specified together with `movementY`. If not specified,
+ *     the movement is computed from the previous event's position instead.
+ * @property {number} [movementY] - See `movementX`.
  * @property {number} [pressure=0] - Touch input pressure (0.0 -> 1.0).
  * @property {boolean} [shiftKey] - If set to `true`, the Shift key will
  *     be considered pressed.
  * @property {string} [type] - Event type to synthesize. If not specified
  *     a `mousedown` followed by a `mouseup` are performed.
  *
- * @see nsIDOMWindowUtils.sendMouseEvent
+ * @see SynthesizeMouseEventData defined in Window.webidl
  */
 
 /**
@@ -793,6 +798,8 @@ function synthesizeMouseAtPoint(
           modifiers,
           pressure: aEvent.pressure,
           inputSource,
+          movementX: aEvent.movementX,
+          movementY: aEvent.movementY,
         },
         {
           isDOMEventSynthesized,
@@ -814,6 +821,8 @@ function synthesizeMouseAtPoint(
           modifiers,
           pressure: aEvent.pressure,
           inputSource,
+          movementX: aEvent.movementX,
+          movementY: aEvent.movementY,
         },
         {
           isDOMEventSynthesized,
@@ -834,6 +843,8 @@ function synthesizeMouseAtPoint(
           modifiers,
           pressure: aEvent.pressure,
           inputSource,
+          movementX: aEvent.movementX,
+          movementY: aEvent.movementY,
         },
         {
           isDOMEventSynthesized,
