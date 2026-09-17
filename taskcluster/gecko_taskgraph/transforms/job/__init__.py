@@ -257,6 +257,10 @@ def use_system_python(config, jobs):
             moz_fetches_dir = env.get("MOZ_FETCHES_DIR", "fetches")
             moz_python_home = mozpath.join(moz_fetches_dir, "python")
             env["MOZ_PYTHON_HOME"] = moz_python_home
+            env["RUN_TASK_PRE_TASK_RUN_HOOK"] = mozpath.join(
+                env.get("GECKO_PATH", "checkouts/gecko"),
+                "taskcluster/scripts/misc/run-task-post-fetch.py",
+            )
 
             yield job
 
@@ -277,6 +281,10 @@ def use_uv(config, jobs):
             env = worker.setdefault("env", {})
             moz_fetches_dir = env.get("MOZ_FETCHES_DIR", "fetches")
             env["MOZ_UV_HOME"] = os.path.join(moz_fetches_dir, "uv")
+            env["RUN_TASK_PRE_TASK_RUN_HOOK"] = mozpath.join(
+                env.get("GECKO_PATH", "checkouts/gecko"),
+                "taskcluster/scripts/misc/run-task-post-fetch.py",
+            )
 
             yield job
 
