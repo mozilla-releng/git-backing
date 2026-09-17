@@ -1541,11 +1541,10 @@ def _create_venv_with_pthfile(
 
     if populate_with_pip:
         for requirements_txt_file in requirements.requirements_txt_files:
-            target_venv.pip_install([
-                "--requirement",
-                requirements_txt_file.path,
-                "--require-hashes",
-            ])
+            args = ["--requirement", requirements_txt_file.path]
+            if os.environ.get("PIP_DISABLE_REQUIRE_HASHES") != "1":
+                args.append("--require-hashes")
+            target_venv.pip_install(args)
         if requirements.pypi_requirements:
             requirements_list = [
                 str(req.requirement) for req in requirements.pypi_requirements
