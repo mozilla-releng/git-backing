@@ -2,19 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntSize
+import mozilla.components.compose.draggable.InteractionState.Grid.None.cumulatedOffset
+import mozilla.components.compose.draggable.InteractionState.Grid.None.index
+import mozilla.components.compose.draggable.InteractionState.Grid.None.key
+import mozilla.components.compose.draggable.InteractionState.List.None.cumulatedOffset
+import mozilla.components.compose.draggable.InteractionState.List.None.index
+import mozilla.components.compose.draggable.InteractionState.List.None.key
+import mozilla.components.compose.draggable.InteractionState.List.None.moved
 
 /** Defines the state for an interactable grid or list item. */
 sealed interface InteractionState {
     /** The item's index in the list of interactable items. */
     val index: Int?
 
-    /** The item's unique key, typically a String. */
-    val key: String?
+    /** The item's unique key. */
+    val key: Any?
 
     /** Fetches the [LazyGridItemInfo] for the interacted item, based on its key. */
     fun getLazyGridItemInfo(gridState: LazyGridState): LazyGridItemInfo?
@@ -64,13 +72,15 @@ sealed interface InteractionState {
          * Data object to represent an active interaction.
          *
          * @property index of the item, as an Int
-         * @property key of the item, as a String
+         * @property key of the item
+         * @property size of the item, as an IntSize
          * @property initialOffset initial offset of the item,
          * @property cumulatedOffset cumulative offset of the dragged item
          */
         data class Active(
             override val index: Int,
-            override val key: String,
+            override val key: Any,
+            val size: IntSize,
             override val initialOffset: Offset = Offset.Zero,
             override val cumulatedOffset: Offset = Offset.Zero,
         ) : Grid {
@@ -144,14 +154,16 @@ sealed interface InteractionState {
          * Data object to represent an active interaction.
          *
          * @property index of the item, as an Int
-         * @property key of the item, as a String
+         * @property key of the item
+         * @property size of the item, as an Int
          * @property initialOffset initial offset of the item,
          * @property cumulatedOffset cumulative offset of the dragged item
          * @property moved whether the dragged item has moved
          */
         data class Active(
             override val index: Int,
-            override val key: String,
+            override val key: Any,
+            val size: Int,
             override val initialOffset: Float = 0f,
             override val cumulatedOffset: Float = 0f,
             override val moved: Boolean = false,

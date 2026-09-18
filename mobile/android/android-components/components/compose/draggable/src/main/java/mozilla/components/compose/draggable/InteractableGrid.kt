@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.Animatable
@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,13 +47,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mozilla.components.compose.base.modifier.thenConditional
-import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
-import org.mozilla.fenix.tabstray.ui.tabitems.defaultGridItemAnimation
 
 /**
  * Remember the interactable state for grid items.
+ *
+ * Grid items MUST supply stable keys, since interactions track items by key. By default, Compose uses indices, which
+ * will break after any move.
  *
  * @param gridState State of the grid.
  * @param itemInteractionHandler Handles item interactions such as moves and drag and drop.
@@ -88,6 +88,13 @@ fun createGridInteractionState(
                 liveReorderEnabled = liveReorderEnabled,
             )
         }
+    SideEffect {
+        state.ignoredItems = ignoredItems
+        state.itemInteractionHandler = itemInteractionHandler
+        state.dragAndDropEnabled = dragAndDropEnabled
+        state.liveReorderEnabled = liveReorderEnabled
+        state.onLongPress = onLongPress
+    }
     return state
 }
 
@@ -110,13 +117,10 @@ interface GridInteractionState {
     val interactionMode: InteractionMode.Grid
 
     /** The previously dragged item's key */
-    val previousKeyOfDraggedItem: TabItemKey?
+    val previousKeyOfDraggedItem: Any?
 
     /** Cached offset used to animate the item from a cancelled drag back into place */
     val previousItemAnimatableOffset: Animatable<Offset, AnimationVector2D>
-
-    /** An item's size */
-    val itemSize: IntSize?
 
     /**
      * Called to update the cached offset of a dragged item by its [LayoutCoordinates]
@@ -175,17 +179,16 @@ interface GridInteractionState {
  * @param ignoredItems List of keys for non-draggable items.
  * @param liveReorderEnabled Whether item reorders should happen 'live' during a drag.
  */
-class GridInteractionStateImpl
-internal constructor(
+internal class GridInteractionStateImpl(
     private val gridState: LazyGridState,
     private val touchSlop: Float,
     private val scope: CoroutineScope,
     private val hapticFeedback: HapticFeedback,
-    private val dragAndDropEnabled: Boolean,
-    private val itemInteractionHandler: ItemInteractionHandler,
-    private val onLongPress: (LazyGridItemInfo) -> Unit = {},
-    private val ignoredItems: Set<Any> = emptySet(),
-    private val liveReorderEnabled: Boolean,
+    var dragAndDropEnabled: Boolean,
+    var itemInteractionHandler: ItemInteractionHandler,
+    var onLongPress: (LazyGridItemInfo) -> Unit = {},
+    var ignoredItems: Set<Any> = emptySet(),
+    var liveReorderEnabled: Boolean,
 ) : GridInteractionState {
 
     override var gridLayoutCoordinates: LayoutCoordinates? by mutableStateOf(null)
@@ -207,15 +210,12 @@ internal constructor(
 
     private var moved by mutableStateOf(false)
 
-    override var previousKeyOfDraggedItem by mutableStateOf<TabItemKey?>(null)
+    override var previousKeyOfDraggedItem by mutableStateOf<Any?>(null)
         private set
 
     override val previousItemAnimatableOffset = Animatable(Offset.Zero, Offset.VectorConverter)
 
     private var scrollJob by mutableStateOf<Job?>(null)
-
-    override val itemSize: IntSize?
-        get() = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.key !in ignoredItems }?.size
 
     override fun onDraggedItemPositioned(itemCoordinates: LayoutCoordinates) {
         gridLayoutCoordinates?.let {
@@ -233,21 +233,22 @@ internal constructor(
     }
 
     override fun onTouchSlopPassed(offset: Offset, shouldLongPress: Boolean) {
-        gridState.findItem(offset)?.also { item ->
-            val key = item.key as? String
-            key?.let {
+        gridState
+            .findItem(offset)
+            ?.takeIf { it.key !in ignoredItems }
+            ?.also { item ->
                 draggedItem =
                     InteractionState.Grid.Active(
                         index = item.index,
-                        key = it,
+                        key = item.key,
                         initialOffset = item.offset.toOffset(),
+                        size = item.size,
                     )
+                if (shouldLongPress) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongPress(item)
+                }
             }
-            if (shouldLongPress) {
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                onLongPress(item)
-            }
-        }
     }
 
     override fun onDragEnd() {
@@ -266,9 +267,7 @@ internal constructor(
 
     private fun doReorder(mode: InteractionMode.Grid.Reordering) {
         if (draggedItem.index == gridState.firstVisibleItemIndex) {
-            itemSize?.height?.let {
-                autoScroll(-it.toFloat())
-            }
+            autoScroll(-mode.source.size.height.toFloat())
         }
         itemInteractionHandler.onMove(
             sourceKey = mode.source.key,
@@ -316,7 +315,7 @@ internal constructor(
      * Restricts all scroll actions to run in a single job. If a scroll job is currently executing when a new one is
      * asked for, it is cancelled.
      */
-    fun autoScroll(amount: Float) {
+    private fun autoScroll(amount: Float) {
         scrollJob?.cancel()
         scrollJob = scope.launch {
             gridState.scrollBy(amount)
@@ -420,7 +419,7 @@ internal constructor(
             GridItemOffset(
                 draggingItem,
                 computeItemOffset(draggingItem.index),
-                itemSize ?: IntSize(0, 0),
+                draggingItem.size,
             )
 
         val mode =
@@ -480,8 +479,7 @@ private fun determineInteractionMode(
             }
             .minByOrNull { it.score }
 
-    // Convert the LazyGridItemInfo Any into a usable TabItem id
-    val key = topCandidate?.anchorItem?.key as? String
+    val key = topCandidate?.anchorItem?.key
     return when {
         topCandidate == null || key == null -> {
             InteractionMode.Grid.None
@@ -499,6 +497,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toOffset(),
+                        size = topCandidate.anchorItem.size,
                     ),
             )
         }
@@ -511,6 +510,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toOffset(),
+                        size = topCandidate.anchorItem.size,
                     ),
                 placeAfter = false,
                 rect = topCandidate.type.rect,
@@ -525,6 +525,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toOffset(),
+                        size = topCandidate.anchorItem.size,
                     ),
                 placeAfter = true,
                 rect = topCandidate.type.rect,
@@ -621,7 +622,7 @@ internal fun gatherCandidates(
     gridState: LazyGridState,
     draggedItemOffset: GridItemOffset,
     draggedItem: InteractionState,
-    ignoredItems: Set<TabItemKey>,
+    ignoredItems: Set<Any>,
 ): List<GridInteractionCandidate> {
     val candidates = mutableListOf<GridInteractionCandidate>()
 
@@ -738,10 +739,10 @@ private fun findOverscroll(
 @Composable
 fun LazyGridItemScope.InteractableDragItemContainer(
     state: GridInteractionState,
-    key: String,
+    key: Any,
     position: Int,
     swipingActive: Boolean,
-    enteringItemKey: String? = null,
+    enteringItemKey: Any? = null,
     enteringItemDecoration: @Composable (ItemInteractionState) -> Modifier = { Modifier },
     content: @Composable (interactionState: ItemInteractionState) -> Unit,
 ) {
@@ -839,9 +840,9 @@ private fun LazyGridState.findItem(offset: Offset) =
  * Detects press, long press and drag gestures.
  *
  * @param reorderState Grid reordering state used for dragging callbacks.
- * @param isInMultiSelectMode Whether or not multi-select mode is active for the grid being reordered
+ * @param isInMultiSelectMode Whether multi-select mode is active for the grid being reordered
  */
-fun Modifier.detectGridPressAndDragGestures(
+internal fun Modifier.detectGridPressAndDragGestures(
     reorderState: GridInteractionState,
     isInMultiSelectMode: Boolean,
 ): Modifier =
@@ -871,8 +872,6 @@ fun Modifier.detectGridPressAndDragGestures(
         }
     }
 
-private typealias TabItemKey = Any
-
 /** Class representing a grid item's [Offset] values - start, center, and end. */
 data class GridItemOffset(
     val draggedItem: InteractionState.Grid.Active,
@@ -893,4 +892,24 @@ data class GridItemOffset(
     val center by lazy {
         start + (end - start) / 2f
     }
+}
+
+/**
+ * Detects drag gestures and tracks the grid's layout coordinates, which [GridInteractionState] needs to map pointer
+ * positions to grid items.
+ *
+ * @param state Grid interaction state that receives the gesture callbacks and layout coordinates.
+ * @param isInMultiSelectMode Whether multi-select mode is active, in which case drags start without a long press.
+ */
+fun Modifier.interactableGrid(
+    state: GridInteractionState,
+    isInMultiSelectMode: Boolean = false,
+): Modifier {
+    return this.onGloballyPositioned {
+            state.updateGridLayoutCoordinates(it)
+        }
+        .detectGridPressAndDragGestures(
+            reorderState = state,
+            isInMultiSelectMode = isInMultiSelectMode,
+        )
 }

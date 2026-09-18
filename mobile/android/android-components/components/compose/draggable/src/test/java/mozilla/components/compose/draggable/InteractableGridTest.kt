@@ -2,38 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose
+package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
+import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.toOffset
-import io.mockk.Runs
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
-import io.mockk.verify
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import mozilla.components.compose.draggable.RecordingItemInteractionHandler.Call
+import mozilla.components.support.test.mock
+import mozilla.components.support.test.whenever
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionStateImpl
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridItemOffset
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionMode
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionType
-import org.mozilla.fenix.tabstray.browser.compose.interactable.closestDistanceTo
-import org.mozilla.fenix.tabstray.browser.compose.interactable.closestPointTo
-import org.mozilla.fenix.tabstray.browser.compose.interactable.gatherCandidates
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.controller.NoOpItemInteractionHandler
 
 class InteractableGridTest {
     private val testDispatcher = StandardTestDispatcher()
@@ -228,6 +217,7 @@ class InteractableGridTest {
             InteractionState.Grid.Active(
                 index = 0,
                 key = "key",
+                size = IntSize(10, 10),
                 initialOffset = Offset(10f, 10f),
             )
         val candidates =
@@ -278,7 +268,7 @@ class InteractableGridTest {
 
     @Test
     fun `GIVEN an item is dragged onto another AND live reorder is disabled WHEN onDragEnd is called THEN onDrop is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(0, 110)
         val reorderState =
             twoTabReorderState(
@@ -293,12 +283,12 @@ class InteractableGridTest {
         reorderState.dragRight(distance = 20f, preserveSelectMode = false) // 20 to the right
         reorderState.onDragEnd()
 
-        verify { handler.onDrop(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA) }
+        assertTrue(Call.Drop(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA) in handler.calls)
     }
 
     @Test
     fun `GIVEN an item is dragged onto another AND live reorder is enabled WHEN onDragEnd is called THEN onDrop is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(0, 0)
         val reorderState =
             twoTabReorderState(
@@ -312,12 +302,12 @@ class InteractableGridTest {
         reorderState.dragRight(distance = 20f, preserveSelectMode = false)
         reorderState.onDragEnd()
 
-        verify { handler.onDrop(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA) }
+        assertTrue(Call.Drop(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA) in handler.calls)
     }
 
     @Test
     fun `GIVEN an item is dragged to the right of another WHEN onDragEnd is called THEN onMove is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 110)
         val reorderState =
             twoTabReorderState(
@@ -332,12 +322,12 @@ class InteractableGridTest {
         reorderState.dragRight(distance = 50f, preserveSelectMode = false)
         reorderState.onDragEnd()
 
-        verify { handler.onMove(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) }
+        assertTrue(Call.Move(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) in handler.calls)
     }
 
     @Test
     fun `GIVEN live reorder is disabled WHEN an item is dragged to the right of another THEN onMove is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -350,12 +340,12 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(dragItemOffset.toOffset(), false)
         reorderState.dragRight(distance = 50f, preserveSelectMode = false)
 
-        verify(exactly = 0) { handler.onMove(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) }
+        assertFalse(Call.Move(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) in handler.calls)
     }
 
     @Test
     fun `GIVEN live reorder is enabled WHEN an item is dragged to the right of another THEN onMove is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -368,12 +358,12 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(dragItemOffset.toOffset(), false)
         reorderState.dragRight(distance = 50f, preserveSelectMode = false)
 
-        verify { handler.onMove(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) }
+        assertTrue(Call.Move(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) in handler.calls)
     }
 
     @Test
     fun `GIVEN live reorder is enabled THEN multiple drag events do not invoke multiple moves`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -388,12 +378,12 @@ class InteractableGridTest {
         reorderState.dragRight(distance = 0f, preserveSelectMode = false)
         reorderState.dragRight(distance = 0f, preserveSelectMode = false)
 
-        verify(exactly = 1) { handler.onMove(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) }
+        assertEquals(1, handler.calls.count { it == Call.Move(TabKeys.TAB_ALPHA, TabKeys.TAB_BETA, true) })
     }
 
     @Test
     fun `GIVEN an item is dragged to the left of another WHEN onDragEnd is called THEN onMove is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val draggedItemOffset = IntOffset(30, 110)
         val reorderState =
             twoTabReorderState(
@@ -408,12 +398,12 @@ class InteractableGridTest {
         reorderState.dragLeft(distance = 10f, preserveSelectMode = false)
         reorderState.onDragEnd()
 
-        verify { handler.onMove(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) }
+        assertTrue(Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) in handler.calls)
     }
 
     @Test
     fun `GIVEN live reorder disabled WHEN an item is dragged to the left of another THEN onMove is not called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val draggedItemOffset = IntOffset(30, 0)
         val reorderState =
             twoTabReorderState(
@@ -426,12 +416,12 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(draggedItemOffset.toOffset(), false)
         reorderState.dragLeft(10f, preserveSelectMode = false)
 
-        verify(exactly = 0) { handler.onMove(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) }
+        assertFalse(Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) in handler.calls)
     }
 
     @Test
     fun `GIVEN live reorder enabled WHEN an item is dragged to the left of another THEN onMove is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val draggedItemOffset = IntOffset(30, 0)
         val reorderState =
             twoTabReorderState(
@@ -444,7 +434,7 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(draggedItemOffset.toOffset(), false)
         reorderState.dragLeft(30f, preserveSelectMode = false)
 
-        verify { handler.onMove(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) }
+        assertTrue(Call.Move(TabKeys.TAB_BETA, TabKeys.TAB_ALPHA, false) in handler.calls)
     }
 
     @Test
@@ -462,7 +452,7 @@ class InteractableGridTest {
 
     @Test
     fun `GIVEN a drag is in progress and the dragged item is not visible when onDragEnd is called THEN onDragCancelled is called`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val draggedItemOffset = IntOffset(30, 0)
         val reorderState =
             fakeGridReorderState(
@@ -474,12 +464,12 @@ class InteractableGridTest {
         reorderState.onDrag(offset = Offset(50f, 50f), preserveSelectMode = false)
         reorderState.onDragEnd()
 
-        verify { handler.onDragCancel() }
+        assertTrue(Call.DragCancel in handler.calls)
     }
 
     @Test
     fun `WHEN an item is dragged GIVEN preserveSelectMode is true THEN onDragStart is called with the same flag`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -491,12 +481,12 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(dragItemOffset.toOffset(), true)
         reorderState.dragRight(distance = 50f, preserveSelectMode = true)
 
-        verify { handler.onDragStart(sourceKey = TabKeys.TAB_ALPHA, preserveSelectMode = true) }
+        assertTrue(Call.DragStart(sourceKey = TabKeys.TAB_ALPHA, preserveSelectMode = true) in handler.calls)
     }
 
     @Test
     fun `WHEN an item is dragged GIVEN preserveSelectMode is false THEN onDragStart is called with the same flag`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -508,12 +498,12 @@ class InteractableGridTest {
         reorderState.onTouchSlopPassed(dragItemOffset.toOffset(), false)
         reorderState.dragRight(distance = 50f, preserveSelectMode = false)
 
-        verify { handler.onDragStart(sourceKey = TabKeys.TAB_ALPHA, preserveSelectMode = false) }
+        assertTrue(Call.DragStart(sourceKey = TabKeys.TAB_ALPHA, preserveSelectMode = false) in handler.calls)
     }
 
     @Test
     fun `WHEN a drag is cancelled THEN the handler is invoked with a drag cancel call`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+        val handler = RecordingItemInteractionHandler()
         val dragItemOffset = IntOffset(10, 0)
         val reorderState =
             twoTabReorderState(
@@ -526,12 +516,52 @@ class InteractableGridTest {
         reorderState.onDrag(offset = Offset(50f, 50f), preserveSelectMode = false)
         reorderState.onDragCancelled()
 
-        verify { handler.onDragCancel() }
+        assertTrue(Call.DragCancel in handler.calls)
     }
 
     @Test
-    fun `WHEN a large ignored item is placed in the TabsTray THEN the item size is the size of a normal tab`() {
-        val handler = mockk<ItemInteractionHandler>(relaxed = true)
+    fun `GIVEN an item with a non-String key WHEN it is dragged THEN the handler receives that key`() {
+        val handler = RecordingItemInteractionHandler()
+        val reorderState =
+            fakeGridReorderState(
+                mockGridState(mockItems = listOf(mockGridItem(key = 7, index = 0, offset = IntOffset(0, 0)))),
+                handler = handler,
+            )
+
+        reorderState.onTouchSlopPassed(offset = Offset(1f, 1f), shouldLongPress = false)
+        reorderState.onDrag(offset = Offset(50f, 0f), preserveSelectMode = false)
+
+        assertEquals(expected = 7, actual = reorderState.draggedItem.key)
+        assertTrue(Call.DragStart(sourceKey = 7, preserveSelectMode = false) in handler.calls)
+    }
+
+    @Test
+    fun `GIVEN an ignored item WHEN it is long pressed and dragged THEN no drag starts and onLongPress is not invoked`() {
+        val handler = RecordingItemInteractionHandler()
+        val longPressed = mutableListOf<Any>()
+        val reorderState =
+            fakeGridReorderState(
+                mockGridState(
+                    mockItems =
+                        listOf(
+                            mockHeaderItem(),
+                            mockGridItem(key = TabKeys.TAB_ALPHA, index = 1, offset = IntOffset(0, 110)),
+                        )
+                ),
+                handler = handler,
+                onLongPress = { longPressed += it.key },
+            )
+
+        reorderState.onTouchSlopPassed(offset = Offset(500f, 50f), shouldLongPress = true)
+        reorderState.onDrag(offset = Offset(50f, 50f), preserveSelectMode = false)
+
+        assertIs<InteractionState.Grid.None>(reorderState.draggedItem)
+        assertTrue(handler.calls.isEmpty())
+        assertTrue(longPressed.isEmpty())
+    }
+
+    @Test
+    fun `GIVEN items of different sizes WHEN a drag starts THEN the dragged item keeps its own size`() {
         val reorderState =
             fakeGridReorderState(
                 mockGridState(
@@ -552,21 +582,24 @@ class InteractableGridTest {
                             mockGridItem(
                                 key = TabKeys.TAB_BETA,
                                 index = 2,
-                                size = IntSize(600, 750),
+                                size = IntSize(600, 300),
                                 offset = IntOffset(600, 918),
                             ),
                             mockGridItem(
-                                key = "span",
+                                key = TabKeys.SPAN,
                                 index = 3,
                                 size = IntSize(1248, 10),
                                 offset = IntOffset(600, 2000),
                             ),
                         )
-                ),
-                handler = handler,
+                )
             )
 
-        assertEquals(expected = IntSize(600, 750), actual = reorderState.itemSize)
+        reorderState.onTouchSlopPassed(offset = Offset(700f, 1000f), shouldLongPress = false)
+
+        val draggedItem = assertIs<InteractionState.Grid.Active>(reorderState.draggedItem)
+        assertEquals(expected = TabKeys.TAB_BETA, actual = draggedItem.key)
+        assertEquals(expected = IntSize(600, 300), actual = draggedItem.size)
     }
 
     @Test
@@ -585,24 +618,24 @@ class InteractableGridTest {
     }
 
     private fun mockGridItem(
-        key: String = "key",
+        key: Any = "key",
         index: Int = 1,
         size: IntSize = IntSize(10, 10),
         offset: IntOffset = IntOffset(0, 0),
     ): LazyGridItemInfo {
-        return mockk<LazyGridItemInfo> {
-            every { this@mockk.key } returns key
-            every { this@mockk.index } returns index
-            every { this@mockk.size } returns size
-            every { this@mockk.offset } returns offset
-        }
+        val item = mock<LazyGridItemInfo>()
+        whenever(item.key).thenReturn(key)
+        whenever(item.index).thenReturn(index)
+        whenever(item.size).thenReturnUnboxed(size)
+        whenever(item.offset).thenReturnUnboxed(offset)
+        return item
     }
 
     private fun mockHeaderItem(): LazyGridItemInfo =
         mockGridItem(key = TabKeys.HEADER, index = 0, size = IntSize(1000, 100), offset = IntOffset(0, 0))
 
     private fun twoTabReorderState(
-        handler: ItemInteractionHandler,
+        handler: ItemInteractionHandler = NoOpItemInteractionHandler,
         alphaTabOffset: IntOffset,
         betaTabOffset: IntOffset,
         itemSize: IntSize = IntSize(10, 10),
@@ -628,27 +661,27 @@ class InteractableGridTest {
         firstVisibleIndex: Int = 0,
         totalItems: Int = mockItems.size,
     ): LazyGridState {
-        return mockk<LazyGridState> {
-            every { firstVisibleItemIndex } returns firstVisibleIndex
-            every { layoutInfo } returns
-                mockk {
-                    every { visibleItemsInfo } returns mockItems
-                    every { viewportSize } returns IntSize(10, 10)
-                    every { firstVisibleItemIndex } returns firstVisibleIndex
-                    every { totalItemsCount } returns totalItems
-                    every { mainAxisItemSpacing } returns 10
-                    every { beforeContentPadding } returns 10
-                    every { viewportStartOffset } returns 0
-                    every { viewportEndOffset } returns 10
-                }
-            every { isScrollInProgress } returns false
-        }
+        val layoutInfo = mock<LazyGridLayoutInfo>()
+        whenever(layoutInfo.visibleItemsInfo).thenReturn(mockItems)
+        whenever(layoutInfo.viewportSize).thenReturnUnboxed(IntSize(10, 10))
+        whenever(layoutInfo.totalItemsCount).thenReturn(totalItems)
+        whenever(layoutInfo.mainAxisItemSpacing).thenReturn(10)
+        whenever(layoutInfo.beforeContentPadding).thenReturn(10)
+        whenever(layoutInfo.viewportStartOffset).thenReturn(0)
+        whenever(layoutInfo.viewportEndOffset).thenReturn(10)
+
+        val gridState = mock<LazyGridState>()
+        whenever(gridState.firstVisibleItemIndex).thenReturn(firstVisibleIndex)
+        whenever(gridState.layoutInfo).thenReturn(layoutInfo)
+        whenever(gridState.isScrollInProgress).thenReturn(false)
+        return gridState
     }
 
     private fun fakeGridReorderState(
         gridState: LazyGridState,
         handler: ItemInteractionHandler = NoOpItemInteractionHandler,
         liveReorderEnabled: Boolean = false,
+        onLongPress: (LazyGridItemInfo) -> Unit = {},
     ): GridInteractionState {
         return GridInteractionStateImpl(
             gridState = gridState,
@@ -656,11 +689,8 @@ class InteractableGridTest {
             scope = scope,
             touchSlop = 0f,
             ignoredItems = defaultIgnoredItems,
-            onLongPress = { _ -> },
-            hapticFeedback =
-                mockk<HapticFeedback> {
-                    every { performHapticFeedback(any()) } just Runs
-                },
+            onLongPress = onLongPress,
+            hapticFeedback = RecordingHapticFeedback(),
             dragAndDropEnabled = true,
             liveReorderEnabled = liveReorderEnabled,
         )

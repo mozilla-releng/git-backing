@@ -291,6 +291,7 @@ treeherder:
         'compose-base': 'compose-base'
         'concept-bookmarks-parser': 'concept-bookmarks-parser'
         'compose-cfr': 'compose-cfr'
+        'compose-draggable': 'compose-draggable'
         'concept-engine': 'concept-engine'
         'concept-fetch': 'concept-fetch'
         'concept-llm': 'concept-llm'
