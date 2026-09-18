@@ -106,6 +106,9 @@ static constexpr Register SavedScratchRegister = s8;
 static constexpr FloatRegister ScratchFloat32Reg{FloatRegisters::f23,
                                                  FloatRegisters::Single};
 static constexpr FloatRegister ScratchDoubleReg = f23;
+static constexpr FloatRegister ScratchFloat32Reg2{FloatRegisters::f22,
+                                                  FloatRegisters::Single};
+static constexpr FloatRegister ScratchDoubleReg2 = f22;
 static constexpr FloatRegister ScratchSimd128Reg = InvalidFloatReg;
 
 struct ScratchFloat32Scope : public AutoFloatRegisterScope {
@@ -116,6 +119,16 @@ struct ScratchFloat32Scope : public AutoFloatRegisterScope {
 struct ScratchDoubleScope : public AutoFloatRegisterScope {
   explicit ScratchDoubleScope(MacroAssembler& masm)
       : AutoFloatRegisterScope(masm, ScratchDoubleReg) {}
+};
+
+struct ScratchFloat32Scope2 : public AutoFloatRegisterScope {
+  explicit ScratchFloat32Scope2(MacroAssembler& masm)
+      : AutoFloatRegisterScope(masm, ScratchFloat32Reg2) {}
+};
+
+struct ScratchDoubleScope2 : public AutoFloatRegisterScope {
+  explicit ScratchDoubleScope2(MacroAssembler& masm)
+      : AutoFloatRegisterScope(masm, ScratchDoubleReg2) {}
 };
 
 class Assembler;
