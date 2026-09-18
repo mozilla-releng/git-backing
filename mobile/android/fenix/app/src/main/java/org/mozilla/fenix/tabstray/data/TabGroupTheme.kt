@@ -8,8 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.R
 import org.mozilla.fenix.theme.FirefoxTheme
+
+private val logger = Logger("TabGroupTheme")
 
 /** Value class representing the possible themes for Tab Groups. */
 enum class TabGroupTheme {
@@ -122,5 +125,13 @@ enum class TabGroupTheme {
     companion object {
         /** The color of content displayed on top of [primary]. */
         val default: TabGroupTheme = Yellow
+
+        /** Converts the String name of a [TabGroupTheme] back into the enum object, or to a default value. */
+        fun String.toTabGroupTheme() =
+            TabGroupTheme.entries.firstOrNull { it.name == this }
+                ?: TabGroupTheme.default.also {
+                    logger.info(message = "Failed to parse TabGroupTheme: $this")
+                    TabGroupTheme.default
+                }
     }
 }

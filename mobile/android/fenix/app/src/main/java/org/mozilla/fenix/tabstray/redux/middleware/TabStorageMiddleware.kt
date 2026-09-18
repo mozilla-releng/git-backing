@@ -31,6 +31,7 @@ import mozilla.components.support.utils.DefaultDateTimeProvider
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
 import org.mozilla.fenix.tabstray.data.TabData
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
+import org.mozilla.fenix.tabstray.data.TabGroupTheme.Companion.toTabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabStorageUpdate
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
@@ -830,14 +831,6 @@ class TabStorageMiddleware(
     }
 
     internal fun TabGroupTheme.toStorageValue(): String = name
-
-    internal fun String.toTabGroupTheme() =
-        try {
-            TabGroupTheme.valueOf(this)
-        } catch (_: IllegalArgumentException) {
-            logger.info(message = "Failed to parse TabGroupTheme: $this")
-            TabGroupTheme.default
-        }
 
     // Because the sort order is defined by the underlying JSON file, we need to arrange all the group's tabs
     // next to each other in BrowserState so they are correctly sorted/grouped together. This is

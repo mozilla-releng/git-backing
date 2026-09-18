@@ -47,6 +47,13 @@ sealed class MenuAction : MenuEvent {
      */
     data class UpdatePinnedState(val isPinned: Boolean) : MenuAction()
 
+    /**
+     * [MenuAction] action dispatched to update the menu's TabGroup state
+     *
+     * @property isInAGroup Whether the opened tab is in a group.
+     */
+    data class UpdateTabGroupState(val isInAGroup: Boolean) : MenuAction()
+
     /** [MenuAction] dispatched to delete browsing data and quit the browser. */
     data object DeleteBrowsingDataAndQuit : MenuAction()
 

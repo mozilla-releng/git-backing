@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mozilla.appservices.places.BookmarkRoot
+import mozilla.components.browser.state.ext.getUrl
 import mozilla.components.browser.state.state.createCustomTab
 import mozilla.components.browser.state.state.createTab
 import mozilla.components.concept.engine.EngineSession
@@ -33,6 +34,9 @@ import mozilla.components.feature.addons.AddonManager
 import mozilla.components.feature.app.links.AppLinkRedirect
 import mozilla.components.feature.app.links.AppLinksUseCases
 import mozilla.components.feature.session.SessionUseCases
+import mozilla.components.feature.tabdata.coordinator.TabDataCoordinator
+import mozilla.components.feature.tabdata.coordinator.data.Tab
+import mozilla.components.feature.tabdata.coordinator.data.TabsSnapshot
 import mozilla.components.feature.tabs.TabsUseCases
 import mozilla.components.feature.top.sites.PinnedSiteStorage
 import mozilla.components.feature.top.sites.TopSite
@@ -56,6 +60,7 @@ import org.mozilla.fenix.components.appstate.AppAction.ShortcutAction
 import org.mozilla.fenix.components.appstate.AppState
 import org.mozilla.fenix.components.bookmarks.BookmarksUseCase.AddBookmarksUseCase
 import org.mozilla.fenix.components.bookmarks.LastSavedFolderCache
+import org.mozilla.fenix.components.fake.FakeTabDataCoordinator
 import org.mozilla.fenix.components.menu.fake.FakeBookmarksStorage
 import org.mozilla.fenix.components.menu.middleware.MenuDialogMiddleware
 import org.mozilla.fenix.components.menu.store.BrowserMenuState
@@ -1132,6 +1137,53 @@ class MenuDialogMiddlewareTest {
             )
         }
 
+    @Test
+    fun `GIVEN selected tab is NOT in a group, THEN menu state is initialized with that value`() {
+        runTest(testDispatcher) {
+            val store = createStore()
+            store.dispatch(MenuAction.InitAction)
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(store.state.browserMenuState!!.isInAGroup)
+        }
+    }
+
+    @Test
+    fun `GIVEN selected tab is a group, THEN menu state is initialized with that value`() {
+        runTest(testDispatcher) {
+            val groupedTab =
+                createTab(
+                    id = "TestTab",
+                    url = "https://www.mozilla.org",
+                    engineSession = TestEngineSession(),
+                )
+            val tabSnapshot =
+                Tab(
+                    id = groupedTab.id,
+                    url = groupedTab.getUrl()!!,
+                    title = "Grouped Tab",
+                    tabGroupId = "tabGroup",
+                    private = false,
+                    inactive = false,
+                )
+            val store =
+                createStore(
+                    menuState = MenuState(browserMenuState = BrowserMenuState(selectedTab = groupedTab)),
+                    tabDataCoordinator =
+                        FakeTabDataCoordinator(
+                            TabsSnapshot(
+                                normalTabs = listOf(tabSnapshot),
+                                selectedTab = tabSnapshot,
+                            )
+                        ),
+                )
+            store.dispatch(MenuAction.InitAction)
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(store.state.browserMenuState!!.isInAGroup)
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class) // UnconfinedTestDispatcher
     private fun TestScope.createStore(
         appStore: AppStore = AppStore(),
@@ -1146,6 +1198,22 @@ class MenuDialogMiddlewareTest {
                                 engineSession = TestEngineSession(),
                             )
                     )
+            ),
+        tabDataCoordinator: TabDataCoordinator =
+            FakeTabDataCoordinator(
+                TabsSnapshot(
+                    normalTabs =
+                        listOf(
+                            Tab(
+                                id = "testTabId",
+                                url = "https://www.mozilla.org",
+                                title = "Test Tab",
+                                tabGroupId = "tabGroup",
+                                private = false,
+                                inactive = false,
+                            )
+                        )
+                )
             ),
     ) =
         MenuStore(
@@ -1169,6 +1237,7 @@ class MenuDialogMiddlewareTest {
                             materialAlertDialogBuilder = alertDialogBuilder,
                             topSitesMaxLimit = TOP_SITES_MAX_COUNT,
                             mainDispatcher = testDispatcher,
+                            tabDataCoordinator = tabDataCoordinator,
                         )
                     ),
             )

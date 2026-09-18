@@ -196,6 +196,8 @@ class MenuNavigationMiddleware(
                             MenuDialogFragmentDirections.actionMenuDialogFragmentToTabGroupFlowFragment(
                                 entryPoint = action.entryPoint
                             ),
+                        navOptions =
+                            NavOptions.Builder().setPopUpTo(currentState.browserDestinationId(), false).build(),
                     )
                 }
 

@@ -69,12 +69,14 @@ data class MenuState(
  *
  * @property selectedTab The current selected [SessionState].
  * @property bookmarkState The [BookmarkState] of the selected tab.
- * @property isPinned Whether or not the selected tab is a pinned shortcut.
+ * @property isPinned Whether the selected tab is a pinned shortcut.
+ * @property isInAGroup Whether the selected tab is in a TabGroup.
  */
 data class BrowserMenuState(
     val selectedTab: SessionState,
     val bookmarkState: BookmarkState = BookmarkState(),
     val isPinned: Boolean = false,
+    val isInAGroup: Boolean = false,
 )
 
 /**
