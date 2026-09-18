@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -38,10 +38,6 @@ import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
-import org.mozilla.fenix.tabstray.ui.tabitems.defaultListItemAnimation
 
 /**
  * Remember the reordering state for reordering list items.
@@ -722,7 +718,7 @@ private fun LazyListState.findItem(offset: Float) =
  *
  * @param listState State of the list.
  * @param interactionState List interaction state used for dragging callbacks.
- * @param shouldLongPressToDrag Whether or not an item should be long pressed to start the dragging gesture.
+ * @param shouldLongPressToDrag Whether an item should be long pressed to start the dragging gesture.
  */
 fun Modifier.detectListPressAndDrag(
     listState: LazyListState,
