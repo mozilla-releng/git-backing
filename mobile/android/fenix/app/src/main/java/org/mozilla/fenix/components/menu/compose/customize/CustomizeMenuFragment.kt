@@ -102,6 +102,7 @@ class CustomizeMenuFragment : Fragment(), SystemInsetsPaddedFragment {
             isAndroidAutomotiveAvailable = context.isAndroidAutomotiveAvailable(),
             quitApplicationDelegate = activity::finishAndRemoveTask,
             setAsDefaultBrowserDelegate = activity::openSetDefaultBrowserOption,
+            tabDataCoordinator = components.tabDataCoordinator,
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             applicationScope = components.applicationScope,
         )
