@@ -30,6 +30,7 @@ extern crate dom_fragmentdirectives;
 extern crate dom_push;
 extern crate dom_speculationrules;
 extern crate encoding_glue;
+extern crate exif_gps;
 extern crate fog_control;
 #[cfg(feature = "fontations")]
 extern crate fontations_glue;

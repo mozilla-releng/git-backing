@@ -2265,6 +2265,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "exif_gps"
+version = "0.1.0"
+
+[[package]]
 name = "expect-test"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3024,6 +3028,7 @@ dependencies = [
  "encoding_glue",
  "etagere",
  "etp_engine",
+ "exif_gps",
  "fluent",
  "fluent-fallback",
  "fluent-ffi",
