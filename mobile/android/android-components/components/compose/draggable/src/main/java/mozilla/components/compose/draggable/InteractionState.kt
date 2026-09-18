@@ -2,11 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.ui.geometry.Offset
+import mozilla.components.compose.draggable.InteractionState.Grid.None.cumulatedOffset
+import mozilla.components.compose.draggable.InteractionState.Grid.None.index
+import mozilla.components.compose.draggable.InteractionState.Grid.None.key
+import mozilla.components.compose.draggable.InteractionState.List.None.cumulatedOffset
+import mozilla.components.compose.draggable.InteractionState.List.None.index
+import mozilla.components.compose.draggable.InteractionState.List.None.key
+import mozilla.components.compose.draggable.InteractionState.List.None.moved
 
 /** Defines the state for an interactable grid or list item. */
 sealed interface InteractionState {
