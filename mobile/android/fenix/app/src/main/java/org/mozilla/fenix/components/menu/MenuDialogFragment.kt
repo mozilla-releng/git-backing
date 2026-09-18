@@ -151,6 +151,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
     private val webExtensionsMenuBinding = ViewBoundFeatureWrapper<WebExtensionsMenuBinding>()
     private val ipProtectionMenuBinding = ViewBoundFeatureWrapper<IPProtectionMenuBinding>()
     private val ipProtectionSnackbarBinding = ViewBoundFeatureWrapper<IPProtectionSnackbarBinding>()
+    private val tabGroupMenuBinding = ViewBoundFeatureWrapper<TabGroupMenuBinding>()
     private val snackbarHostState = SnackbarHostState()
     private var bottomSheetBehavior: BottomSheetBehavior<View>? = null
     private var isPrivate: Boolean = false
@@ -294,6 +295,11 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
 
             val isMoreMenuExpanded by remember {
                 menuStore.stateFlow.map { state -> state.isMoreMenuExpanded }
+            }
+                .collectAsState(initial = false)
+
+            val isInAGroup by remember {
+                menuStore.stateFlow.map { state -> state.browserMenuState?.isInAGroup == true }
             }
                 .collectAsState(initial = false)
 
@@ -671,6 +677,7 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                         isPinned = isPinned,
                                         isPrivate = isPrivate,
                                         isInstallable = webAppUseCases.isInstallable(),
+                                        isInAGroup = isInAGroup,
                                         isAddToHomeScreenSupported =
                                             selectedTab != null && webAppUseCases.isPinningSupported(),
                                         hasExternalApp = appLinksRedirect?.hasExternalApp() ?: false,
@@ -724,6 +731,18 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                         },
                                         showTabGroupsInMenu = settings.showTabGroupsInMenu,
                                         onAddToTabGroupClick = {
+                                            if (selectedTab != null) {
+                                                menuStore.dispatch(
+                                                    MenuAction.Navigate.OpenTabGroupFlow(
+                                                        entryPoint =
+                                                            TabGroupFlowEntryPoint.AddTabToGroup(tabId = selectedTab.id)
+                                                    )
+                                                )
+                                            } else {
+                                                Logger.warn("No active selected tab - cannot add tab to groups.")
+                                            }
+                                        },
+                                        onMoveToTabGroupClick = {
                                             if (selectedTab != null) {
                                                 menuStore.dispatch(
                                                     MenuAction.Navigate.OpenTabGroupFlow(
@@ -930,6 +949,18 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                             scope = viewLifecycleOwner.lifecycleScope,
                             context = requireContext(),
                         ),
+                ),
+            owner = this,
+            view = view,
+        )
+
+        tabGroupMenuBinding.set(
+            feature =
+                TabGroupMenuBinding(
+                    tabDataCoordinator = requireComponents.tabDataCoordinator,
+                    onGroupStatusUpdated = {
+                        menuStore.dispatch(MenuAction.UpdateTabGroupState(isInAGroup = it))
+                    },
                 ),
             owner = this,
             view = view,

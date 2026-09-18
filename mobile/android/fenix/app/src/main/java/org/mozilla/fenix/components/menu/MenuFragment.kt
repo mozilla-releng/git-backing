@@ -56,7 +56,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import kotlin.getValue
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.Menu
 import mozilla.components.compose.menu.data.MenuAttribution
@@ -383,6 +382,7 @@ class MenuFragment : BottomSheetDialogFragment() {
             quitApplicationDelegate = activity::finishAndRemoveTask,
             setAsDefaultBrowserDelegate = activity::openSetDefaultBrowserOption,
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
+            tabDataCoordinator = components.tabDataCoordinator,
             applicationScope = components.applicationScope,
         )
     }
