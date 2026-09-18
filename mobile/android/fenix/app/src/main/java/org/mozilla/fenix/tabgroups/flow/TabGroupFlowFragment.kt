@@ -25,11 +25,13 @@ import androidx.navigation3.scene.DialogSceneStrategy
 import androidx.navigation3.ui.NavDisplay
 import mozilla.components.compose.base.theme.layout.AcornWindowSize
 import mozilla.components.lib.state.helpers.StoreProvider.Companion.storeProvider
+import mozilla.components.support.base.feature.ViewBoundFeatureWrapper
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.navigation.BottomSheetSceneStrategy
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.tabgroups.AddToTabGroup
 import org.mozilla.fenix.tabgroups.EditTabGroup
+import org.mozilla.fenix.tabgroups.EnrichedTabGroupBinding
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.theme.FirefoxTheme
 import org.mozilla.fenix.utils.Settings
@@ -38,6 +40,7 @@ import org.mozilla.fenix.utils.Settings
 class TabGroupFlowFragment : DialogFragment() {
 
     @VisibleForTesting internal lateinit var store: TabGroupFlowStore
+    private val enrichedTabGroupBinding = ViewBoundFeatureWrapper<EnrichedTabGroupBinding>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +77,23 @@ class TabGroupFlowFragment : DialogFragment() {
                 )
             }
         }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        enrichedTabGroupBinding.set(
+            feature =
+                EnrichedTabGroupBinding(
+                    browserStore = requireComponents.core.store,
+                    tabDataCoordinator = requireComponents.tabDataCoordinator,
+                    onTabGroupsUpdated = {
+                        store.dispatch(TabGroupAction.TabGroupsUpdated(it))
+                    },
+                ),
+            owner = this,
+            view = view,
+        )
     }
 
     @VisibleForTesting

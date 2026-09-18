@@ -101,6 +101,7 @@ class FenixCustomizeMenuFragment : CustomizeMenuFragment(), SystemInsetsPaddedFr
             materialAlertDialogBuilder = MaterialAlertDialogBuilder(context),
             quitApplicationDelegate = activity::finishAndRemoveTask,
             setAsDefaultBrowserDelegate = activity::openSetDefaultBrowserOption,
+            tabDataCoordinator = components.tabDataCoordinator,
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             applicationScope = components.applicationScope,
         )

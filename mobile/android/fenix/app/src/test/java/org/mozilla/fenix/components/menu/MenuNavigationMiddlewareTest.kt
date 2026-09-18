@@ -1203,6 +1203,7 @@ class MenuNavigationMiddlewareTest {
     fun `WHEN OpenTabGroupFlow is invoked with add to group, THEN navigate to the group flow fragment`() = runTest {
         val store = createStore(this)
         val directionsSlot = slot<NavDirections>()
+        val optionsSlot = slot<NavOptions>()
 
         store.dispatch(
             MenuAction.Navigate.OpenTabGroupFlow(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
@@ -1212,7 +1213,7 @@ class MenuNavigationMiddlewareTest {
         verify {
             navController.navigate(
                 capture(directionsSlot),
-                null,
+                capture(optionsSlot),
             )
         }
 
@@ -1224,6 +1225,8 @@ class MenuNavigationMiddlewareTest {
             TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
             directionsBundle.getParcelable("entryPoint", TabGroupFlowEntryPoint::class.java),
         )
+        assertEquals(R.id.browserFragment, optionsSlot.captured.popUpToId)
+        assertFalse(optionsSlot.captured.isPopUpToInclusive())
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

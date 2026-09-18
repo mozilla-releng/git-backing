@@ -23,29 +23,49 @@ class MoreSettingsSubmenuTest {
     @get:Rule val composeTestRule = createComposeRule()
 
     @Test
-    fun `GIVEN showGroupsInMenu is enabled, THEN add to tab group option renders`() {
-        renderContentUnderTest(showGroupsInMenu = true)
-        composeTestRule
-            .onNodeWithText(testContext.getString(R.string.browser_menu_add_to_tab_group), useUnmergedTree = true)
-            .assertExists()
+    fun `GIVEN feature is enabled AND tab is in a group, THEN only move option is shown`() {
+        renderContentUnderTest(
+            showGroupsInMenu = true,
+            isInAGroup = true,
+        )
+        val moveLabel = testContext.getString(R.string.browser_menu_move_to_tab_group)
+        composeTestRule.onNodeWithText(moveLabel, useUnmergedTree = true).assertExists()
+        val addLabel = testContext.getString(R.string.browser_menu_add_to_tab_group)
+        composeTestRule.onNodeWithText(addLabel, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
-    fun `GIVEN showGroupsInMenu is disabled, THEN add to tab group option does not render`() {
+    fun `GIVEN feature is enabled AND  tab is not in a group, THEN only add option is shown`() {
+        renderContentUnderTest(
+            showGroupsInMenu = true,
+            isInAGroup = false,
+        )
+        val addLabel = testContext.getString(R.string.browser_menu_add_to_tab_group)
+        composeTestRule.onNodeWithText(addLabel, useUnmergedTree = true).assertExists()
+        val moveLabel = testContext.getString(R.string.browser_menu_move_to_tab_group)
+        composeTestRule.onNodeWithText(moveLabel, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `GIVEN showGroupsInMenu is disabled, THEN neither group option renders`() {
         renderContentUnderTest(showGroupsInMenu = false)
         composeTestRule
             .onNodeWithText(testContext.getString(R.string.browser_menu_add_to_tab_group), useUnmergedTree = true)
             .assertDoesNotExist()
+        composeTestRule
+            .onNodeWithText(testContext.getString(R.string.browser_menu_move_to_tab_group), useUnmergedTree = true)
+            .assertDoesNotExist()
     }
 
     @Test
-    fun `GIVEN showGroupsInMenu is enabled, WHEN item is tapped THEN callback fires`() {
+    fun `GIVEN feature is enabled and item is not in a group, WHEN add item is tapped THEN callback fires`() {
         var menuItemPressed = false
         renderContentUnderTest(
             showGroupsInMenu = true,
             onAddToGroupCLick = {
                 menuItemPressed = true
             },
+            isInAGroup = false,
         )
         val label = testContext.getString(R.string.browser_menu_add_to_tab_group)
         composeTestRule.onNodeWithText(label, useUnmergedTree = true).assertExists()
@@ -53,7 +73,28 @@ class MoreSettingsSubmenuTest {
         assertTrue(menuItemPressed, "Menu item was pressed.")
     }
 
-    private fun renderContentUnderTest(showGroupsInMenu: Boolean = false, onAddToGroupCLick: () -> Unit = {}) {
+    @Test
+    fun `GIVEN feature is enabled and item is in in a group, WHEN move item is tapped THEN callback fires`() {
+        var menuItemPressed = false
+        renderContentUnderTest(
+            showGroupsInMenu = true,
+            onMoveToTabGroupClick = {
+                menuItemPressed = true
+            },
+            isInAGroup = true,
+        )
+        val label = testContext.getString(R.string.browser_menu_move_to_tab_group)
+        composeTestRule.onNodeWithText(label, useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText(label, useUnmergedTree = true).performClick()
+        assertTrue(menuItemPressed, "Menu item was pressed.")
+    }
+
+    private fun renderContentUnderTest(
+        showGroupsInMenu: Boolean = false,
+        onAddToGroupCLick: () -> Unit = {},
+        onMoveToTabGroupClick: () -> Unit = {},
+        isInAGroup: Boolean = false,
+    ) {
         composeTestRule.setContent {
             FirefoxTheme(theme = Theme.Light) {
                 MoreSettingsSubmenu(
@@ -90,6 +131,8 @@ class MoreSettingsSubmenuTest {
                     onOpenInAppMenuClick = {},
                     onMoveToNonPrivateTabMenuClick = {},
                     onAddToTabGroupClick = onAddToGroupCLick,
+                    onMoveToTabGroupClick = onMoveToTabGroupClick,
+                    isInAGroup = isInAGroup,
                 )
             }
         }
