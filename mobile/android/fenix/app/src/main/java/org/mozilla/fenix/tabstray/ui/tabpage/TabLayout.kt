@@ -65,7 +65,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.LocalPinnableContainer
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
@@ -89,29 +88,29 @@ import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.theme.Theme
 import mozilla.components.compose.base.theme.ThemedValue
 import mozilla.components.compose.base.theme.ThemedValueProvider
+import mozilla.components.compose.draggable.GridInteractionState
+import mozilla.components.compose.draggable.InteractableDragItemContainer
+import mozilla.components.compose.draggable.InteractionState
+import mozilla.components.compose.draggable.ItemInteractionHandler
+import mozilla.components.compose.draggable.ItemInteractionState
+import mozilla.components.compose.draggable.ListInteractionState
+import mozilla.components.compose.draggable.NoOpItemInteractionHandler
+import mozilla.components.compose.draggable.createGridInteractionState
+import mozilla.components.compose.draggable.createListInteractionState
+import mozilla.components.compose.draggable.detectListPressAndDrag
+import mozilla.components.compose.draggable.interactableGrid
 import org.mozilla.fenix.R
 import org.mozilla.fenix.compose.rememberSwipeToDismissBoxState
 import org.mozilla.fenix.tabgroups.TabGroupCard
 import org.mozilla.fenix.tabgroups.TabGroupRow
 import org.mozilla.fenix.tabstray.TabsTrayTestTag
-import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
 import org.mozilla.fenix.tabstray.browser.compose.ReorderableDragItemContainer
 import org.mozilla.fenix.tabstray.browser.compose.createListReorderState
 import org.mozilla.fenix.tabstray.browser.compose.detectListPressAndDrag
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractableDragItemContainer
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.ListInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.createGridInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.createListInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.detectGridPressAndDragGestures
-import org.mozilla.fenix.tabstray.browser.compose.interactable.detectListPressAndDrag
 import org.mozilla.fenix.tabstray.browser.compose.legacy.GridReorderState
 import org.mozilla.fenix.tabstray.browser.compose.legacy.ReorderableDragItemContainer
 import org.mozilla.fenix.tabstray.browser.compose.legacy.createGridReorderState
 import org.mozilla.fenix.tabstray.browser.compose.legacy.detectGridPressAndDragGestures
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.controller.NoOpItemInteractionHandler
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.data.createTab
@@ -743,13 +742,7 @@ private fun InteractableTabGrid(
 
     BoxWithConstraints(
         modifier =
-            Modifier.onGloballyPositioned {
-                    gridInteractionState.updateGridLayoutCoordinates(it)
-                }
-                .detectGridPressAndDragGestures(
-                    reorderState = gridInteractionState,
-                    isInMultiSelectMode = isInMultiSelectMode,
-                )
+            Modifier.interactableGrid(state = gridInteractionState, isInMultiSelectMode = isInMultiSelectMode)
                 .drawVerticalReorderIndicator(gridInteractionState = gridInteractionState)
     ) {
         val columns = numberOfGridColumns
