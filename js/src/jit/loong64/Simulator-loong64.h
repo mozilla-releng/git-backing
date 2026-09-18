@@ -297,7 +297,7 @@ class Simulator {
   void setCFRegister(int cfreg, bool value);
   bool getCFRegister(int cfreg) const;
 
-  void set_fcsr_rounding_mode(FPURoundingMode mode);
+  void setFCSRRoundingMode(FPURoundingMode mode);
 
   void setFCSRBit(uint32_t cc, bool value);
   bool testFCSRBit(uint32_t cc);
