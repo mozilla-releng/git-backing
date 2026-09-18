@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose
+package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -23,17 +23,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridInteractionStateImpl
-import org.mozilla.fenix.tabstray.browser.compose.interactable.GridItemOffset
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionMode
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionState
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionType
-import org.mozilla.fenix.tabstray.browser.compose.interactable.closestDistanceTo
-import org.mozilla.fenix.tabstray.browser.compose.interactable.closestPointTo
-import org.mozilla.fenix.tabstray.browser.compose.interactable.gatherCandidates
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.controller.NoOpItemInteractionHandler
 
 class InteractableGridTest {
     private val testDispatcher = StandardTestDispatcher()

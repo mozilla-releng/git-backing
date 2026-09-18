@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose
+package mozilla.components.compose.draggable
 
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -12,7 +12,6 @@ import io.mockk.mockk
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.Assert.assertNull
-import org.mozilla.fenix.tabstray.browser.compose.interactable.InteractionState
 
 class InteractionStateTest {
 
