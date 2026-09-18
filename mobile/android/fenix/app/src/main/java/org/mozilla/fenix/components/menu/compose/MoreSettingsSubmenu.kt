@@ -43,6 +43,7 @@ internal fun MoreSettingsSubmenu(
     isAndroidAutomotiveAvailable: Boolean,
     summarizationMenuState: SummarizationMenuState,
     isPrivate: Boolean,
+    isInAGroup: Boolean,
     showTabGroupsInMenu: Boolean,
     onWebCompatReporterClick: () -> Unit,
     onSummarizePageMenuExposed: () -> Unit,
@@ -55,6 +56,7 @@ internal fun MoreSettingsSubmenu(
     onOpenInAppMenuClick: () -> Unit,
     onMoveToNonPrivateTabMenuClick: () -> Unit,
     onAddToTabGroupClick: () -> Unit,
+    onMoveToTabGroupClick: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         TranslationMenuItem(
@@ -84,8 +86,13 @@ internal fun MoreSettingsSubmenu(
             isInstallable = isInstallable,
             onAddToHomeScreenMenuClick = onAddToHomeScreenMenuClick,
         )
-        if (showTabGroupsInMenu) {
-            AddToTabGroupMenuItem(onAddToTabGroupClick = onAddToTabGroupClick)
+        // Only show TabGroup options for normal tabs
+        if (showTabGroupsInMenu && !isPrivate) {
+            if (isInAGroup) {
+                MoveToTabGroupMenuItem(onMoveToTabGroupClick = onMoveToTabGroupClick)
+            } else {
+                AddToTabGroupMenuItem(onAddToTabGroupClick = onAddToTabGroupClick)
+            }
         }
         SaveToCollectionMenuItem(
             showSaveToCollection = showSaveToCollection,
@@ -127,6 +134,25 @@ private fun AddToTabGroupMenuItem(onAddToTabGroupClick: () -> Unit) {
         state = MenuItemState.ENABLED,
         isBeforeIconHighlighted = true,
         onClick = onAddToTabGroupClick,
+        afterContent = {
+            StatusBadge(
+                containerColor = MaterialTheme.colorScheme.information,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                status = stringResource(R.string.browser_menu_page_badge_text),
+            )
+        },
+    )
+}
+
+@Composable
+private fun MoveToTabGroupMenuItem(onMoveToTabGroupClick: () -> Unit) {
+    MenuItem(
+        label = stringResource(id = R.string.browser_menu_move_to_tab_group),
+        stateDescription = stringResource(id = R.string.browser_menu_page_badge_text),
+        beforeIconPainter = painterResource(id = iconsR.drawable.mozac_ic_tab_group_24),
+        state = MenuItemState.ENABLED,
+        isBeforeIconHighlighted = true,
+        onClick = onMoveToTabGroupClick,
         afterContent = {
             StatusBadge(
                 containerColor = MaterialTheme.colorScheme.information,
@@ -317,6 +343,7 @@ private fun MoreSettingsSubmenuPreview(@PreviewParameter(PreviewThemeProvider::c
                         ),
                     isPrivate = true,
                     showTabGroupsInMenu = true,
+                    isInAGroup = false,
                     onWebCompatReporterClick = {},
                     onSummarizePageMenuExposed = {},
                     onSummarizePageClick = {},
@@ -328,6 +355,7 @@ private fun MoreSettingsSubmenuPreview(@PreviewParameter(PreviewThemeProvider::c
                     onOpenInAppMenuClick = {},
                     onMoveToNonPrivateTabMenuClick = {},
                     onAddToTabGroupClick = {},
+                    onMoveToTabGroupClick = {},
                 )
             }
         }
@@ -367,6 +395,7 @@ private fun MoreSettingsSubmenuDisabledOpenPreview(@PreviewParameter(PreviewThem
                     summarizationMenuState = SummarizationMenuState.Default,
                     isPrivate = false,
                     showTabGroupsInMenu = false,
+                    isInAGroup = false,
                     onWebCompatReporterClick = {},
                     onSummarizePageMenuExposed = {},
                     onSummarizePageClick = {},
@@ -378,6 +407,7 @@ private fun MoreSettingsSubmenuDisabledOpenPreview(@PreviewParameter(PreviewThem
                     onOpenInAppMenuClick = {},
                     onMoveToNonPrivateTabMenuClick = {},
                     onAddToTabGroupClick = {},
+                    onMoveToTabGroupClick = {},
                 )
             }
         }

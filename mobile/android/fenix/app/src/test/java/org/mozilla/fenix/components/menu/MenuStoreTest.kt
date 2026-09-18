@@ -171,6 +171,41 @@ class MenuStoreTest {
     }
 
     @Test
+    fun `WHEN update tab group state action is dispatched THEN the in a group state is updated`() {
+        val initialState =
+            MenuState(
+                browserMenuState =
+                    BrowserMenuState(
+                        selectedTab =
+                            TabSessionState(
+                                id = "tabId",
+                                content = ContentState(url = "www.mozilla.org"),
+                            )
+                    )
+            )
+        val store = MenuStore(initialState = initialState)
+
+        assertFalse(store.state.browserMenuState!!.isInAGroup)
+
+        store.dispatch(MenuAction.UpdateTabGroupState(isInAGroup = true))
+
+        assertTrue(store.state.browserMenuState!!.isInAGroup)
+
+        store.dispatch(MenuAction.UpdateTabGroupState(isInAGroup = false))
+
+        assertFalse(store.state.browserMenuState!!.isInAGroup)
+    }
+
+    @Test
+    fun `GIVEN no browser menu state WHEN update tab group state action is dispatched THEN the state is unchanged`() {
+        val store = MenuStore(initialState = MenuState())
+
+        store.dispatch(MenuAction.UpdateTabGroupState(isInAGroup = true))
+
+        assertNull(store.state.browserMenuState)
+    }
+
+    @Test
     fun `WHEN update bookmark state action is dispatched THEN bookmark state is updated`() = runTest {
         val initialState =
             MenuState(
