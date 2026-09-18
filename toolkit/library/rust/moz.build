@@ -22,6 +22,7 @@ for feature in gkrust_features:
 RUST_TESTS = [
     "crashreporter",
     "crash_helper_common",
+    "exif_gps",
     "firefox-on-glean",
     "l10nregistry",
     "noise",
