@@ -112,6 +112,10 @@ private fun reducer(state: MenuState, action: MenuAction): MenuState {
             }
 
         is MenuAction.UpdateIPProtectionMenuState -> state.copy(ipProtectionMenuState = action.state)
+        is MenuAction.UpdateTabGroupState ->
+            state.copyWithBrowserMenuState {
+                it.copy(isInAGroup = action.isInAGroup)
+            }
     }
 }
 

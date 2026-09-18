@@ -112,6 +112,9 @@ sealed interface FenixMenuItem {
 
     /** A menu item allowing to refresh or stop loading the current page. */
     data object Refresh : FenixMenuItem
+
+    /** A menu item allowing users to add the current tab to a tab group, or move it to another one. */
+    data object TabGroup : FenixMenuItem
 }
 
 /**
