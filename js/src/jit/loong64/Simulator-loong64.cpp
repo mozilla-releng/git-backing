@@ -4314,20 +4314,36 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_fsqrt_s: {
-      if (fj_float(instr) >= 0) {
-        setFpuRegisterFloat(fd_reg(instr), std::sqrt(fj_float(instr)));
-      } else {
-        setFpuRegisterFloat(fd_reg(instr), std::sqrt(-1));  // qnan
+      float fj = fj_float(instr);
+      if (FPUIsSNaN(fj)) {
+        setFpuRegisterFloat(fd_reg(instr), FPUQuietizeNaN(fj));
         setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      } else if (std::isnan(fj)) {
+        setFpuRegisterFloat(fd_reg(instr), fj);
+      } else if (fj < 0) {
+        setFpuRegisterFloat(fd_reg(instr), FPUDefaultQNaN<float>());
+        setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      } else {
+        setFpuRegisterFloat(fd_reg(instr), std::sqrt(fj));
       }
       break;
     }
     case op_fsqrt_d: {
-      if (fj_double(instr) >= 0) {
-        setFpuRegisterDouble(fd_reg(instr), std::sqrt(fj_double(instr)));
-      } else {
-        setFpuRegisterDouble(fd_reg(instr), std::sqrt(-1));  // qnan
+      double fj = fj_double(instr);
+      if (FPUIsSNaN(fj)) {
+        setFpuRegisterDouble(fd_reg(instr), FPUQuietizeNaN(fj));
         setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      } else if (std::isnan(fj)) {
+        setFpuRegisterDouble(fd_reg(instr), fj);
+      } else if (fj < 0) {
+        setFpuRegisterDouble(fd_reg(instr), FPUDefaultQNaN<double>());
+        setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      } else {
+        setFpuRegisterDouble(fd_reg(instr), std::sqrt(fj));
       }
       break;
     }
