@@ -187,13 +187,17 @@ class MenuNavigationMiddleware(
                 }
 
                 is MenuAction.Navigate.OpenTabGroupFlow -> {
-                    navController.nav(
-                        id = R.id.menuDialogFragment,
-                        directions =
-                            MenuDialogFragmentDirections.actionMenuDialogFragmentToTabGroupFlowFragment(
-                                entryPoint = action.entryPoint
-                            ),
-                    )
+                    // Custom tabs can't be grouped.
+                    if (!currentState.browserMenuState?.selectedTab.isCustomTab()) {
+                        navController.nav(
+                            id = R.id.menuDialogFragment,
+                            directions =
+                                MenuDialogFragmentDirections.actionMenuDialogFragmentToTabGroupFlowFragment(
+                                    entryPoint = action.entryPoint
+                                ),
+                            navOptions = NavOptions.Builder().setPopUpTo(R.id.browserFragment, false).build(),
+                        )
+                    }
                 }
 
                 is MenuAction.Navigate.SaveToCollection -> {
