@@ -1487,7 +1487,16 @@ class AssemblerLOONG64 : public AssemblerShared {
   static bool SupportsFloat64To16() { return false; }
   static bool SupportsFloat32To16() { return false; }
 
-  static bool HasRoundInstruction(RoundingMode mode) { return false; }
+  static bool HasRoundInstruction(RoundingMode mode) {
+    switch (mode) {
+      case RoundingMode::Up:
+      case RoundingMode::Down:
+      case RoundingMode::NearestTiesToEven:
+      case RoundingMode::TowardsZero:
+        return true;
+    }
+    MOZ_CRASH("unexpected mode");
+  }
 
   // Split an offset into the PCADDU18I si20 field and the JIRL offs16 byte
   // offset suitable for jump36. Returns (si20, offs16).

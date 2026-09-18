@@ -454,6 +454,9 @@ class MacroAssemblerLOONG64 : public Assembler {
                                   AnyRegister value, Register memoryBase,
                                   Register ptr, Register ptrScratch,
                                   Register tmp);
+
+  template <typename T>
+  void RoundHelper(RoundingMode mode, FloatRegister src, FloatRegister dest);
 };
 
 class MacroAssembler;
