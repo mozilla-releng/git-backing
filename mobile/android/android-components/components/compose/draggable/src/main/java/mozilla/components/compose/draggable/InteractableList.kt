@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,13 +39,12 @@ import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
-import org.mozilla.fenix.tabstray.ui.tabitems.defaultListItemAnimation
 
 /**
  * Remember the reordering state for reordering list items.
+ *
+ * List items MUST supply stable keys, since interactions track items by key. By default, Compose uses indices, which
+ * will break after any move.
  *
  * @param listState State of the list.
  * @param ignoredItems Set of keys for non-draggable items.
@@ -79,6 +79,13 @@ fun createListInteractionState(
                 liveReorderEnabled = liveReorderEnabled,
             )
         }
+    SideEffect {
+        state.ignoredItems = ignoredItems
+        state.itemInteractionHandler = itemInteractionHandler
+        state.dragAndDropEnabled = dragAndDropEnabled
+        state.liveReorderEnabled = liveReorderEnabled
+        state.onLongPress = onLongPress
+    }
     return state
 }
 
@@ -105,9 +112,6 @@ interface ListInteractionState {
 
     /** Cached offset used to animate the item from a cancelled drag back into place */
     val previousItemAnimatableOffset: Animatable<Float, AnimationVector1D>
-
-    /** An item's size */
-    val itemSize: Int?
 
     /**
      * Called when a slop threshold has been exceeded to start a drag event.
@@ -155,17 +159,16 @@ interface ListInteractionState {
  * @param liveReorderEnabled Whether reordering should happen 'live' while a drag is active.
  * @param onLongPress Optional callback to be invoked when long pressing an item.
  */
-class ListInteractionStateImpl
-internal constructor(
+internal class ListInteractionStateImpl(
     private val listState: LazyListState,
     private val scope: CoroutineScope,
     private val hapticFeedback: HapticFeedback,
     private val touchSlop: Float,
-    private val ignoredItems: Set<Any>,
-    private val itemInteractionHandler: ItemInteractionHandler,
-    private val dragAndDropEnabled: Boolean,
-    private val liveReorderEnabled: Boolean,
-    private val onLongPress: (LazyListItemInfo) -> Unit = {},
+    var ignoredItems: Set<Any>,
+    var itemInteractionHandler: ItemInteractionHandler,
+    var dragAndDropEnabled: Boolean,
+    var liveReorderEnabled: Boolean,
+    var onLongPress: (LazyListItemInfo) -> Unit = {},
 ) : ListInteractionState {
     override var draggedItem by mutableStateOf<InteractionState.List>(InteractionState.List.None)
         private set
@@ -192,9 +195,6 @@ internal constructor(
     override val orientation: Orientation
         get() = listState.layoutInfo.orientation
 
-    override val itemSize: Int?
-        get() = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key !in ignoredItems }?.size
-
     override fun computeItemOffset(index: Int): Float {
         val itemAtIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull { info -> info.index == index }
         if (itemAtIndex != null) {
@@ -204,21 +204,22 @@ internal constructor(
     }
 
     override fun onTouchSlopPassed(offset: Float, shouldLongPress: Boolean) {
-        listState.findItem(offset)?.also { item ->
-            val key = item.key as? String
-            if (shouldLongPress) {
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                onLongPress(item)
-            }
-            key?.let {
+        listState
+            .findItem(offset)
+            ?.takeIf { it.key !in ignoredItems }
+            ?.also { item ->
+                if (shouldLongPress) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongPress(item)
+                }
                 draggedItem =
                     InteractionState.List.Active(
                         index = item.index,
-                        key = it,
+                        key = item.key,
                         initialOffset = item.offset.toFloat(),
+                        size = item.size,
                     )
             }
-        }
     }
 
     override fun reset() {
@@ -233,9 +234,7 @@ internal constructor(
 
     private fun doReorder(mode: InteractionMode.List.Reordering) {
         if (draggedItem.index == listState.firstVisibleItemIndex) {
-            itemSize?.let { height ->
-                autoScroll(height.toFloat())
-            }
+            autoScroll(mode.source.size.toFloat())
         }
         itemInteractionHandler.onMove(
             sourceKey = mode.source.key,
@@ -312,7 +311,7 @@ internal constructor(
      * Restricts all scroll actions to run in a single job. If a scroll job is currently executing when a new one is
      * asked for, it is cancelled.
      */
-    fun autoScroll(amount: Float) {
+    private fun autoScroll(amount: Float) {
         scrollJob?.cancel()
         scrollJob = scope.launch {
             listState.scrollBy(amount)
@@ -371,7 +370,7 @@ internal constructor(
             ListItemOffset(
                 draggedItem = draggingItem,
                 draggingItemOffset = computeItemOffset(draggingItem.index),
-                itemSize = itemSize ?: 0,
+                itemSize = draggingItem.size,
             )
         val mode =
             determineInteractionMode(
@@ -427,7 +426,7 @@ private fun determineInteractionMode(
             }
             .minByOrNull { it.score }
 
-    val key = topCandidate?.anchorItem?.key as? String
+    val key = topCandidate?.anchorItem?.key
     return when {
         topCandidate == null || key == null -> {
             InteractionMode.List.None
@@ -441,6 +440,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toFloat(),
+                        size = topCandidate.anchorItem.size,
                     ),
             )
         }
@@ -453,6 +453,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toFloat(),
+                        size = topCandidate.anchorItem.size,
                     ),
                 placeAfter = false,
                 rect = topCandidate.type.rect,
@@ -467,6 +468,7 @@ private fun determineInteractionMode(
                         key = key,
                         index = topCandidate.anchorItem.index,
                         initialOffset = topCandidate.anchorItem.offset.toFloat(),
+                        size = topCandidate.anchorItem.size,
                     ),
                 placeAfter = true,
                 rect = topCandidate.type.rect,
@@ -660,7 +662,7 @@ fun LazyItemScope.InteractableDragItemContainer(
     state: ListInteractionState,
     key: Any,
     position: Int,
-    enteringItemKey: String? = null,
+    enteringItemKey: Any? = null,
     content: @Composable (itemInteractionState: ItemInteractionState) -> Unit,
 ) {
     val modifier =
@@ -722,7 +724,7 @@ private fun LazyListState.findItem(offset: Float) =
  *
  * @param listState State of the list.
  * @param interactionState List interaction state used for dragging callbacks.
- * @param shouldLongPressToDrag Whether or not an item should be long pressed to start the dragging gesture.
+ * @param shouldLongPressToDrag Whether an item should be long pressed to start the dragging gesture.
  */
 fun Modifier.detectListPressAndDrag(
     listState: LazyListState,

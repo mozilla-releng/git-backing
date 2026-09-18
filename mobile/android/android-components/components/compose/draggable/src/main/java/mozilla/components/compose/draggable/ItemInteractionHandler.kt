@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.controller
+package mozilla.components.compose.draggable
 
 /** Interface invoked to handle item interaction behavior */
 interface ItemInteractionHandler {
@@ -13,7 +13,7 @@ interface ItemInteractionHandler {
      * @param targetKey Key of target item that the source will be placed next to.
      * @param placeAfter Whether the item should be placed before or after its target
      */
-    fun onMove(sourceKey: String, targetKey: String?, placeAfter: Boolean)
+    fun onMove(sourceKey: Any, targetKey: Any?, placeAfter: Boolean)
 
     /**
      * Drops a source item on a destination item
@@ -21,7 +21,7 @@ interface ItemInteractionHandler {
      * @param sourceKey Key of source item
      * @param targetKey Key of target item
      */
-    fun onDrop(sourceKey: String, targetKey: String)
+    fun onDrop(sourceKey: Any, targetKey: Any)
 
     /** Called when an item drag ends without taking an action. */
     fun onDragCancel()
@@ -32,16 +32,16 @@ interface ItemInteractionHandler {
      * @param sourceKey Key of the item being dragged.
      * @param preserveSelectMode Whether select mode should be preserved on a drag.
      */
-    fun onDragStart(sourceKey: String, preserveSelectMode: Boolean)
+    fun onDragStart(sourceKey: Any, preserveSelectMode: Boolean)
 }
 
 /** No op [ItemInteractionHandler]. Intended for previews */
 object NoOpItemInteractionHandler : ItemInteractionHandler {
-    override fun onMove(sourceKey: String, targetKey: String?, placeAfter: Boolean) {
+    override fun onMove(sourceKey: Any, targetKey: Any?, placeAfter: Boolean) {
         // no op
     }
 
-    override fun onDrop(sourceKey: String, targetKey: String) {
+    override fun onDrop(sourceKey: Any, targetKey: Any) {
         // no op
     }
 
@@ -49,7 +49,7 @@ object NoOpItemInteractionHandler : ItemInteractionHandler {
         // no op
     }
 
-    override fun onDragStart(sourceKey: String, preserveSelectMode: Boolean) {
+    override fun onDragStart(sourceKey: Any, preserveSelectMode: Boolean) {
         // no op
     }
 }
