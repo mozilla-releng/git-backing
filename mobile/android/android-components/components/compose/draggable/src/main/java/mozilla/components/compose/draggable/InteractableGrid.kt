@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fenix.tabstray.browser.compose.interactable
+package mozilla.components.compose.draggable
 
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.Animatable
@@ -46,10 +46,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mozilla.components.compose.base.modifier.thenConditional
-import org.mozilla.fenix.tabstray.browser.compose.ItemInteractionState
-import org.mozilla.fenix.tabstray.controller.ItemInteractionHandler
-import org.mozilla.fenix.tabstray.ui.tabitems.Elevation
-import org.mozilla.fenix.tabstray.ui.tabitems.defaultGridItemAnimation
 
 /**
  * Remember the interactable state for grid items.
@@ -839,7 +835,7 @@ private fun LazyGridState.findItem(offset: Offset) =
  * Detects press, long press and drag gestures.
  *
  * @param reorderState Grid reordering state used for dragging callbacks.
- * @param isInMultiSelectMode Whether or not multi-select mode is active for the grid being reordered
+ * @param isInMultiSelectMode Whether multi-select mode is active for the grid being reordered
  */
 fun Modifier.detectGridPressAndDragGestures(
     reorderState: GridInteractionState,
@@ -893,4 +889,24 @@ data class GridItemOffset(
     val center by lazy {
         start + (end - start) / 2f
     }
+}
+
+/**
+ * Detects drag gestures and tracks the grid's layout coordinates, which [GridInteractionState] needs to map
+ * pointer positions to grid items.
+ *
+ * @param state Grid interaction state that receives the gesture callbacks and layout coordinates.
+ * @param isInMultiSelectMode Whether multi-select mode is active, in which case drags start without a long press.
+ */
+fun Modifier.interactableGrid(
+    state: GridInteractionState,
+    isInMultiSelectMode: Boolean = false,
+): Modifier {
+    return this.onGloballyPositioned {
+            state.updateGridLayoutCoordinates(it)
+        }
+        .detectGridPressAndDragGestures(
+            reorderState = state,
+            isInMultiSelectMode = isInMultiSelectMode,
+        )
 }
