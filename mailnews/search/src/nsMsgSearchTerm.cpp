@@ -846,8 +846,13 @@ nsresult nsMsgSearchTerm::MatchBody(nsIMsgSearchScopeTerm* scope,
       // If this line ends with a soft line break, loop around and get the
       // next line before looking for the search string. A malformed message
       // may end on a soft line break; we then match the leftover text at EOF
-      // below.
-      if (softLineBreak) continue;
+      // below. Text accumulated over soft line breaks is capped, so that a
+      // part which is one endless run of them can't exhaust memory; matching
+      // then happens in chunks, just as it does line by line for text that
+      // isn't quoted-printable.
+      if (softLineBreak &&
+          compare.Length() < mozilla::StaticPrefs::mail_search_max_body_bytes())
+        continue;
     }
     if (!compare.IsEmpty()) {
       char startChar = (char)compare.CharAt(0);
@@ -946,6 +951,7 @@ nsresult nsMsgSearchTerm::MatchRfc2047String(const nsACString& rfc2047string,
 nsresult nsMsgSearchTerm::MatchString(const nsACString& stringToMatch,
                                       const char* charset, bool* pResult) {
   NS_ENSURE_ARG_POINTER(pResult);
+  *pResult = false;
 
   bool result = false;
 
@@ -962,14 +968,27 @@ nsresult nsMsgSearchTerm::MatchString(const nsACString& stringToMatch,
     if (charset) {
       rv = nsMsgI18NConvertToUnicode(nsDependentCString(charset), stringToMatch,
                                      utf16StrToMatch);
+      if (rv == NS_ERROR_OUT_OF_MEMORY) {
+        // No point trying another conversion, that wouldn't fit either.
+        return rv;
+      }
     }
     if (NS_FAILED(rv)) {
       // No charset or conversion failed, maybe due to a bad charset, try UTF-8.
+      // The conversions are fallible because the string being matched can be a
+      // whole message body: failing the term is bad, but not as bad as
+      // aborting the process because a UTF-16 copy of it doesn't fit.
+      bool converted;
       if (mozilla::IsUtf8(stringToMatch)) {
-        CopyUTF8toUTF16(stringToMatch, utf16StrToMatch);
+        converted =
+            CopyUTF8toUTF16(stringToMatch, utf16StrToMatch, mozilla::fallible);
       } else {
         // Bad luck, let's assume ASCII/windows-1252 then.
-        CopyASCIItoUTF16(stringToMatch, utf16StrToMatch);
+        converted =
+            CopyASCIItoUTF16(stringToMatch, utf16StrToMatch, mozilla::fallible);
+      }
+      if (!converted) {
+        return NS_ERROR_OUT_OF_MEMORY;
       }
     }
 

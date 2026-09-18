@@ -12,6 +12,7 @@
 #include "nsICMSMessage.h"
 #include "nsICMSDecoder.h"
 #include "nsMsgI18N.h"
+#include "mozilla/StaticPrefs_mail.h"
 #include "mozilla/Utf8.h"
 #include "mime_closure.h"
 
@@ -289,6 +290,14 @@ int32_t nsMsgBodyHandler::ApplyTransformations(const nsCString& line,
   // Accumulate base64 parts, HTML parts and encrypted parts for later decoding
   // or tag stripping.
   if (m_base64part || m_partIsHtml || m_partIsPGP || m_partIsSMIME) {
+    if (buf.Length() >= mozilla::StaticPrefs::mail_search_max_body_bytes()) {
+      // Such a part can only be decoded, stripped or decrypted as a whole, so
+      // it has to be held in memory in one piece. Stop accumulating rather
+      // than let a single message use up all the memory we have; the rest of
+      // the part goes unsearched.
+      eatThisLine = true;
+      return buf.Length();
+    }
     if (m_partIsHtml && !m_base64part) {
       size_t bufLength = buf.Length();
       if (!m_partIsQP || bufLength == 0 || !StringEndsWith(buf, "="_ns)) {
