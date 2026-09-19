@@ -31,7 +31,6 @@ namespace jit {
 //  $r2          $tp             TLS
 //  $r3          $sp             Stack pointer
 //  $r4-$r11     $a0-$a7         Argument registers
-//  $r4-$r5      $v0-$v1         Return values
 //  $r12-$r20    $t0-$t8         Temporary registers
 //  $r21         $x              Reserved
 //  $r22         $fp             Frame pointer

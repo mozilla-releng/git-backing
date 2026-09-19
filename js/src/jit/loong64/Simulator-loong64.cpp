@@ -1432,9 +1432,9 @@ bool Simulator::init() {
 // the simulator.  The external reference will be a function compiled for the
 // host architecture.  We need to call that function instead of trying to
 // execute it with the simulator.  We do that by redirecting the external
-// reference to a swi (software-interrupt) instruction that is handled by
-// the simulator.  We write the original destination of the jump just at a known
-// offset from the swi instruction so the simulator knows what to call.
+// reference to a break instruction that is handled by the simulator.  We write
+// the original destination of the jump just at a known offset from the break
+// instruction so the simulator knows what to call.
 class Redirection {
   friend class SimulatorProcess;
 
@@ -4942,12 +4942,10 @@ void Simulator::callInternal(uint8_t* entry) {
   setRegister(pc, reinterpret_cast<int64_t>(entry));
   // Put down marker for end of simulation. The simulator will stop simulation
   // when the PC reaches this value. By saving the "end simulation" value into
-  // the LR the simulation stops when returning to this call point.
+  // the ra register the simulation stops when returning to this call point.
   setRegister(ra, end_sim_pc);
 
   // Remember the values of callee-saved registers.
-  // The code below assumes that r9 is not used as sb (static base) in
-  // simulator code and therefore is regarded as a callee-saved register.
   int64_t s0_val = getRegister(s0);
   int64_t s1_val = getRegister(s1);
   int64_t s2_val = getRegister(s2);
@@ -4957,9 +4955,9 @@ void Simulator::callInternal(uint8_t* entry) {
   int64_t s6_val = getRegister(s6);
   int64_t s7_val = getRegister(s7);
   int64_t s8_val = getRegister(s8);
-  int64_t gp_val = getRegister(gp);
-  int64_t sp_val = getRegister(sp);
   int64_t tp_val = getRegister(tp);
+  int64_t sp_val = getRegister(sp);
+  int64_t rx_val = getRegister(rx);
   int64_t fp_val = getRegister(fp);
 
   // Set up the callee-saved registers with a known value. To be able to check
@@ -4974,8 +4972,8 @@ void Simulator::callInternal(uint8_t* entry) {
   setRegister(s6, callee_saved_value);
   setRegister(s7, callee_saved_value);
   setRegister(s8, callee_saved_value);
-  setRegister(gp, callee_saved_value);
   setRegister(tp, callee_saved_value);
+  setRegister(rx, callee_saved_value);
   setRegister(fp, callee_saved_value);
 
   // Start the simulation.
@@ -4995,8 +4993,8 @@ void Simulator::callInternal(uint8_t* entry) {
   MOZ_ASSERT(callee_saved_value == getRegister(s6));
   MOZ_ASSERT(callee_saved_value == getRegister(s7));
   MOZ_ASSERT(callee_saved_value == getRegister(s8));
-  MOZ_ASSERT(callee_saved_value == getRegister(gp));
   MOZ_ASSERT(callee_saved_value == getRegister(tp));
+  MOZ_ASSERT(callee_saved_value == getRegister(rx));
   MOZ_ASSERT(callee_saved_value == getRegister(fp));
 
   // Restore callee-saved registers with the original value.
@@ -5009,9 +5007,9 @@ void Simulator::callInternal(uint8_t* entry) {
   setRegister(s6, s6_val);
   setRegister(s7, s7_val);
   setRegister(s8, s8_val);
-  setRegister(gp, gp_val);
-  setRegister(sp, sp_val);
   setRegister(tp, tp_val);
+  setRegister(sp, sp_val);
+  setRegister(rx, rx_val);
   setRegister(fp, fp_val);
 }
 
