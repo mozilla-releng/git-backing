@@ -3342,6 +3342,10 @@ void Simulator::decodeTypeOp12(SimInstruction* instr) {
       MOZ_ASSERT(instr->bits(4, 3) == 0);
       double fj = fj_double(instr);
       double fk = fk_double(instr);
+      if (FPUIsSNaN(fj) || FPUIsSNaN(fk)) {
+        setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      }
       switch (cond(instr)) {
         case AssemblerLOONG64::CAF: {
           setCFRegister(cd_reg(instr), false);
