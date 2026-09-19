@@ -129,6 +129,16 @@ const uint32_t kFCSRFlagMask =
     kFCSRInexactFlagMask | kFCSRUnderflowFlagMask | kFCSROverflowFlagMask |
     kFCSRDivideByZeroFlagMask | kFCSRInvalidOpFlagMask;
 
+const uint32_t kFCSRInexactCauseMask = 1 << kFCSRInexactCauseBit;
+const uint32_t kFCSRUnderflowCauseMask = 1 << kFCSRUnderflowCauseBit;
+const uint32_t kFCSROverflowCauseMask = 1 << kFCSROverflowCauseBit;
+const uint32_t kFCSRDivideByZeroCauseMask = 1 << kFCSRDivideByZeroCauseBit;
+const uint32_t kFCSRInvalidOpCauseMask = 1 << kFCSRInvalidOpCauseBit;
+
+const uint32_t kFCSRCauseMask =
+    kFCSRInexactCauseMask | kFCSRUnderflowCauseMask | kFCSROverflowCauseMask |
+    kFCSRDivideByZeroCauseMask | kFCSRInvalidOpCauseMask;
+
 const uint32_t kFCSRExceptionFlagMask = kFCSRFlagMask ^ kFCSRInexactFlagMask;
 
 // On LoongArch64 Simulator breakpoints can have different codes:
@@ -303,6 +313,7 @@ class Simulator {
 
   void setFCSRBit(uint32_t cc, bool value);
   bool testFCSRBit(uint32_t cc);
+  void clearFCSRCauseBits();
   unsigned int getFCSRRoundingMode();
   template <typename T>
   bool setFCSRRoundError(double original, double rounded);
