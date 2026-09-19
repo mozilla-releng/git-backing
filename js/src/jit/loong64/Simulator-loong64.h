@@ -321,6 +321,14 @@ class Simulator {
 
   template <typename T, typename Func>
   T FPUProcessNaNBinop(T fj, T fk, Func fn);
+  template <typename T>
+  T FPUMin(T fj, T fk);
+  template <typename T>
+  T FPUMax(T fj, T fk);
+  template <typename T>
+  T FPUMinA(T fj, T fk);
+  template <typename T>
+  T FPUMaxA(T fj, T fk);
 
   // Special case of set_register and get_register to access the raw PC value.
   void set_pc(int64_t value);
