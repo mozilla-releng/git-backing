@@ -321,6 +321,9 @@ class Simulator {
 
   template <typename T, typename Func>
   T FPUProcessNaNBinop(T fj, T fk, Func fn);
+
+  template <typename T>
+  T FPUFmaHelper(T fj, T fk, T fa, bool negateMultiplicand, bool negateAddend);
   template <typename T>
   T FPUMin(T fj, T fk);
   template <typename T>
