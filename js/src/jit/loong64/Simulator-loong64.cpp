@@ -2602,6 +2602,35 @@ inline constexpr T FPUDefaultQNaN() {
     return mozilla::BitwiseCast<double>(UINT64_C(0x7ff8000000000000));
   }
 }
+
+static constexpr bool FPUIsSNaN(float v) {
+  constexpr uint32_t kFP32QuietNaNMask = UINT32_C(0x00400000);
+  return std::isnan(v) &&
+         (mozilla::BitwiseCast<uint32_t>(v) & kFP32QuietNaNMask) == 0;
+}
+
+static constexpr bool FPUIsSNaN(double v) {
+  constexpr uint64_t kFP64QuietNaNMask = UINT64_C(0x0008000000000000);
+  return std::isnan(v) &&
+         (mozilla::BitwiseCast<uint64_t>(v) & kFP64QuietNaNMask) == 0;
+}
+
+// Make a quiet NaN from any NaN by setting the quiet bit.
+static constexpr float FPUQuietizeNaN(float v) {
+  MOZ_ASSERT(std::isnan(v));
+  constexpr uint32_t kFP32QuietNaNMask = UINT32_C(0x00400000);
+  return mozilla::BitwiseCast<float>(mozilla::BitwiseCast<uint32_t>(v) |
+                                     kFP32QuietNaNMask);
+}
+
+// Make a quiet NaN from any NaN by setting the quiet bit.
+static constexpr double FPUQuietizeNaN(double v) {
+  MOZ_ASSERT(std::isnan(v));
+  constexpr uint64_t kFP64QuietNaNMask = UINT64_C(0x0008000000000000);
+  return mozilla::BitwiseCast<double>(mozilla::BitwiseCast<uint64_t>(v) |
+                                      kFP64QuietNaNMask);
+}
+
 // Min/Max template functions for Double and Single arguments.
 
 template <typename T>
@@ -2636,6 +2665,83 @@ static bool FPUProcessNaNsAndZeros(T a, T b, MaxMinKind kind, T* result) {
     return false;
   }
   return true;
+}
+
+// Propagate NaNs per ISA manual, 2-operand variant.
+//
+// > Case 1: When the instruction generates an Invalid Operation floating-point
+// > exception due to a source operand containing SNaN, but the InvalidOperation
+// > floating-point exception enable is invalid, a QNaN result will be generated
+// > at this time. [...]
+// >
+// > The rule for determining the priority of the source operand is: if there
+// > are two source operands fj and fk, then the priority of fj is higher than
+// > fk; [...]
+// >
+// > Case 2: When there is no SNaN in the source operand but QNaN exists, the
+// > QNaN with the highest priority is selected as the result of this
+// > instruction. [...]
+// <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#_non_numerical_result_of_instructions>
+template <typename T>
+std::optional<T> Simulator::FPUPropagateNaN(T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (FPUIsSNaN(fj)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fj);
+  }
+  if (FPUIsSNaN(fk)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fk);
+  }
+  if (std::isnan(fj)) {
+    return fj;
+  }
+  if (std::isnan(fk)) {
+    return fk;
+  }
+  return std::nullopt;
+}
+
+// Propagate NaNs per ISA manual, 3-operand variant.
+//
+// > [...] if there are three source operands fa, fj and fk, then the priority
+// > of fa is higher than fj, fj have higher priority than fk. [...]
+// <https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html#_non_numerical_result_of_instructions>
+template <typename T>
+std::optional<T> Simulator::FPUPropagateNaN(T fa, T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (auto nan = FPUPropagateNaN(fa, fj)) {
+    return nan;
+  }
+  if (std::isnan(fk)) {
+    if (FPUIsSNaN(fk)) {
+      setFCSRBit(kFCSRInvalidOpFlagBit, true);
+      setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      return FPUQuietizeNaN(fk);
+    }
+    return fk;
+  }
+  return std::nullopt;
+}
+
+template <typename T, typename Func>
+T Simulator::FPUProcessNaNBinop(T fj, T fk, Func fn) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (auto nan = FPUPropagateNaN(fj, fk)) {
+    return *nan;
+  }
+  T out = fn(fj, fk);
+  if (std::isnan(out)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    out = FPUDefaultQNaN<T>();
+  }
+  return out;
 }
 
 template <typename T>
@@ -3141,6 +3247,10 @@ void Simulator::decodeTypeOp12(SimInstruction* instr) {
       MOZ_ASSERT(instr->bits(4, 3) == 0);
       float fj = fj_float(instr);
       float fk = fk_float(instr);
+      if (FPUIsSNaN(fj) || FPUIsSNaN(fk)) {
+        setFCSRBit(kFCSRInvalidOpFlagBit, true);
+        setFCSRBit(kFCSRInvalidOpCauseBit, true);
+      }
       switch (cond(instr)) {
         case AssemblerLOONG64::CAF: {
           setCFRegister(cd_reg(instr), false);
@@ -3662,36 +3772,60 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       softwareInterrupt(instr);
       break;
     case op_fadd_s: {
-      setFpuRegisterFloat(fd_reg(instr), fj_float(instr) + fk_float(instr));
+      setFpuRegisterFloat(
+          fd_reg(instr),
+          FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
+                                    [](float a, float b) { return a + b; }));
       break;
     }
     case op_fadd_d: {
-      setFpuRegisterDouble(fd_reg(instr), fj_double(instr) + fk_double(instr));
+      setFpuRegisterDouble(
+          fd_reg(instr),
+          FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
+                                     [](double a, double b) { return a + b; }));
       break;
     }
     case op_fsub_s: {
-      setFpuRegisterFloat(fd_reg(instr), fj_float(instr) - fk_float(instr));
+      setFpuRegisterFloat(
+          fd_reg(instr),
+          FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
+                                    [](float a, float b) { return a - b; }));
       break;
     }
     case op_fsub_d: {
-      setFpuRegisterDouble(fd_reg(instr), fj_double(instr) - fk_double(instr));
+      setFpuRegisterDouble(
+          fd_reg(instr),
+          FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
+                                     [](double a, double b) { return a - b; }));
       break;
     }
     case op_fmul_s: {
-      setFpuRegisterFloat(fd_reg(instr), fj_float(instr) * fk_float(instr));
+      setFpuRegisterFloat(
+          fd_reg(instr),
+          FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
+                                    [](float a, float b) { return a * b; }));
       break;
     }
     case op_fmul_d: {
-      setFpuRegisterDouble(fd_reg(instr), fj_double(instr) * fk_double(instr));
+      setFpuRegisterDouble(
+          fd_reg(instr),
+          FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
+                                     [](double a, double b) { return a * b; }));
       break;
     }
     case op_fdiv_s: {
-      setFpuRegisterFloat(fd_reg(instr), fj_float(instr) / fk_float(instr));
+      setFpuRegisterFloat(
+          fd_reg(instr),
+          FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
+                                    [](float a, float b) { return a / b; }));
       break;
     }
 
     case op_fdiv_d: {
-      setFpuRegisterDouble(fd_reg(instr), fj_double(instr) / fk_double(instr));
+      setFpuRegisterDouble(
+          fd_reg(instr),
+          FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
+                                     [](double a, double b) { return a / b; }));
       break;
     }
     case op_fmax_s: {
