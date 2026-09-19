@@ -2646,27 +2646,6 @@ float FPAbs<float>(float a) {
   return fabsf(a);
 }
 
-enum class MaxMinKind : int { kMin = 0, kMax = 1 };
-
-template <typename T>
-static bool FPUProcessNaNsAndZeros(T a, T b, MaxMinKind kind, T* result) {
-  if (std::isnan(a) && std::isnan(b)) {
-    *result = a;
-  } else if (std::isnan(a)) {
-    *result = b;
-  } else if (std::isnan(b)) {
-    *result = a;
-  } else if (b == a) {
-    // Handle -0.0 == 0.0 case.
-    // std::signbit() returns int 0 or 1 so subtracting MaxMinKind::kMax
-    // negates the result.
-    *result = std::signbit(b) - static_cast<int>(kind) ? b : a;
-  } else {
-    return false;
-  }
-  return true;
-}
-
 // Propagate NaNs per ISA manual, 2-operand variant.
 //
 // > Case 1: When the instruction generates an Invalid Operation floating-point
@@ -2745,53 +2724,83 @@ T Simulator::FPUProcessNaNBinop(T fj, T fk, Func fn) {
 }
 
 template <typename T>
-static T FPUMin(T a, T b) {
-  T result;
-  if (FPUProcessNaNsAndZeros(a, b, MaxMinKind::kMin, &result)) {
-    return result;
-  } else {
-    return b < a ? b : a;
+T Simulator::FPUMin(T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (FPUIsSNaN(fj)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fj);
   }
+  if (FPUIsSNaN(fk)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fk);
+  }
+  return std::fmin(fj, fk);
 }
 
 template <typename T>
-static T FPUMax(T a, T b) {
-  T result;
-  if (FPUProcessNaNsAndZeros(a, b, MaxMinKind::kMax, &result)) {
-    return result;
-  } else {
-    return b > a ? b : a;
+T Simulator::FPUMax(T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (FPUIsSNaN(fj)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fj);
   }
+  if (FPUIsSNaN(fk)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fk);
+  }
+  return std::fmax(fj, fk);
 }
 
 template <typename T>
-static T FPUMinA(T a, T b) {
-  T result;
-  if (!FPUProcessNaNsAndZeros(a, b, MaxMinKind::kMin, &result)) {
-    if (FPAbs(a) < FPAbs(b)) {
-      result = a;
-    } else if (FPAbs(b) < FPAbs(a)) {
-      result = b;
-    } else {
-      result = a < b ? a : b;
-    }
+T Simulator::FPUMinA(T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (FPUIsSNaN(fj)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fj);
   }
-  return result;
+  if (FPUIsSNaN(fk)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fk);
+  }
+  if (FPAbs(fj) < FPAbs(fk)) {
+    return fj;
+  }
+  if (FPAbs(fk) < FPAbs(fj)) {
+    return fk;
+  }
+  return std::fmin(fj, fk);
 }
 
 template <typename T>
-static T FPUMaxA(T a, T b) {
-  T result;
-  if (!FPUProcessNaNsAndZeros(a, b, MaxMinKind::kMin, &result)) {
-    if (FPAbs(a) > FPAbs(b)) {
-      result = a;
-    } else if (FPAbs(b) > FPAbs(a)) {
-      result = b;
-    } else {
-      result = a > b ? a : b;
-    }
+T Simulator::FPUMaxA(T fj, T fk) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  if (FPUIsSNaN(fj)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fj);
   }
-  return result;
+  if (FPUIsSNaN(fk)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    return FPUQuietizeNaN(fk);
+  }
+  if (FPAbs(fj) > FPAbs(fk)) {
+    return fj;
+  }
+  if (FPAbs(fk) > FPAbs(fj)) {
+    return fk;
+  }
+  return std::fmax(fj, fk);
 }
 
 enum class KeepSign : bool { no = false, yes };
@@ -3834,42 +3843,42 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
     }
     case op_fmax_s: {
       setFpuRegisterFloat(fd_reg(instr),
-                          FPUMax(fk_float(instr), fj_float(instr)));
+                          FPUMax(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmax_d: {
       setFpuRegisterDouble(fd_reg(instr),
-                           FPUMax(fk_double(instr), fj_double(instr)));
+                           FPUMax(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmin_s: {
       setFpuRegisterFloat(fd_reg(instr),
-                          FPUMin(fk_float(instr), fj_float(instr)));
+                          FPUMin(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmin_d: {
       setFpuRegisterDouble(fd_reg(instr),
-                           FPUMin(fk_double(instr), fj_double(instr)));
+                           FPUMin(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmaxa_s: {
       setFpuRegisterFloat(fd_reg(instr),
-                          FPUMaxA(fk_float(instr), fj_float(instr)));
+                          FPUMaxA(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmaxa_d: {
       setFpuRegisterDouble(fd_reg(instr),
-                           FPUMaxA(fk_double(instr), fj_double(instr)));
+                           FPUMaxA(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmina_s: {
       setFpuRegisterFloat(fd_reg(instr),
-                          FPUMinA(fk_float(instr), fj_float(instr)));
+                          FPUMinA(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmina_d: {
       setFpuRegisterDouble(fd_reg(instr),
-                           FPUMinA(fk_double(instr), fj_double(instr)));
+                           FPUMinA(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_ldx_b:
