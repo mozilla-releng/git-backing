@@ -2803,6 +2803,26 @@ T Simulator::FPUMaxA(T fj, T fk) {
   return std::fmax(fj, fk);
 }
 
+template <typename T>
+T Simulator::FPUFmaHelper(T fj, T fk, T fa, bool negateMultiplicand,
+                          bool negateAddend) {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+
+  const T multiplicand = negateMultiplicand ? -fj : fj;
+  const T addend = negateAddend ? -fa : fa;
+  if (auto nan = FPUPropagateNaN(addend, multiplicand, fk)) {
+    return *nan;
+  }
+  T out = std::fma(multiplicand, fk, addend);
+  if (std::isnan(out)) {
+    setFCSRBit(kFCSRInvalidOpFlagBit, true);
+    setFCSRBit(kFCSRInvalidOpCauseBit, true);
+    out = FPUDefaultQNaN<T>();
+  }
+  // TODO(loong64): Model Inexact, Overflow and Underflow bit behavior.
+  return out;
+}
+
 enum class KeepSign : bool { no = false, yes };
 
 // Handle execution based on instruction types.
@@ -3205,51 +3225,51 @@ void Simulator::decodeTypeOp11(SimInstruction* instr) {
 void Simulator::decodeTypeOp12(SimInstruction* instr) {
   switch (instr->bits(31, 20) << 20) {
     case op_fmadd_s: {
-      setFpuRegisterFloat(
-          fd_reg(instr),
-          std::fma(fj_float(instr), fk_float(instr), fa_float(instr)));
+      setFpuRegisterFloat(fd_reg(instr),
+                          FPUFmaHelper(fj_float(instr), fk_float(instr),
+                                       fa_float(instr), false, false));
       break;
     }
     case op_fmadd_d: {
-      setFpuRegisterDouble(
-          fd_reg(instr),
-          std::fma(fj_double(instr), fk_double(instr), fa_double(instr)));
+      setFpuRegisterDouble(fd_reg(instr),
+                           FPUFmaHelper(fj_double(instr), fk_double(instr),
+                                        fa_double(instr), false, false));
       break;
     }
     case op_fmsub_s: {
-      setFpuRegisterFloat(
-          fd_reg(instr),
-          std::fma(-fj_float(instr), fk_float(instr), fa_float(instr)));
+      setFpuRegisterFloat(fd_reg(instr),
+                          FPUFmaHelper(fj_float(instr), fk_float(instr),
+                                       fa_float(instr), true, false));
       break;
     }
     case op_fmsub_d: {
-      setFpuRegisterDouble(
-          fd_reg(instr),
-          std::fma(-fj_double(instr), fk_double(instr), fa_double(instr)));
+      setFpuRegisterDouble(fd_reg(instr),
+                           FPUFmaHelper(fj_double(instr), fk_double(instr),
+                                        fa_double(instr), true, false));
       break;
     }
     case op_fnmadd_s: {
-      setFpuRegisterFloat(
-          fd_reg(instr),
-          std::fma(-fj_float(instr), fk_float(instr), -fa_float(instr)));
+      setFpuRegisterFloat(fd_reg(instr),
+                          FPUFmaHelper(fj_float(instr), fk_float(instr),
+                                       fa_float(instr), true, true));
       break;
     }
     case op_fnmadd_d: {
-      setFpuRegisterDouble(
-          fd_reg(instr),
-          std::fma(-fj_double(instr), fk_double(instr), -fa_double(instr)));
+      setFpuRegisterDouble(fd_reg(instr),
+                           FPUFmaHelper(fj_double(instr), fk_double(instr),
+                                        fa_double(instr), true, true));
       break;
     }
     case op_fnmsub_s: {
-      setFpuRegisterFloat(
-          fd_reg(instr),
-          std::fma(fj_float(instr), fk_float(instr), -fa_float(instr)));
+      setFpuRegisterFloat(fd_reg(instr),
+                          FPUFmaHelper(fj_float(instr), fk_float(instr),
+                                       fa_float(instr), false, true));
       break;
     }
     case op_fnmsub_d: {
-      setFpuRegisterDouble(
-          fd_reg(instr),
-          std::fma(fj_double(instr), fk_double(instr), -fa_double(instr)));
+      setFpuRegisterDouble(fd_reg(instr),
+                           FPUFmaHelper(fj_double(instr), fk_double(instr),
+                                        fa_double(instr), false, true));
       break;
     }
     case op_fcmp_cond_s: {
