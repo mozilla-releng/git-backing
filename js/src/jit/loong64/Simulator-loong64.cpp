@@ -1759,6 +1759,8 @@ void Simulator::setFCSRBit(uint32_t cc, bool value) {
 
 bool Simulator::testFCSRBit(uint32_t cc) { return FCSR_ & (1 << cc); }
 
+void Simulator::clearFCSRCauseBits() { FCSR_ &= ~kFCSRCauseMask; }
+
 unsigned int Simulator::getFCSRRoundingMode() {
   return FCSR_ & kFPURoundingModeMask;
 }
@@ -3225,48 +3227,56 @@ void Simulator::decodeTypeOp11(SimInstruction* instr) {
 void Simulator::decodeTypeOp12(SimInstruction* instr) {
   switch (instr->bits(31, 20) << 20) {
     case op_fmadd_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUFmaHelper(fj_float(instr), fk_float(instr),
                                        fa_float(instr), false, false));
       break;
     }
     case op_fmadd_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUFmaHelper(fj_double(instr), fk_double(instr),
                                         fa_double(instr), false, false));
       break;
     }
     case op_fmsub_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUFmaHelper(fj_float(instr), fk_float(instr),
                                        fa_float(instr), true, false));
       break;
     }
     case op_fmsub_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUFmaHelper(fj_double(instr), fk_double(instr),
                                         fa_double(instr), true, false));
       break;
     }
     case op_fnmadd_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUFmaHelper(fj_float(instr), fk_float(instr),
                                        fa_float(instr), true, true));
       break;
     }
     case op_fnmadd_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUFmaHelper(fj_double(instr), fk_double(instr),
                                         fa_double(instr), true, true));
       break;
     }
     case op_fnmsub_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUFmaHelper(fj_float(instr), fk_float(instr),
                                        fa_float(instr), false, true));
       break;
     }
     case op_fnmsub_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUFmaHelper(fj_double(instr), fk_double(instr),
                                         fa_double(instr), false, true));
@@ -3274,6 +3284,7 @@ void Simulator::decodeTypeOp12(SimInstruction* instr) {
     }
     case op_fcmp_cond_s: {
       MOZ_ASSERT(instr->bits(4, 3) == 0);
+      clearFCSRCauseBits();
       float fj = fj_float(instr);
       float fk = fk_float(instr);
       if (FPUIsSNaN(fj) || FPUIsSNaN(fk)) {
@@ -3369,6 +3380,7 @@ void Simulator::decodeTypeOp12(SimInstruction* instr) {
     }
     case op_fcmp_cond_d: {
       MOZ_ASSERT(instr->bits(4, 3) == 0);
+      clearFCSRCauseBits();
       double fj = fj_double(instr);
       double fk = fk_double(instr);
       if (FPUIsSNaN(fj) || FPUIsSNaN(fk)) {
@@ -3805,6 +3817,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       softwareInterrupt(instr);
       break;
     case op_fadd_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(
           fd_reg(instr),
           FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
@@ -3812,6 +3825,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fadd_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(
           fd_reg(instr),
           FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
@@ -3819,6 +3833,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fsub_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(
           fd_reg(instr),
           FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
@@ -3826,6 +3841,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fsub_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(
           fd_reg(instr),
           FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
@@ -3833,6 +3849,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fmul_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(
           fd_reg(instr),
           FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
@@ -3840,6 +3857,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fmul_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(
           fd_reg(instr),
           FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
@@ -3847,6 +3865,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fdiv_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(
           fd_reg(instr),
           FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
@@ -3855,6 +3874,7 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
     }
 
     case op_fdiv_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(
           fd_reg(instr),
           FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
@@ -3862,41 +3882,49 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
       break;
     }
     case op_fmax_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUMax(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmax_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUMax(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmin_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUMin(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmin_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUMin(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmaxa_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUMaxA(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmaxa_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUMaxA(fj_double(instr), fk_double(instr)));
       break;
     }
     case op_fmina_s: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr),
                           FPUMinA(fj_float(instr), fk_float(instr)));
       break;
     }
     case op_fmina_d: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr),
                            FPUMinA(fj_double(instr), fk_double(instr)));
       break;
@@ -4314,6 +4342,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_fsqrt_s: {
+      clearFCSRCauseBits();
       float fj = fj_float(instr);
       if (FPUIsSNaN(fj)) {
         setFpuRegisterFloat(fd_reg(instr), FPUQuietizeNaN(fj));
@@ -4331,6 +4360,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_fsqrt_d: {
+      clearFCSRCauseBits();
       double fj = fj_double(instr);
       if (FPUIsSNaN(fj)) {
         setFpuRegisterDouble(fd_reg(instr), FPUQuietizeNaN(fj));
@@ -4391,10 +4421,12 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_fcvt_s_d: {
+      clearFCSRCauseBits();
       setFpuRegisterFloat(fd_reg(instr), static_cast<float>(fj_double(instr)));
       break;
     }
     case op_fcvt_d_s: {
+      clearFCSRCauseBits();
       setFpuRegisterDouble(fd_reg(instr), static_cast<double>(fj_float(instr)));
       break;
     }
@@ -4643,6 +4675,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_frint_s: {
+      clearFCSRCauseBits();
       float fj = fj_float(instr);
       if (std::isnan(fj)) {
         // A NaN source propagates per manual.
@@ -4693,6 +4726,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       break;
     }
     case op_frint_d: {
+      clearFCSRCauseBits();
       double fj = fj_double(instr);
       if (std::isnan(fj)) {
         // A NaN source propagates per manual.
