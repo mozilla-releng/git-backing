@@ -4628,6 +4628,17 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
     }
     case op_frint_s: {
       float fj = fj_float(instr);
+      if (std::isnan(fj)) {
+        // A NaN source propagates per manual.
+        setFpuRegisterFloat(fd_reg(instr),
+                            FPUIsSNaN(fj) ? FPUQuietizeNaN(fj) : fj);
+        if (FPUIsSNaN(fj)) {
+          // And an SNaN source raises Invalid Operation as well.
+          setFCSRBit(kFCSRInvalidOpFlagBit, true);
+          setFCSRBit(kFCSRInvalidOpCauseBit, true);
+        }
+        break;
+      }
       float result, temp_result;
       double temp;
       float upper = std::ceil(fj);
@@ -4661,11 +4672,23 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       setFpuRegisterFloat(fd_reg(instr), result);
       if (result != fj) {
         setFCSRBit(kFCSRInexactFlagBit, true);
+        setFCSRBit(kFCSRInexactCauseBit, true);
       }
       break;
     }
     case op_frint_d: {
       double fj = fj_double(instr);
+      if (std::isnan(fj)) {
+        // A NaN source propagates per manual.
+        setFpuRegisterDouble(fd_reg(instr),
+                             FPUIsSNaN(fj) ? FPUQuietizeNaN(fj) : fj);
+        if (FPUIsSNaN(fj)) {
+          // And an SNaN source raises Invalid Operation as well.
+          setFCSRBit(kFCSRInvalidOpFlagBit, true);
+          setFCSRBit(kFCSRInvalidOpCauseBit, true);
+        }
+        break;
+      }
       double result, temp, temp_result;
       double upper = std::ceil(fj);
       double lower = std::floor(fj);
@@ -4698,6 +4721,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
       setFpuRegisterDouble(fd_reg(instr), result);
       if (result != fj) {
         setFCSRBit(kFCSRInexactFlagBit, true);
+        setFCSRBit(kFCSRInexactCauseBit, true);
       }
       break;
     }
