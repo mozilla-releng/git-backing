@@ -2745,6 +2745,7 @@ T Simulator::FPUProcessNaNBinop(T fj, T fk, Func fn) {
     setFCSRBitsByException(FCSRException::InvalidOp);
     out = FPUDefaultQNaN<T>();
   }
+  // TODO(loong64): Model Inexact, Overflow and Underflow bits.
   return out;
 }
 
@@ -3878,18 +3879,28 @@ void Simulator::decodeTypeOp17(SimInstruction* instr) {
     }
     case op_fdiv_s: {
       clearFCSRCauseBits();
+      float fj = fj_float(instr);
+      float fk = fk_float(instr);
+      if (std::isfinite(fj) && fj != 0 && fk == 0) {
+        setFCSRBitsByException(FCSRException::DivideByZero);
+      }
       setFpuRegisterFloat(
           fd_reg(instr),
-          FPUProcessNaNBinop<float>(fj_float(instr), fk_float(instr),
+          FPUProcessNaNBinop<float>(fj, fk,
                                     [](float a, float b) { return a / b; }));
       break;
     }
 
     case op_fdiv_d: {
       clearFCSRCauseBits();
+      double fj = fj_double(instr);
+      double fk = fk_double(instr);
+      if (std::isfinite(fj) && fj != 0 && fk == 0) {
+        setFCSRBitsByException(FCSRException::DivideByZero);
+      }
       setFpuRegisterDouble(
           fd_reg(instr),
-          FPUProcessNaNBinop<double>(fj_double(instr), fk_double(instr),
+          FPUProcessNaNBinop<double>(fj, fk,
                                      [](double a, double b) { return a / b; }));
       break;
     }
@@ -4366,6 +4377,7 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
         setFCSRBitsByException(FCSRException::InvalidOp);
       } else {
         setFpuRegisterFloat(fd_reg(instr), std::sqrt(fj));
+        // TODO(loong64): Model Inexact bit behavior.
       }
       break;
     }
@@ -4430,7 +4442,13 @@ void Simulator::decodeTypeOp22(SimInstruction* instr) {
     }
     case op_fcvt_s_d: {
       clearFCSRCauseBits();
-      setFpuRegisterFloat(fd_reg(instr), static_cast<float>(fj_double(instr)));
+      double fj = fj_double(instr);
+      float result = static_cast<float>(fj);
+      if (result != fj) {
+        setFCSRBitsByException(FCSRException::Inexact);
+      }
+      // TODO(loong64): Model Overflow and Underflow bit behavior.
+      setFpuRegisterFloat(fd_reg(instr), result);
       break;
     }
     case op_fcvt_d_s: {
