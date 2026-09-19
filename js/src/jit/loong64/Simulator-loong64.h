@@ -313,6 +313,16 @@ class Simulator {
 
   void setFCSRBit(uint32_t cc, bool value);
   bool testFCSRBit(uint32_t cc);
+
+  enum class FCSRException {
+    Inexact,
+    Underflow,
+    Overflow,
+    DivideByZero,
+    InvalidOp
+  };
+  void setFCSRBitsByException(FCSRException ex);
+
   void clearFCSRCauseBits();
   unsigned int getFCSRRoundingMode();
   template <typename T>
