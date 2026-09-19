@@ -34,6 +34,8 @@
 
 #include "mozilla/Atomics.h"
 
+#include <optional>
+
 #include "jit/IonTypes.h"
 #include "js/ProfilingFrameIterator.h"
 #include "threading/Thread.h"
@@ -311,6 +313,14 @@ class Simulator {
 
   template <typename T>
   void round64AccordingToFCSR(T toRound, T* rounded, int64_t* rounded_int);
+
+  template <typename T>
+  std::optional<T> FPUPropagateNaN(T fj, T fk);
+  template <typename T>
+  std::optional<T> FPUPropagateNaN(T fa, T fj, T fk);
+
+  template <typename T, typename Func>
+  T FPUProcessNaNBinop(T fj, T fk, Func fn);
 
   // Special case of set_register and get_register to access the raw PC value.
   void set_pc(int64_t value);
