@@ -7017,10 +7017,12 @@ void JitRuntime::generateIonGenericCallNativeFunction(MacroAssembler& masm,
   // trampoline, this code does not use a tail call.
   masm.push(FrameDescriptor(FrameType::IonJS));
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushRegs(LinkRegister, FramePointer);
+  masm.pushReturnAddress();
 #else
-  masm.pushRegs(returnAddrReg, FramePointer);
+  masm.push(returnAddrReg);
 #endif
+
+  masm.push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
   masm.enterFakeExitFrameForNative(contextReg, scratch, isConstructing);
 
