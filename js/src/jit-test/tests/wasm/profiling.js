@@ -117,7 +117,7 @@ for (let type of ['f32', 'f64']) {
         // These architectures have both SINGLESTEP_PROFILING defined on simulator,
         // and Assembler::HasRoundInstruction() returning true. Skip them since they
         // don't make calls into C++.
-        if (getBuildConfiguration("arm64") || getBuildConfiguration("loong64")) {
+        if (getBuildConfiguration("arm64") || getBuildConfiguration("loong64") || getBuildConfiguration("riscv64")) {
             continue;
         }
         test(`(module
