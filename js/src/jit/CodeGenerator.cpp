@@ -14372,11 +14372,9 @@ JitCode* JitZone::generateStringConcatStub(JSContext* cx) {
 
   Label failure;
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushRegs(LinkRegister, FramePointer);
-  masm.adjustFrame(sizeof(intptr_t));
-#else
-  masm.Push(FramePointer);
+  masm.pushReturnAddress();
 #endif
+  masm.Push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
 
   // If lhs is empty, return rhs.
