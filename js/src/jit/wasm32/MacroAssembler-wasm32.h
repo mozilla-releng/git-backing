@@ -187,7 +187,7 @@ class MacroAssemblerWasm32 : public Assembler {
   }
 
   template <typename... Ts>
-  void pushRegs(const Ts&...) {
+  inline void pushRegs(const Ts&...) {
     MOZ_CRASH();
   }
 

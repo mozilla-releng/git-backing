@@ -210,7 +210,7 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   }
 
   template <typename... Regs>
-  void pushRegs(const Regs&... regs) {
+  inline void pushRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
     static_assert(sizeof...(Regs) > 0 && sizeof...(Regs) <= 4);
 

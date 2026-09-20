@@ -2341,7 +2341,7 @@ class AssemblerX86Shared : public AssemblerShared {
   void pop(const Address& src) { masm.pop_m(src.offset, src.base.encoding()); }
 
   template <typename... Regs>
-  void pushRegs(const Regs&... regs) {
+  inline void pushRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
     static_assert(sizeof...(Regs) > 0);
 
