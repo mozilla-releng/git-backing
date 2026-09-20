@@ -6671,7 +6671,7 @@ static void CollapseWasmFrameSlow(MacroAssembler& masm,
   masm.mov(&data.trampoline, ScratchRegister);
   // thus, modify ra in only one instruction.
   masm.mov(ScratchRegister, tempForRA);
-#  elif defined(JS_CODEGEN_LOONG64)
+#  elif defined(JS_CODEGEN_LOONG64) || defined(JS_CODEGEN_RISCV64)
   // intermediate values in ra can break the unwinder.
   masm.mov(&data.trampoline, SavedScratchRegister);
   // thus, modify ra in only one instruction.
