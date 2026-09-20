@@ -14521,11 +14521,9 @@ void JitRuntime::generateInterpreterStub(MacroAssembler& masm) {
   interpreterStubOffset_ = startTrampolineCode(masm);
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushRegs(LinkRegister, FramePointer);
-  masm.adjustFrame(sizeof(intptr_t));
-#else
-  masm.Push(FramePointer);
+  masm.pushReturnAddress();
 #endif
+  masm.Push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
 
   AllocatableGeneralRegisterSet regs(GeneralRegisterSet::Volatile());
