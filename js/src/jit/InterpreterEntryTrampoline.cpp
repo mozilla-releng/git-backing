@@ -31,10 +31,9 @@ void JitRuntime::generateBaselineInterpreterEntryTrampoline(
                     "JitRuntime::generateBaselineInterpreterEntryTrampoline");
 
 #ifdef JS_USE_LINK_REGISTER
-  masm.pushRegs(LinkRegister, FramePointer);
-#else
-  masm.push(FramePointer);
+  masm.pushReturnAddress();
 #endif
+  masm.push(FramePointer);
   masm.moveStackPtrTo(FramePointer);
 
   AllocatableGeneralRegisterSet regs(GeneralRegisterSet::All());
