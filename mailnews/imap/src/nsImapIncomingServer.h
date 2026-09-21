@@ -142,6 +142,7 @@ class nsImapIncomingServer : public nsMsgIncomingServer,
 
   // Utility function to obtain the imap (short) path for a folder.
   static nsresult PathFromFolder(nsIMsgFolder* folder, nsACString& shortPath);
+  nsresult UpdateTrashFolderFlag();
 };
 
 #endif  // COMM_MAILNEWS_IMAP_SRC_NSIMAPINCOMINGSERVER_H_

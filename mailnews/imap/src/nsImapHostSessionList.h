@@ -36,6 +36,7 @@ class nsIMAPHostInfo {
   bool fNamespacesOverridable;
   bool fUsingSubscription;
   bool fOnlineTrashFolderExists;
+  nsCString fDiscoveredTrashFolderPath;
   bool fShouldAlwaysListInbox;
   bool fHaveAdminURL;
   bool fPasswordVerifiedOnline;
@@ -115,6 +116,10 @@ class nsImapHostSessionList : public nsIImapHostSessionList,
                                                bool exists) override;
   NS_IMETHOD GetOnlineTrashFolderExistsForHost(const char* serverKey,
                                                bool& result) override;
+  NS_IMETHOD SetDiscoveredTrashFolderPathForHost(
+      const char* serverKey, const nsACString& path) override;
+  NS_IMETHOD GetDiscoveredTrashFolderPathForHost(const char* serverKey,
+                                                 nsACString& result) override;
 
   // INBOX
   NS_IMETHOD GetOnlineInboxPathForHost(const char* serverKey,

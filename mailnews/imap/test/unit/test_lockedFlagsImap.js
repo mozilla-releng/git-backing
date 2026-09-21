@@ -56,8 +56,16 @@ add_task(async function () {
   testLockedFlag(draftsFolder, "Drafts");
   testUnlockedFlag(draftsFolder);
 
+  // The trash folder flag is not locked, unlike the other special use flags.
+  // Whether the folder the server calls its trash folder is in use as such is
+  // up to the account, which has a delete model that may not use a trash
+  // folder at all, and a trash folder the user can pick. See bug 2048831.
   const trashFolder = rootFolder.getChildNamed("Trash");
-  testLockedFlag(trashFolder, "Trash");
+  const trashFlag = Ci.nsMsgFolderFlags.Trash;
+  Assert.ok(trashFolder.flags & trashFlag, "folder had flag to begin with");
+  trashFolder.clearFlag(trashFlag);
+  Assert.ok(!(trashFolder.flags & trashFlag), "flag is removed by clearFlag");
+  trashFolder.setFlag(trashFlag);
   testUnlockedFlag(trashFolder);
 
   const spamFolder = rootFolder.getChildNamed("Spam");

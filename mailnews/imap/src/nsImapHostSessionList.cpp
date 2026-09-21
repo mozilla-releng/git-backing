@@ -325,6 +325,24 @@ NS_IMETHODIMP nsImapHostSessionList::GetOnlineTrashFolderExistsForHost(
   return (host == NULL) ? NS_ERROR_ILLEGAL_VALUE : NS_OK;
 }
 
+NS_IMETHODIMP nsImapHostSessionList::SetDiscoveredTrashFolderPathForHost(
+    const char* serverKey, const nsACString& path) {
+  PR_EnterMonitor(gCachedHostInfoMonitor);
+  nsIMAPHostInfo* host = FindHost(serverKey);
+  if (host) host->fDiscoveredTrashFolderPath = path;
+  PR_ExitMonitor(gCachedHostInfoMonitor);
+  return host ? NS_OK : NS_ERROR_ILLEGAL_VALUE;
+}
+
+NS_IMETHODIMP nsImapHostSessionList::GetDiscoveredTrashFolderPathForHost(
+    const char* serverKey, nsACString& result) {
+  PR_EnterMonitor(gCachedHostInfoMonitor);
+  nsIMAPHostInfo* host = FindHost(serverKey);
+  if (host) result = host->fDiscoveredTrashFolderPath;
+  PR_ExitMonitor(gCachedHostInfoMonitor);
+  return host ? NS_OK : NS_ERROR_ILLEGAL_VALUE;
+}
+
 NS_IMETHODIMP nsImapHostSessionList::AddNewNamespaceForHost(
     const char* serverKey, nsImapNamespace* ns) {
   PR_EnterMonitor(gCachedHostInfoMonitor);

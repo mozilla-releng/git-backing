@@ -177,6 +177,8 @@ tags = ["compact"]
 
 ["test_syncChanges.js"]
 
+["test_trashSpecialUse.js"]
+
 ["test_trustSpamAssassin.js"]
 
 ["test_virtualFolderSuffixedParent.js"]

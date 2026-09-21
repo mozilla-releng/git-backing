@@ -394,6 +394,9 @@ class nsImapProtocol : public nsIImapProtocol,
   char* m_dataOutputBuf;
   RefPtr<nsMsgLineStreamBuffer> m_inputStreamBuffer;
   nsCString m_trashFolderPath;
+  // whether m_trashFolderPath is a folder the user picked as trash, in which
+  // case the folder the server reports as \Trash special-use is not used
+  bool m_trashFolderPicked{false};
 
   /** The socket connection to the IMAP server. */
   nsCOMPtr<nsISocketTransport> m_transport;
@@ -698,6 +701,11 @@ class nsImapProtocol : public nsIImapProtocol,
   nsTHashMap<nsCStringHashKey, int32_t> m_standardListMailboxes;
   // mapping between special xlist mailboxes and the corresponding folder flags
   nsTHashMap<nsCStringHashKey, int32_t> m_specialXListMailboxes;
+  // canonical path of the mailbox the server reports as \Trash special-use,
+  // set while listing mailboxes and so known even if it is not subscribed
+  nsCString m_specialUseTrashPath;
+  // whether that mailbox has been discovered, as opposed to merely listed
+  bool m_specialUseTrashDiscovered{false};
 
   nsCOMPtr<nsIImapHostSessionList> m_hostSessionList;
 

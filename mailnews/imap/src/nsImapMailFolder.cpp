@@ -1202,15 +1202,18 @@ NS_IMETHODIMP nsImapMailFolder::SetBoxFlags(int32_t aBoxFlags) {
   else
     newFlags &= ~nsMsgFolderFlags::ImapPersonal;
 
-  // The following are all flags returned by XLIST.
+  // The following are all flags returned by XLIST, so flags the server told us
+  // about. They are locked below, unlike a special use flag this folder may
+  // have for any other reason, e.g. matching the default trash folder name.
   // nsImapIncomingServer::DiscoveryDone checks for these folders.
-  if (m_boxFlags & kImapDrafts) newFlags |= nsMsgFolderFlags::Drafts;
+  uint32_t serverFlags = 0;
+  if (m_boxFlags & kImapDrafts) serverFlags |= nsMsgFolderFlags::Drafts;
 
-  if (m_boxFlags & kImapSpam) newFlags |= nsMsgFolderFlags::Junk;
+  if (m_boxFlags & kImapSpam) serverFlags |= nsMsgFolderFlags::Junk;
 
-  if (m_boxFlags & kImapSent) newFlags |= nsMsgFolderFlags::SentMail;
+  if (m_boxFlags & kImapSent) serverFlags |= nsMsgFolderFlags::SentMail;
 
-  if (m_boxFlags & kImapInbox) newFlags |= nsMsgFolderFlags::Inbox;
+  if (m_boxFlags & kImapInbox) serverFlags |= nsMsgFolderFlags::Inbox;
 
   if (m_boxFlags & kImapXListTrash) {
     nsCOMPtr<nsIImapIncomingServer> imapServer;
@@ -1218,27 +1221,41 @@ NS_IMETHODIMP nsImapMailFolder::SetBoxFlags(int32_t aBoxFlags) {
     (void)GetImapIncomingServer(getter_AddRefs(imapServer));
     if (imapServer) imapServer->GetDeleteModel(&deleteModel);
     if (deleteModel == nsMsgImapDeleteModels::MoveToTrash) {
-      // Find out if there is no folder flagged as trash currently.
+      // Find out if another folder is flagged as trash currently.
       nsCOMPtr<nsIMsgFolder> rootFolder;
       GetRootFolder(getter_AddRefs(rootFolder));
       if (rootFolder) {
         nsCOMPtr<nsIMsgFolder> trashFolder;
         rootFolder->GetFolderWithFlags(nsMsgFolderFlags::Trash,
                                        getter_AddRefs(trashFolder));
-        if (!trashFolder) {
-          // No folder flagged as "Trash" so flag this folder (having
+        if (!trashFolder ||
+            trashFolder.get() == static_cast<nsIMsgFolder*>(this)) {
+          // No other folder flagged as "Trash" so flag this folder (having
           // boxflag kImapXListTrash) as THE trash folder.
-          newFlags |= nsMsgFolderFlags::Trash;
+          serverFlags |= nsMsgFolderFlags::Trash;
         }
       }
     }
   }
   // Treat the GMail all mail folder as the archive folder.
   if (m_boxFlags & kImapAllMail)
-    newFlags |= nsMsgFolderFlags::Archive | nsMsgFolderFlags::AllMail;
-  if (m_boxFlags & kImapArchive) newFlags |= nsMsgFolderFlags::Archive;
+    serverFlags |= nsMsgFolderFlags::Archive | nsMsgFolderFlags::AllMail;
+  if (m_boxFlags & kImapArchive) serverFlags |= nsMsgFolderFlags::Archive;
 
-  mLockedFlags = newFlags & nsMsgFolderFlags::SpecialUse;
+  newFlags |= serverFlags;
+  // The INBOX is defined by the protocol rather than by our own guesswork, so
+  // lock its flag as well, however it was set.
+  if (newFlags & nsMsgFolderFlags::Inbox) {
+    serverFlags |= nsMsgFolderFlags::Inbox;
+  }
+  // The trash folder flag is not locked, unlike the other special use flags.
+  // Whether the folder the server calls its trash folder is in use as such is
+  // up to the account: the delete model may not use a trash folder at all, and
+  // the user may pick another folder. What the server said isn't forgotten
+  // when the flag goes, since kImapXListTrash above is how
+  // nsImapIncomingServer::UpdateTrashFolderFlag finds the folder again.
+  mLockedFlags =
+      serverFlags & nsMsgFolderFlags::SpecialUse & ~nsMsgFolderFlags::Trash;
   SetFlags(newFlags);
   return NS_OK;
 }

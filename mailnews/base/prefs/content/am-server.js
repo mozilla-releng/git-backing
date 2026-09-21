@@ -791,41 +791,47 @@ function setupImapDeleteUI(aServerId) {
     .getAttribute("value");
   selectImapDeleteModel(deleteModel);
 
-  // Get trash_folder_name from prefs. Despite its name this returns a folder
-  // path, e.g., "INBOX/Deleted" and "[Gmail]/Trash". If pref not set just
-  // return empty string and leave pref not set. This avoids showing a default
-  // name (e.g., "Trash") in trash folder picker when trash folder is something
-  // else or has yet to be determined.
-  const trashFolderName = document
-    .getElementById("imap.trashFolderName")
-    .getAttribute("value");
-
   // set folderPicker menulist
   const trashPopup = setupFolderPicker("msgTrashFolderPopup", aServerId);
-
-  // Escape backslash and double-quote with another backslash before encoding.
-  const trashEscaped = trashFolderName.replace(/([\\"])/g, "\\$1");
-
-  // Convert the folder path from JS Unicode to MUTF-7 if necessary.
   const imapServer = trashPopup._parentFolder.server.QueryInterface(
     Ci.nsIImapIncomingServer
   );
 
+  // Get trash_folder_name from prefs. Despite its name this holds a folder
+  // path, e.g., "INBOX/Deleted" and "[Gmail]/Trash". The pref is only set when
+  // the user picks a folder, so with no pref show the folder that folder
+  // discovery settled on instead of the default name.
+  const trashFolderName = Services.prefs.getStringPref(
+    `mail.server.${imapServer.key}.trash_folder_name`,
+    ""
+  );
+
   let trashFolder;
-  if (imapServer.utf8AcceptEnabled) {
-    // Trash folder with UTF8=ACCEPT capability in effect.
-    trashFolder = MailUtils.getOrCreateFolder(aServerId + "/" + trashEscaped);
+  if (!trashFolderName) {
+    trashFolder = imapServer.rootFolder.getFolderWithFlags(
+      Ci.nsMsgFolderFlags.Trash
+    );
   } else {
-    // Traditional MUTF-7.
-    const manager = Cc["@mozilla.org/charset-converter-manager;1"].getService(
-      Ci.nsICharsetConverterManager
-    );
-    trashFolder = MailUtils.getOrCreateFolder(
-      aServerId + "/" + manager.unicodeToMutf7(trashEscaped)
-    );
+    // Escape backslash and double-quote with another backslash before
+    // encoding, then convert from JS Unicode to MUTF-7 if necessary.
+    const trashEscaped = trashFolderName.replace(/([\\"])/g, "\\$1");
+    if (imapServer.utf8AcceptEnabled) {
+      // Trash folder with UTF8=ACCEPT capability in effect.
+      trashFolder = MailUtils.getOrCreateFolder(aServerId + "/" + trashEscaped);
+    } else {
+      // Traditional MUTF-7.
+      const manager = Cc["@mozilla.org/charset-converter-manager;1"].getService(
+        Ci.nsICharsetConverterManager
+      );
+      trashFolder = MailUtils.getOrCreateFolder(
+        aServerId + "/" + manager.unicodeToMutf7(trashEscaped)
+      );
+    }
   }
-  trashPopup.selectFolder(trashFolder);
-  trashPopup.parentNode.folder = trashFolder;
+  if (trashFolder) {
+    trashPopup.selectFolder(trashFolder);
+    trashPopup.parentNode.folder = trashFolder;
+  }
 }
 
 function selectImapDeleteModel(choice) {

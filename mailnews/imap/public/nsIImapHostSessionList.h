@@ -78,6 +78,14 @@ class nsIImapHostSessionList : public nsISupports {
   NS_IMETHOD GetOnlineTrashFolderExistsForHost(const char* serverKey,
                                                bool& result) = 0;
 
+  // Path of the trash folder found by folder discovery, empty if the user
+  // picked one themselves or if none was found. Discovery runs on the main
+  // thread and stores the path here for the imap thread to use.
+  NS_IMETHOD SetDiscoveredTrashFolderPathForHost(const char* serverKey,
+                                                 const nsACString& path) = 0;
+  NS_IMETHOD GetDiscoveredTrashFolderPathForHost(const char* serverKey,
+                                                 nsACString& result) = 0;
+
   // INBOX
   NS_IMETHOD GetOnlineInboxPathForHost(const char* serverKey,
                                        nsString& result) = 0;

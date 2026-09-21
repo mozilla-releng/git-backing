@@ -143,6 +143,21 @@ nsresult MSGCramMD5(const char* text, int32_t text_len, const char* key,
   return rv;
 }
 
+/**
+ * Folder paths from the server are encoded as MUTF-7 unless the server accepts
+ * UTF-8. Convert if needed.
+ */
+void FolderPathToUtf8(bool isUtf8Server, const nsACString& path,
+                      nsACString& utf8Path) {
+  if (isUtf8Server) {
+    utf8Path = path;
+    return;
+  }
+  nsAutoString pathUtf16;
+  CopyMUTF7toUTF16(path, pathUtf16);
+  CopyUTF16toUTF8(pathUtf16, utf8Path);
+}
+
 }  // namespace
 
 // Despite its name, this contains a folder path, for example INBOX/Trash.
@@ -437,39 +452,8 @@ nsImapIncomingServer::SetDeleteModel(int32_t ivalue) {
     hostSession->SetShowDeletedMessagesForHost(
         m_serverKey.get(), ivalue == nsMsgImapDeleteModels::IMAPDelete);
 
-    // Despite its name, this returns the trash folder path, for example
-    // INBOX/Trash.
-    nsAutoCString trashFolderName;
-    nsresult rv = GetTrashFolderName(trashFolderName);
-    if (NS_SUCCEEDED(rv)) {
-      nsAutoCString trashFolderNameUtf7or8;
-      bool useUTF8 = false;
-      GetUtf8AcceptEnabled(&useUTF8);
-      if (useUTF8) {
-        trashFolderNameUtf7or8 = trashFolderName;
-      } else {
-        CopyUTF16toMUTF7(NS_ConvertUTF8toUTF16(trashFolderName),
-                         trashFolderNameUtf7or8);
-      }
-      nsCOMPtr<nsIMsgFolder> trashFolder;
-      // 'trashFolderName' being a path here works well since this is appended
-      // to the server's root folder in GetFolder().
-      rv = GetFolder(trashFolderNameUtf7or8, getter_AddRefs(trashFolder));
-      NS_ENSURE_SUCCESS(rv, rv);
-      nsCString trashURI;
-      trashFolder->GetURI(trashURI);
-      nsCOMPtr<nsIMsgFolder> trashMsgFolder;
-      rv = GetMsgFolderFromURI(trashFolder, trashURI,
-                               getter_AddRefs(trashMsgFolder));
-      if (NS_SUCCEEDED(rv) && trashMsgFolder) {
-        // If the trash folder is used, set the flag, otherwise clear it.
-        if (ivalue == nsMsgImapDeleteModels::MoveToTrash) {
-          trashMsgFolder->SetFlag(nsMsgFolderFlags::Trash);
-        } else {
-          trashMsgFolder->ClearFlag(nsMsgFolderFlags::Trash);
-        }
-      }
-    }
+    // Which folder is the trash folder, if any, depends on the delete model.
+    UpdateTrashFolderFlag();
   }
   return rv;
 }
@@ -1401,6 +1385,115 @@ nsresult nsImapIncomingServer::PathFromFolder(nsIMsgFolder* folder,
   return FolderPathInServer(folder, shortPath);
 }
 
+/**
+ * Ensure that at most one folder is flagged as the trash folder, and that it is
+ * the right one: the folder the user picked, or failing that the one the server
+ * reports as \trash special-use, or failing that one matching the default
+ * trash folder path. Another folder may be flagged, e.g. one matching the
+ * default path, and with a delete model that doesn't use a trash folder no
+ * folder is flagged at all.
+ */
+nsresult nsImapIncomingServer::UpdateTrashFolderFlag() {
+  nsCOMPtr<nsIMsgFolder> rootMsgFolder;
+  nsresult rv = GetRootFolder(getter_AddRefs(rootMsgFolder));
+  NS_ENSURE_SUCCESS(rv, rv);
+  NS_ENSURE_TRUE(rootMsgFolder, NS_ERROR_UNEXPECTED);
+
+  nsTArray<RefPtr<nsIMsgFolder>> trashFolders;
+  rv =
+      rootMsgFolder->GetFoldersWithFlags(nsMsgFolderFlags::Trash, trashFolders);
+  NS_ENSURE_SUCCESS(rv, rv);
+  NS_WARNING_ASSERTION(trashFolders.Length() <= 2,
+                       "why more than 2 folders flagged as trash?");
+
+  // Only check the "raw" value of the trash folder path pref, since we don't
+  // want the default path returned by GetTrashFolderName() when the pref is
+  // really empty. The pref is only set when the user picks a trash folder.
+  nsAutoCString prefPath;
+  GetStringValue(PREF_TRASH_FOLDER_PATH, prefPath);
+  bool isUtf8Server = false;
+  GetUtf8AcceptEnabled(&isUtf8Server);
+  int32_t deleteModel = nsMsgImapDeleteModels::MoveToTrash;
+  GetDeleteModel(&deleteModel);
+
+  // The folder that is to keep, or to get, the trash folder flag.
+  nsCOMPtr<nsIMsgFolder> theTrashFolder;
+
+  if (deleteModel != nsMsgImapDeleteModels::MoveToTrash) {
+    // Deleting doesn't move messages to a trash folder, so this account has
+    // no trash folder at all. See bug 39121.
+  } else if (!prefPath.IsEmpty()) {
+    // The user picked a folder, so only that folder is the trash folder,
+    // whatever the server says about its own folders.
+    for (auto trashFolder : trashFolders) {
+      nsAutoCString folderPath, folderPathUtf8;
+      if (NS_SUCCEEDED(PathFromFolder(trashFolder, folderPath))) {
+        FolderPathToUtf8(isUtf8Server, folderPath, folderPathUtf8);
+        if (prefPath.Equals(folderPathUtf8)) {
+          theTrashFolder = trashFolder;
+        }
+      }
+    }
+  } else {
+    // No folder picked, so the folder the server reports as \trash
+    // special-use is the trash folder, whatever it is named. All folders are
+    // checked, not just those flagged as trash, since the flag may have gone
+    // to another folder, e.g. one matching the default path.
+    nsTArray<RefPtr<nsIMsgFolder>> allFolders;
+    rv = rootMsgFolder->GetDescendants(allFolders);
+    NS_ENSURE_SUCCESS(rv, rv);
+    for (const auto& folder : allFolders) {
+      nsCOMPtr<nsIMsgImapMailFolder> imapFolder(do_QueryInterface(folder));
+      int32_t boxFlags = 0;
+      if (imapFolder) {
+        imapFolder->GetBoxFlags(&boxFlags);
+      }
+      if (boxFlags & kImapXListTrash) {
+        theTrashFolder = folder;
+        break;
+      }
+    }
+    if (!theTrashFolder) {
+      // The server didn't tell us, so fall back on a folder matching the
+      // default path, ignoring case.
+      for (auto trashFolder : trashFolders) {
+        nsAutoCString folderPath, folderPathUtf8;
+        if (NS_SUCCEEDED(PathFromFolder(trashFolder, folderPath))) {
+          FolderPathToUtf8(isUtf8Server, folderPath, folderPathUtf8);
+          if (folderPathUtf8.Equals(DEFAULT_TRASH_FOLDER_PATH,
+                                    nsCaseInsensitiveUTF8StringComparator)) {
+            theTrashFolder = trashFolder;
+          }
+        }
+      }
+    }
+    if (theTrashFolder) {
+      theTrashFolder->SetFlag(nsMsgFolderFlags::Trash);
+    }
+  }
+
+  for (auto trashFolder : trashFolders) {
+    if (trashFolder.get() != theTrashFolder.get()) {
+      trashFolder->ClearFlag(nsMsgFolderFlags::Trash);
+    }
+  }
+
+  // The imap thread can't look at folders, so leave the path where
+  // nsImapProtocol can find it. Not needed for a folder the user picked,
+  // since that path is in the pref it reads anyway.
+  nsAutoCString discoveredPath;
+  if (theTrashFolder && prefPath.IsEmpty()) {
+    PathFromFolder(theTrashFolder, discoveredPath);
+  }
+  nsCOMPtr<nsIImapHostSessionList> hostSession =
+      do_GetService("@mozilla.org/messenger/imaphostsessionlist;1");
+  if (hostSession) {
+    hostSession->SetDiscoveredTrashFolderPathForHost(m_serverKey.get(),
+                                                     discoveredPath);
+  }
+  return NS_OK;
+}
+
 NS_IMETHODIMP nsImapIncomingServer::DiscoveryDone() {
   if (mDoingSubscribeDialog) return NS_OK;
 
@@ -1530,113 +1623,8 @@ NS_IMETHODIMP nsImapIncomingServer::DiscoveryDone() {
   }
 
   if (rootMsgFolder) {
-    // Ensure there is at most one folder flagged as trash. Another might be
-    // flagged if the trash name has been changed. Also try to make sure that
-    // the trash folder pref is set to the path of the folder flagged as trash.
-    // First obtain array of folders flagged as trash.
-    nsTArray<RefPtr<nsIMsgFolder>> trashFolders;
-    rv = rootMsgFolder->GetFoldersWithFlags(nsMsgFolderFlags::Trash,
-                                            trashFolders);
-    NS_WARNING_ASSERTION(trashFolders.Length() <= 2,
-                         "why more than 2 folders flagged as trash?");
-    if (NS_SUCCEEDED(rv) && trashFolders.Length()) {
-      // See if there is a pref set for trash folder. Only check the "raw" value
-      // since here we don't want to see the default "Trash" string returned by
-      // GetTrashFolderName() when the pref is really empty.
-      nsAutoCString prefPath;
-      rv = GetStringValue(PREF_TRASH_FOLDER_PATH, prefPath);
-      if (!prefPath.IsEmpty()) {
-        // Go through the trashFolders and un-flag as `trash` ones that don't
-        // match prefPath.
-        for (auto trashFolder : trashFolders) {
-          nsAutoCString trashFolderPathUtf7or8;
-          if (NS_SUCCEEDED(
-                  PathFromFolder(trashFolder, trashFolderPathUtf7or8))) {
-            // The value for trashFolderPathUtf7or8 comes from the server, which
-            // for non UTF-8 servers will be encoded as MUTF-7. The preference
-            // is stored in UTF-8, so we need to convert if this is not a UTF-8
-            // server to compare the preference value to the server value.
-            bool isUtf8;
-            GetUtf8AcceptEnabled(&isUtf8);
-            nsAutoCString trashFolderPathUtf8;
-            if (isUtf8) {
-              trashFolderPathUtf8 = trashFolderPathUtf7or8;
-            } else {
-              nsAutoString trashFolderPathUtf16;
-              CopyMUTF7toUTF16(trashFolderPathUtf7or8, trashFolderPathUtf16);
-              CopyUTF16toUTF8(trashFolderPathUtf16, trashFolderPathUtf8);
-            }
-            if (!prefPath.Equals(trashFolderPathUtf8)) {
-              // We clear the trash folder flag if the trash folder path doesn't
-              // match mail.server.serverX.trash_folder_name.
-              trashFolder->ClearFlag(nsMsgFolderFlags::Trash);
-            }
-          }
-        }
-      } else {
-        // Trash pref is not set. Go through the trashFolders and set the trash
-        // pref for the folder with possible boxFlag kImapXListTrash (discovered
-        // as \trash special-use) and keep the Trash flag. If kImapXListTrash
-        // boxFlag is not set, remove the trash flag unless the folder name is
-        // the default name "Trash".
-
-        // First, look for folder with special-use \trash flag.
-        nsCOMPtr<nsIMsgFolder> specialUseFolder;
-        for (auto trashFolder : trashFolders) {
-          nsCOMPtr<nsIMsgImapMailFolder> imapFolder(
-              do_QueryInterface(trashFolder));
-          int32_t boxFlags;
-          imapFolder->GetBoxFlags(&boxFlags);
-          if (boxFlags & kImapXListTrash) {
-            // Found one. Deal with it below.
-            specialUseFolder = trashFolder;
-            break;
-          }
-        }
-
-        // No trash pref set, so get the default if needed.
-        nsAutoCString defaultTrashName;
-        if (!specialUseFolder) GetTrashFolderName(defaultTrashName);
-        for (auto trashFolder : trashFolders) {
-          if (specialUseFolder) {
-            // Clear trash flag on folders w/o special-use kImapXListTrash flag.
-            nsCOMPtr<nsIMsgImapMailFolder> imapFolder(
-                do_QueryInterface(trashFolder));
-            int32_t boxFlags;
-            imapFolder->GetBoxFlags(&boxFlags);
-            if (!(boxFlags & kImapXListTrash)) {
-              trashFolder->ClearFlag(nsMsgFolderFlags::Trash);
-            } else {
-              // Set pref to the path of the discovered special-use trash
-              // folder.
-              nsAutoCString specialUseFolderPath;
-              rv = PathFromFolder(specialUseFolder, specialUseFolderPath);
-              if (NS_SUCCEEDED(rv)) {
-                SetStringValue(PREF_TRASH_FOLDER_PATH, specialUseFolderPath);
-              }
-            }
-          } else {
-            // No special-use trash found.
-            // Clear the trash flag unless folder has the default name "Trash",
-            // ignoring case. If folder matches default name, set that folder's
-            // name as the pref.
-            nsAutoCString trashFolderPath;
-            rv = PathFromFolder(trashFolder, trashFolderPath);
-            if (NS_SUCCEEDED(rv)) {
-              if (!defaultTrashName.Equals(
-                      trashFolderPath, nsCaseInsensitiveUTF8StringComparator)) {
-                trashFolder->ClearFlag(nsMsgFolderFlags::Trash);
-              } else {
-                // Set the pref to the server's trashFolderPath
-                SetStringValue(PREF_TRASH_FOLDER_PATH, trashFolderPath);
-              }
-            }
-          }
-        }
-      }
-    } else {
-      SetStringValue(PREF_TRASH_FOLDER_PATH, ""_ns);
-    }
+    rv = UpdateTrashFolderFlag();
+    NS_ENSURE_SUCCESS(rv, rv);
   }
   return rv;
 }
@@ -2893,8 +2881,9 @@ NS_IMETHODIMP nsImapIncomingServer::SetTrashFolderName(
                        oldTrashNameUtf7or8);
     }
     rv = GetFolder(oldTrashNameUtf7or8, getter_AddRefs(oldFolder));
-    if (NS_SUCCEEDED(rv) && oldFolder)
+    if (NS_SUCCEEDED(rv) && oldFolder) {
       oldFolder->ClearFlag(nsMsgFolderFlags::Trash);
+    }
   }
 
   // If the user configured delete mode (model) is currently "move to trash",

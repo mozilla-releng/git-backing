@@ -29,7 +29,7 @@ export var MailMigrator = {
   _migrateUI() {
     // The code for this was ported from
     // mozilla/browser/components/nsBrowserGlue.js
-    const UI_VERSION = 65;
+    const UI_VERSION = 66;
     const UI_VERSION_PREF = "mail.ui-rdf.version";
     let currentUIVersion = Services.prefs.getIntPref(UI_VERSION_PREF, 0);
 
@@ -521,6 +521,24 @@ export var MailMigrator = {
       if (currentUIVersion < 65) {
         // Bug 2069949 - don't list half baked smtp servers.
         this._removeUnconfiguredSmtpServers();
+      }
+
+      if (currentUIVersion < 66) {
+        // Bug 2048831 - folder discovery used to write the path of the trash
+        // folder it found into trash_folder_name, which now means the user
+        // picked that folder. Clear the paths it wrote, which are recognisable
+        // by being the default path, so the folder the server reports as
+        // \Trash special-use is used again.
+        for (const server of MailServices.accounts.allServers) {
+          if (server.type != "imap") {
+            continue;
+          }
+          if (server.getStringValue("trash_folder_name") == "Trash") {
+            Services.prefs.clearUserPref(
+              `mail.server.${server.key}.trash_folder_name`
+            );
+          }
+        }
       }
 
       // Migration tasks that may take a long time are not run immediately, but
