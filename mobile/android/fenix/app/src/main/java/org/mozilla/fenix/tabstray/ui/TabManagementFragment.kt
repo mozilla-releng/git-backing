@@ -118,6 +118,7 @@ import org.mozilla.fenix.tabstray.data.toTabStorageUpdate
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
 import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.ext.withExpandedTabGroup
 import org.mozilla.fenix.tabstray.redux.ext.withStorageUpdate
 import org.mozilla.fenix.tabstray.redux.middleware.CollectionsMigrationMiddleware
 import org.mozilla.fenix.tabstray.redux.middleware.TabManagerUiStateStorageMiddleware
@@ -597,6 +598,7 @@ class TabManagementFragment : Fragment() {
                             TabGroupAction.TabAddedToExistingTabGroup(
                                 tabId = newTabId,
                                 groupId = expandedGroup.id,
+                                groupTitle = expandedGroup.title,
                             )
                         )
                         tabManagerController.handleNavigateToHome()
@@ -807,7 +809,7 @@ class TabManagementFragment : Fragment() {
                     ),
             )
 
-        return baseState.withStorageUpdate(storageUpdate = tabStorageUpdate)
+        return baseState.withStorageUpdate(storageUpdate = tabStorageUpdate).withExpandedTabGroup(args.groupId)
     }
 
     /**

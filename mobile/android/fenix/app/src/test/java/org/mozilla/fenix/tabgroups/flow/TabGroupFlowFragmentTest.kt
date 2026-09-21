@@ -51,7 +51,12 @@ class TabGroupFlowFragmentTest {
                 TabGroupFlowDestination.Root,
                 TabGroupFlowDestination.AddToTabGroup(tabId = "123"),
             )
-        val state = TabGroupFlowState()
+        val state = TabGroupFlowState(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
+        fragment.store =
+            TabGroupFlowStore(
+                initialState = state,
+                middlewares = emptyList(),
+            )
         composeTestRule.setContent {
             NavDisplay(
                 backStack = testBackStack,
@@ -80,7 +85,8 @@ class TabGroupFlowFragmentTest {
                     TabGroupFormState(
                         tabGroupId = "123",
                         name = "Tab Group",
-                    )
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.EditGroup(groupId = "123"),
             )
         fragment.store =
             TabGroupFlowStore(

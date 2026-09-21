@@ -8,4 +8,5 @@ package org.mozilla.fenix.tabstray.ui
 enum class AccessPoint {
     None,
     HomeRecentSyncedTab,
+    BrowserMenu,
 }

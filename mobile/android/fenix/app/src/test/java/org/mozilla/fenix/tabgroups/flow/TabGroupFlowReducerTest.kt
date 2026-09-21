@@ -18,7 +18,8 @@ class TabGroupFlowReducerTest {
                         TabGroupFlowDestination.Root,
                         TabGroupFlowDestination.AddToTabGroup(tabId = "123"),
                         TabGroupFlowDestination.EditTabGroup,
-                    )
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
             )
         val resultState =
             TabGroupFlowReducer.reduce(
@@ -40,7 +41,11 @@ class TabGroupFlowReducerTest {
 
     @Test
     fun `WHEN navigate back is invoked THEN backstack is never popped below root`() {
-        val initialState = TabGroupFlowState(backStack = listOf(TabGroupFlowDestination.Root))
+        val initialState =
+            TabGroupFlowState(
+                backStack = listOf(TabGroupFlowDestination.Root),
+                entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
+            )
         val resultState =
             TabGroupFlowReducer.reduce(
                 state = initialState,
@@ -60,7 +65,8 @@ class TabGroupFlowReducerTest {
                     listOf(
                         TabGroupFlowDestination.Root,
                         TabGroupFlowDestination.EditTabGroup,
-                    )
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.EditGroup(groupId = "123"),
             )
         val resultState =
             TabGroupFlowReducer.reduce(
@@ -75,7 +81,7 @@ class TabGroupFlowReducerTest {
 
     @Test
     fun `WHEN TabAddedToNewTabGroup invoked backstack is set up correctly`() {
-        val initialState = TabGroupFlowState()
+        val initialState = TabGroupFlowState(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
         val resultState =
             TabGroupFlowReducer.reduce(
                 state = initialState,
@@ -93,7 +99,7 @@ class TabGroupFlowReducerTest {
 
     @Test
     fun `WHEN TabAddedToNewTabGroup invoked form state is initialized`() {
-        val initialState = TabGroupFlowState()
+        val initialState = TabGroupFlowState(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
         val resultState =
             TabGroupFlowReducer.reduce(
                 state = initialState,
@@ -104,11 +110,16 @@ class TabGroupFlowReducerTest {
 
     @Test
     fun `WHEN TabAddedToExistingTabGroup invoked backstack is set up correctly`() {
-        val initialState = TabGroupFlowState()
+        val initialState = TabGroupFlowState(entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"))
         val resultState =
             TabGroupFlowReducer.reduce(
                 state = initialState,
-                action = TabGroupAction.TabAddedToExistingTabGroup(tabId = "123", groupId = "123"),
+                action =
+                    TabGroupAction.TabAddedToExistingTabGroup(
+                        tabId = "123",
+                        groupId = "123",
+                        groupTitle = "Tab Group 1",
+                    ),
             )
         assertEquals(
             expected = listOf(TabGroupFlowDestination.Root),
@@ -129,7 +140,8 @@ class TabGroupFlowReducerTest {
                         TabGroupFlowDestination.Root,
                         TabGroupFlowDestination.AddToTabGroup(tabId = "123"),
                         TabGroupFlowDestination.EditTabGroup,
-                    )
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
             )
         val resultState =
             TabGroupFlowReducer.reduce(
