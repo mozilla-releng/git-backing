@@ -78,7 +78,9 @@ class EnrichedTabGroupBindingTest {
         val firstTab = createTab(id = "1", tabGroupId = GROUP_ID)
         val secondTab = createTab(id = "2")
         val coordinator =
-            FakeTabDataCoordinator(createSnapshot(tabs = listOf(firstTab, secondTab), groups = listOf(createTabGroup())))
+            FakeTabDataCoordinator(
+                createSnapshot(tabs = listOf(firstTab, secondTab), groups = listOf(createTabGroup()))
+            )
         startBinding(coordinator)
 
         coordinator.tabsSnapshot.value =
