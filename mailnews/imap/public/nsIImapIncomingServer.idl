@@ -60,7 +60,10 @@ interface nsIImapIncomingServer : nsISupports {
   /**
    * This contains a folder path, for example INBOX/Trash. Note that the
    * account manager sets this attribute to the path of the trash folder the
-   * user has chosen.
+   * user has chosen. It is only set when a folder has been chosen: with no
+   * choice made, the trash folder is the one the server reports as \Trash
+   * special-use, or failing that one named like the default value returned
+   * here.
    */
   attribute AUTF8String trashFolderName;
 

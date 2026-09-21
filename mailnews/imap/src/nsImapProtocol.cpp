@@ -924,8 +924,30 @@ nsresult nsImapProtocol::SetupWithUrl(nsIURI* aURL, nsISupports* aConsumer) {
     imapServer->GetFetchByChunks(&m_fetchByChunks);
     imapServer->GetSendID(&m_sendID);
 
+    // The trash folder pref only holds a path when the user picked a trash
+    // folder. Otherwise use the folder currently flagged as trash, which
+    // folder discovery sets from the folder the server reports as \Trash
+    // special-use, and fall back to the pref's default path.
+    nsAutoCString pickedTrashFolderPath;
+    server->GetStringValue("trash_folder_name", pickedTrashFolderPath);
+    m_trashFolderPicked = !pickedTrashFolderPath.IsEmpty();
+    m_trashFolderPath.Truncate();
+    if (!m_trashFolderPicked) {
+      nsCOMPtr<nsIMsgFolder> rootFolder;
+      server->GetRootFolder(getter_AddRefs(rootFolder));
+      nsCOMPtr<nsIMsgFolder> trashFolder;
+      if (rootFolder) {
+        rootFolder->GetFolderWithFlags(nsMsgFolderFlags::Trash,
+                                       getter_AddRefs(trashFolder));
+      }
+      // Paths from a folder are already in the encoding the server uses.
+      if (trashFolder) {
+        FolderPathInServer(trashFolder, m_trashFolderPath);
+      }
+    }
     nsAutoCString trashFolderPath;
-    if (NS_SUCCEEDED(imapServer->GetTrashFolderName(trashFolderPath))) {
+    if (m_trashFolderPath.IsEmpty() &&
+        NS_SUCCEEDED(imapServer->GetTrashFolderName(trashFolderPath))) {
       if (m_allowUTF8Accept)
         m_trashFolderPath = trashFolderPath;
       else
@@ -5095,6 +5117,14 @@ void nsImapProtocol::DiscoverMailboxSpec(nsImapMailboxSpec* adoptedBoxSpec) {
     adoptedBoxSpec->mBoxFlags |= hashValue;
   }
 
+  // Remember the mailbox the server reports as \Trash special-use, whatever
+  // it is named and whether or not it is subscribed. MailboxDiscoveryFinished()
+  // uses it if no trash folder turns up among the discovered mailboxes.
+  if ((adoptedBoxSpec->mBoxFlags & kImapXListTrash) &&
+      !adoptedBoxSpec->mAllocatedPathName.IsEmpty()) {
+    m_specialUseTrashPath = adoptedBoxSpec->mAllocatedPathName;
+  }
+
   switch (m_hierarchyNameState) {
     case kXListing:
       if (adoptedBoxSpec->mBoxFlags &
@@ -5139,6 +5169,9 @@ void nsImapProtocol::DiscoverMailboxSpec(nsImapMailboxSpec* adoptedBoxSpec) {
           nsPrefix)  // if no personal namespace, there can be no Trash folder
       {
         bool onlineTrashFolderExists = false;
+        if (adoptedBoxSpec->mBoxFlags & kImapXListTrash) {
+          m_specialUseTrashDiscovered = true;
+        }
         if (m_hostSessionList) {
           if (adoptedBoxSpec->mBoxFlags & (kImapTrash | kImapXListTrash)) {
             m_hostSessionList->SetOnlineTrashFolderExistsForHost(
@@ -7434,6 +7467,8 @@ void nsImapProtocol::DiscoverMailboxList() {
   // need to.
   m_hostSessionList->SetOnlineTrashFolderExistsForHost(GetImapServerKey(),
                                                        false);
+  m_specialUseTrashPath.Truncate();
+  m_specialUseTrashDiscovered = false;
 
   // should we check a pref here, to be able to turn off XList?
   bool hasXLIST =
@@ -7613,12 +7648,36 @@ void nsImapProtocol::MailboxDiscoveryFinished() {
                                                          trashFolderExists);
     m_hostSessionList->GetHostIsUsingSubscription(GetImapServerKey(),
                                                   usingSubscription);
+    // The folder the server reports as \Trash special-use is the trash folder,
+    // whatever it is named, unless the user picked a trash folder themselves.
+    // LIST that folder if it hasn't been discovered, e.g. because it isn't
+    // subscribed, or because another folder matching the default trash folder
+    // name was found instead.
+    if (!m_specialUseTrashPath.IsEmpty() && !m_specialUseTrashDiscovered &&
+        !m_trashFolderPicked && GetDeleteIsMoveToTrash() && personalDir) {
+      nsCString onlineTrashName;
+      m_runningUrl->AllocateServerPath(m_specialUseTrashPath,
+                                       ns->GetDelimiter(), onlineTrashName);
+      m_hierarchyNameState = kDiscoverTrashFolderInProgress;
+      List(onlineTrashName.get(), false);
+      m_hierarchyNameState = kNoOperationInProgress;
+      m_hostSessionList->GetOnlineTrashFolderExistsForHost(GetImapServerKey(),
+                                                           trashFolderExists);
+      if (m_specialUseTrashDiscovered) {
+        // Use it for the rest of this connection. DiscoveryDone() sets the
+        // trash folder pref, which later connections read.
+        m_trashFolderPath = m_specialUseTrashPath;
+      }
+    }
+
     if (!trashFolderExists && GetDeleteIsMoveToTrash() && usingSubscription) {
       // maybe we're not subscribed to the Trash folder
       if (personalDir) {
         m_hierarchyNameState = kDiscoverTrashFolderInProgress;
         List(m_trashFolderPath.get(), true);
         m_hierarchyNameState = kNoOperationInProgress;
+        m_hostSessionList->GetOnlineTrashFolderExistsForHost(GetImapServerKey(),
+                                                             trashFolderExists);
       }
     }
 
