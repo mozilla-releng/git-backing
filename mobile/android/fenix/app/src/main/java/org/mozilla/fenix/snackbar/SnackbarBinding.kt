@@ -363,6 +363,28 @@ class SnackbarBinding(
                         appStore.dispatch(SnackbarAction.SnackbarShown)
                     }
 
+                    is SnackbarState.TabAddedToGroup -> {
+                        snackbarDelegate.show(
+                            text = context.getString(R.string.snackbar_tab_added_to_group, state.groupTitle),
+                            duration = context.components.settings.getSnackbarTimeout(hasAction = true).value.toInt(),
+                            action = context.getString(R.string.snackbar_action_view),
+                        ) {
+                            // tbd
+                        }
+                        appStore.dispatch(SnackbarAction.SnackbarShown)
+                    }
+
+                    is SnackbarState.TabMovedToGroup -> {
+                        snackbarDelegate.show(
+                            text = context.getString(R.string.snackbar_tab_moved_to_group, state.groupTitle),
+                            duration = context.components.settings.getSnackbarTimeout(hasAction = true).value.toInt(),
+                            action = context.getString(R.string.snackbar_action_view),
+                        ) {
+                            // tbd
+                        }
+                        appStore.dispatch(SnackbarAction.SnackbarShown)
+                    }
+
                     is SnackbarState.URLCopiedToClipboard -> {
                         snackbarDelegate.show(
                             text = context.getString(R.string.browser_toolbar_url_copied_to_clipboard_snackbar)

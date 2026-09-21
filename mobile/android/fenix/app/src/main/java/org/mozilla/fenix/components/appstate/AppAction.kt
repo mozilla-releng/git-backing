@@ -145,6 +145,20 @@ sealed class AppAction : Action {
     data object OpenInFirefoxFinished : AppAction()
 
     /**
+     * Action dispatched when the user adds the page they are viewing to a group.
+     *
+     * @property groupTitle The group's title, displayed to the user.
+     */
+    data class TabAddedToGroup(val groupTitle: String) : AppAction()
+
+    /**
+     * Action dispatched when the user moves the page they are viewing from one group to another.
+     *
+     * @property groupTitle The group's title, displayed to the user.
+     */
+    data class TabMovedToGroup(val groupTitle: String) : AppAction()
+
+    /**
      * Updates whether Firefox is the default browser.
      *
      * @property isDefault The updated boolean to [AppState.isDefaultBrowser]

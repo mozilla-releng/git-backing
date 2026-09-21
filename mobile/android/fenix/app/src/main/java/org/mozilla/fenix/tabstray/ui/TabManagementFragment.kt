@@ -590,6 +590,7 @@ class TabManagementFragment : Fragment() {
                             TabGroupAction.TabAddedToExistingTabGroup(
                                 tabId = newTabId,
                                 groupId = expandedGroup.id,
+                                groupTitle = expandedGroup.title,
                             )
                         )
                         tabManagerController.handleNavigateToHome()

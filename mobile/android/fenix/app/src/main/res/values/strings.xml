@@ -2291,6 +2291,12 @@
     <string name="snackbar_private_tab_closed">Private tab closed</string>
     <!-- Text shown in snackbar to undo deleting a tab, top site or collection -->
     <string name="snackbar_deleted_undo">UNDO</string>
+    <!-- Text shown at bottom of screen when user adds a page they are viewing to a group -->
+    <string name="snackbar_tab_added_to_group">Added to %1$s</string>
+    <!-- Text shown at bottom of screen when user moves a page they are viewing from one group to another -->
+    <string name="snackbar_tab_moved_to_group">Moved to %1$s</string>
+    <!-- Button text shown at the bottom of the screen after adding a tab to a group that allows user to view the group -->
+    <string name="snackbar_action_view">View</string>
     <!-- QR code scanner prompt which appears after scanning a code, but before navigating to it
         %1$s is the name of the app (for example "Firefox"), %2$s is the URL or text scanned-->
     <string name="qr_scanner_confirmation_dialog_message">Allow %1$s to open %2$s</string>

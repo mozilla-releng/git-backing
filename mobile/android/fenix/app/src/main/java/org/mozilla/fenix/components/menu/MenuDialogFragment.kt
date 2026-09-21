@@ -732,11 +732,13 @@ class MenuDialogFragment : BottomSheetDialogFragment() {
                                                 menuStore.dispatch(
                                                     MenuAction.Navigate.OpenTabGroupFlow(
                                                         entryPoint =
-                                                            TabGroupFlowEntryPoint.AddTabToGroup(tabId = selectedTab.id)
+                                                            TabGroupFlowEntryPoint.MoveTabToGroup(
+                                                                tabId = selectedTab.id
+                                                            )
                                                     )
                                                 )
                                             } else {
-                                                Logger.warn("No active selected tab - cannot add tab to groups.")
+                                                Logger.warn("No active selected tab - cannot move tab to groups.")
                                             }
                                         },
                                     )
