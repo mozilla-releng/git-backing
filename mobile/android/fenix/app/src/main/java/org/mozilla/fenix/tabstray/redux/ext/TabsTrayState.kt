@@ -5,6 +5,9 @@
 package org.mozilla.fenix.tabstray.redux.ext
 
 import org.mozilla.fenix.tabstray.data.TabStorageUpdate
+import org.mozilla.fenix.tabstray.data.TabsTrayItem
+import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
+import org.mozilla.fenix.tabstray.redux.state.Page
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
 
 internal fun TabsTrayState.withStorageUpdate(storageUpdate: TabStorageUpdate) =
@@ -25,3 +28,15 @@ internal fun TabsTrayState.withStorageUpdate(storageUpdate: TabStorageUpdate) =
         tabGroupState = tabGroupState.copy(groups = storageUpdate.tabGroups),
         hasTabDataLoaded = true,
     )
+
+/**
+ * Returns a copy of this state with the [TabsTrayItem.TabGroup] matching [groupId] expanded, or this state unchanged if
+ * [groupId] is null or no such group exists.
+ */
+internal fun TabsTrayState.withExpandedTabGroup(groupId: String?): TabsTrayState {
+    val group = groupId?.let { id -> tabGroupState.groups.find { it.id == id } } ?: return this
+    return copy(
+        selectedPage = Page.NormalTabs,
+        backStack = backStack + TabManagerNavDestination.ExpandedTabGroup(group = group),
+    )
+}
