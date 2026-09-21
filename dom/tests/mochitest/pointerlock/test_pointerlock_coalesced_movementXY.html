@@ -174,24 +174,22 @@ add_task(async function test_pointerlock_movementXY() {
     is(e.clientX, lockedPosition.clientX, "check clientX");
     is(e.clientY, lockedPosition.clientY, "check clientY");
 
-    if (!gSynthesizeMovement) {
-      info("Check coalesced pointermove events");
-      let totalMovementX = 0;
-      let totalMovementY = 0;
-      let coalescedEvents = e.getCoalescedEvents();
-      is(coalescedEvents.length, moves.length, "check number of coalesced events");
-      for (let index = 0; index < coalescedEvents.length; index++) {
-        const move = moves[index];
-        const event = coalescedEvents[index];
-        is(event.movementX, move.movementX, `check movementX for coalesced event ${index}`);
-        is(event.movementY, move.movementY, `check movementY for coalesced event ${index}`);
-        totalMovementX += move.movementX;
-        totalMovementY += move.movementY;
-      }
-
-      is(e.movementX, totalMovementX, "check movementX");
-      is(e.movementY, totalMovementY, "check movementY");
+    info("Check coalesced pointermove events");
+    let totalMovementX = 0;
+    let totalMovementY = 0;
+    let coalescedEvents = e.getCoalescedEvents();
+    is(coalescedEvents.length, moves.length, "check number of coalesced events");
+    for (let index = 0; index < coalescedEvents.length; index++) {
+      const move = moves[index];
+      const event = coalescedEvents[index];
+      is(event.movementX, move.movementX, `check movementX for coalesced event ${index}`);
+      is(event.movementY, move.movementY, `check movementY for coalesced event ${index}`);
+      totalMovementX += move.movementX;
+      totalMovementY += move.movementY;
     }
+
+    is(e.movementX, totalMovementX, "check movementX");
+    is(e.movementY, totalMovementY, "check movementY");
   });
   utils.restoreNormalRefresh();
   await promise;
