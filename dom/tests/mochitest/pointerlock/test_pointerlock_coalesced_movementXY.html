@@ -159,9 +159,9 @@ add_task(async function test_pointerlock_movementXY() {
     let totalMovementX = 0;
     let totalMovementY = 0;
     let coalescedEvents = e.getCoalescedEvents();
-    is(coalescedEvents.length, gSynthesizeMovement ? 1 : moves.length, "check number of coalesced events");
+    is(coalescedEvents.length, moves.length, "check number of coalesced events");
     for (let index = 0; index < coalescedEvents.length; index++) {
-      const move = gSynthesizeMovement ? moves.pop() : moves[index];
+      const move = moves[index];
       const event = coalescedEvents[index];
       is(event.movementX, move.movementX, `check movementX for coalesced event ${index}`);
       is(event.movementY, move.movementY, `check movementY for coalesced event ${index}`);
