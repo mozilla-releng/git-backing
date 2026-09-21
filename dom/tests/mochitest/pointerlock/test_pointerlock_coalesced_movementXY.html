@@ -151,10 +151,8 @@ add_task(async function test_pointerlock_movementXY() {
       is(coalescedEvents.length, 1, "check number of coalesced events");
       is(coalescedEvents[0].clientX, lockedPosition.clientX, "check clientX in coalesced event");
       is(coalescedEvents[0].clientY, lockedPosition.clientY, "check clientY in coalesced event");
-      if (!gSynthesizeMovement) {
-        is(coalescedEvents[0].movementX, move.movementX, "check movementX");
-        is(coalescedEvents[0].movementY, move.movementY, "check movementY");
-      }
+      is(coalescedEvents[0].movementX, move.movementX, "check movementX");
+      is(coalescedEvents[0].movementY, move.movementY, "check movementY");
     });
 
     if (gSynthesizeMovement) {
