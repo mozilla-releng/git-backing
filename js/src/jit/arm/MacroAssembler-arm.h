@@ -7,8 +7,6 @@
 
 #include "mozilla/DebugOnly.h"
 
-#include <type_traits>
-
 #include "jit/arm/Assembler-arm.h"
 #include "jit/MoveResolver.h"
 #include "vm/BytecodeUtil.h"
@@ -711,22 +709,6 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
     ScratchRegisterScope scratch(asMasm());
     Imm32 totSpace = Imm32(extraSpace.value + 4);
     ma_dtr(IsLoad, sp, totSpace, reg, scratch, PostIndex);
-  }
-
-  template <typename... Regs>
-  void pushRegs(const Regs&... regs) {
-    static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0);
-
-    (push(regs), ...);
-  }
-
-  template <typename... Regs>
-  void popRegs(const Regs&... regs) {
-    static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0);
-
-    (pop(regs), ...);
   }
 
   CodeOffset toggledJump(Label* label);

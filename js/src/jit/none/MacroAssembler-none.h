@@ -163,14 +163,6 @@ class MacroAssemblerNone : public Assembler {
   CodeOffset pushWithPatch(T) {
     MOZ_CRASH();
   }
-  template <typename... Ts>
-  inline void pushRegs(const Ts&...) {
-    MOZ_CRASH();
-  };
-  template <typename... Ts>
-  inline void popRegs(const Ts&...) {
-    MOZ_CRASH();
-  };
 
   void testNullSet(Condition, ValueOperand, Register) { MOZ_CRASH(); }
   void testObjectSet(Condition, ValueOperand, Register) { MOZ_CRASH(); }
