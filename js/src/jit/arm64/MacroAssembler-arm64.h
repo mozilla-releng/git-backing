@@ -215,17 +215,59 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   template <typename... Regs>
   void pushRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0 && sizeof...(Regs) <= 4);
+    static_assert(sizeof...(Regs) > 0);
+
+#if defined(XP_DARWIN)
+    // Store-to-load forwarding is broken when either the store or the load in
+    // the pair is paired (STP and LDP) on some Apple Silicon. See also Bug
+    // 2073458 and
+    // <https://lemire.me/blog/2024/04/29/careful-with-pair-of-registers-instructions-on-apple-silicon/>.
+    // Thus, use N single stores plus one stack adjustment instead.
+
+    if (((static_cast<Register>(regs) == getStackPointer()) || ...)) {
+      (push(regs), ...);
+      return;
+    }
+
+    MOZ_ASSERT_IF(GetStackPointer64().Is(vixl::sp),
+                  (sizeof...(Regs) * sizeof(intptr_t)) % 16 == 0);
+    int32_t offset = int32_t(sizeof...(Regs) * sizeof(intptr_t));
+    subFromStackPtr(Imm32(offset));
+    (storePtr(regs,
+              Address(getStackPointer(), offset -= int32_t(sizeof(intptr_t)))),
+     ...);
+#else
+    static_assert(sizeof...(Regs) <= 4);
 
     push(regs...);
+#endif
   }
 
   template <typename... Regs>
   void popRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0 && sizeof...(Regs) <= 4);
+    static_assert(sizeof...(Regs) > 0);
+
+#if defined(XP_DARWIN)
+    // See pushRegs() above.
+
+    if (((static_cast<Register>(regs) == getStackPointer()) || ...)) {
+      (pop(regs), ...);
+      return;
+    }
+
+    MOZ_ASSERT_IF(GetStackPointer64().Is(vixl::sp),
+                  (sizeof...(Regs) * sizeof(intptr_t)) % 16 == 0);
+    int32_t offset = -int32_t(sizeof(intptr_t));
+    (loadPtr(Address(getStackPointer(), offset += int32_t(sizeof(intptr_t))),
+             regs),
+     ...);
+    addToStackPtr(Imm32(int32_t(sizeof...(Regs) * sizeof(intptr_t))));
+#else
+    static_assert(sizeof...(Regs) <= 4);
 
     pop(regs...);
+#endif
   }
 
   // Update sp with the value of the current active stack pointer, if necessary.
