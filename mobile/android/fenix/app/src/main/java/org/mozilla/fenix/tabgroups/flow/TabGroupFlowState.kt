@@ -6,6 +6,7 @@ package org.mozilla.fenix.tabgroups.flow
 import androidx.compose.runtime.Immutable
 import mozilla.components.lib.state.State
 import org.mozilla.fenix.tabgroups.TabGroupTelemetry
+import org.mozilla.fenix.tabgroups.storage.TabGroupStorageContext
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
@@ -25,7 +26,7 @@ data class TabGroupFlowState(
     override val groups: List<TabsTrayItem.TabGroup> = emptyList(),
     override val formState: TabGroupFormState? = null,
     val config: Config = Config(),
-) : State, TabGroupTelemetry.TabGroupTelemetryContext {
+) : State, TabGroupTelemetry.TabGroupTelemetryContext, TabGroupStorageContext {
     /** Drops the last entry of [TabsTrayState.backStack]. If [backStack] only has one entry, no changes occur. */
     internal fun popBackStack(): List<TabGroupFlowDestination> =
         if (backStack.size > 1) {

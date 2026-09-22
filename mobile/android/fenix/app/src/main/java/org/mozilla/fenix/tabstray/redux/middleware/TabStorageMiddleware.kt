@@ -29,6 +29,7 @@ import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.utils.DateTimeProvider
 import mozilla.components.support.utils.DefaultDateTimeProvider
 import org.mozilla.fenix.components.usecases.FenixBrowserUseCases
+import org.mozilla.fenix.tabgroups.storage.TabGroupStorageOperations
 import org.mozilla.fenix.tabstray.data.TabData
 import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.data.TabGroupTheme.Companion.toTabGroupTheme
@@ -103,6 +104,12 @@ class TabStorageMiddleware(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
 ) : Middleware<TabsTrayState, TabsTrayAction> {
+    val tabGroupStorageOperations =
+        TabGroupStorageOperations(
+            tabGroupRepository = tabGroupRepository,
+            moveTabsUseCase = moveTabsUseCase,
+            dateTimeProvider = dateTimeProvider,
+        )
 
     private val combinedDataFlow: StateFlow<CombinedTabData?> =
         if (tabGroupsEnabled) {
@@ -172,7 +179,11 @@ class TabStorageMiddleware(
 
             is TabGroupAction.TabAddedToExistingTabGroup -> {
                 scope.launch {
-                    handleTabAddedToGroup(groupId = action.groupId, tabId = action.tabId, store = store)
+                    handleTabAddedToGroup(
+                        groupId = action.groupId,
+                        tabId = action.tabId,
+                        store = store,
+                    )
                 }
             }
 
@@ -230,10 +241,11 @@ class TabStorageMiddleware(
         val selectedTabGroupIds = store.state.mode.selectedTabGroups.map { it.id } - action.groupId
 
         scope.launch {
-            addTabItemsToTabGroup(
+            val lastTabInGroupId = store.state.lastTabInGroupId(groupId = action.groupId)
+            tabGroupStorageOperations.addTabItemsToTabGroup(
                 groupId = action.groupId,
                 tabIds = selectedTabIds,
-                store = store,
+                sequenceAfterTabId = lastTabInGroupId,
             )
 
             // If group(s) were merged, delete them, but do NOT delete the destination group if it was also
@@ -385,7 +397,11 @@ class TabStorageMiddleware(
                     }
                     // Source is tab, target is group
                     dragAndDropItems.source is TabsTrayItem.Tab && dragAndDropItems.target is TabsTrayItem.TabGroup -> {
-                        handleTabAddedToGroup(groupId = action.destinationId, tabId = action.sourceId, store = store)
+                        handleTabAddedToGroup(
+                            groupId = action.destinationId,
+                            tabId = action.sourceId,
+                            store = store,
+                        )
                     }
                     // Source is group, target is tab
                     dragAndDropItems.source is TabsTrayItem.TabGroup && dragAndDropItems.target is TabsTrayItem.Tab -> {
@@ -453,33 +469,14 @@ class TabStorageMiddleware(
     ) {
         val groupedTabs = store.state.tabIdsForGroup(groupId = sourceGroupId)
         if (groupedTabs.isNotEmpty()) {
-            addTabItemsToTabGroup(
+            val lastTabInGroupId = store.state.lastTabInGroupId(groupId = targetGroupId)
+            tabGroupStorageOperations.addTabItemsToTabGroup(
                 groupId = targetGroupId,
                 tabIds = groupedTabs,
-                store = store,
+                sequenceAfterTabId = lastTabInGroupId,
             )
         }
         tabGroupRepository.deleteTabGroupById(sourceGroupId)
-    }
-
-    private suspend fun addTabItemsToTabGroup(
-        groupId: String,
-        tabIds: List<String>,
-        store: Store<TabsTrayState, TabsTrayAction>,
-    ) {
-        val lastTabInGroupId = store.state.lastTabInGroupId(groupId = groupId)
-        // Sequence the selected tabs after the group's other tabs, if it has any.
-        lastTabInGroupId?.let {
-            sequenceGroupedTabsTogether(
-                tabIds = tabIds,
-                targetTabId = lastTabInGroupId,
-            )
-        }
-
-        tabGroupRepository.addTabsToTabGroup(
-            tabGroupId = groupId,
-            tabIds = tabIds,
-        )
     }
 
     private suspend fun handleGroupAddedToTab(
@@ -488,18 +485,10 @@ class TabStorageMiddleware(
         store: Store<TabsTrayState, TabsTrayAction>,
     ) {
         val groupedTabs = store.state.tabIdsForGroup(groupId)
-        // Sequence the group's tabs in front of the target tab.
-        if (groupedTabs.isNotEmpty()) {
-            moveTabsUseCase.invoke(
-                tabIds = groupedTabs,
-                targetTabId = tabId,
-                placeAfter = false,
-            )
-        }
-
-        tabGroupRepository.addTabGroupAssignment(
+        tabGroupStorageOperations.addGroupToTab(
+            groupId = groupId,
             tabId = tabId,
-            tabGroupId = groupId,
+            groupedTabs = groupedTabs,
         )
     }
 
@@ -509,18 +498,10 @@ class TabStorageMiddleware(
         store: Store<TabsTrayState, TabsTrayAction>,
     ) {
         val lastTabInGroupId = store.state.lastTabInGroupId(groupId = groupId)
-
-        // Sequence this tab next to the group's other tabs, if it has any.
-        lastTabInGroupId?.let {
-            sequenceGroupedTabsTogether(
-                tabIds = listOf(tabId),
-                targetTabId = it,
-            )
-        }
-
-        tabGroupRepository.addTabGroupAssignment(
+        tabGroupStorageOperations.addTabItemToTabGroup(
+            groupId = groupId,
             tabId = tabId,
-            tabGroupId = groupId,
+            sequenceAfterTabId = lastTabInGroupId,
         )
     }
 
@@ -693,20 +674,18 @@ class TabStorageMiddleware(
                 startLoading = false,
                 selectTab = false,
             )
-        val tabGroup =
-            TabGroup(
+        val tabGroupId =
+            tabGroupStorageOperations.createGroup(
                 title = name,
-                theme = theme.toStorageValue(),
-                lastModified = dateTimeProvider.currentTimeMillis(),
+                theme = theme,
                 tabIds = listOf(newTabId),
             )
-        tabGroupRepository.createTabGroupWithTabs(tabGroup = tabGroup)
         mainScope.launch {
             store.dispatch(
                 TabGroupAction.OpenCreatedTabGroup(
                     group =
                         TabsTrayItem.TabGroup(
-                            id = tabGroup.id,
+                            id = tabGroupId,
                             title = name,
                             theme = theme,
                             tabs = emptyList(),
@@ -761,29 +740,17 @@ class TabStorageMiddleware(
             tabIds = listOf(sourceId),
             targetTabId = destinationId,
         )
-        val tabGroup =
-            TabGroup(
-                title = formState.name,
-                theme = formState.theme.toStorageValue(),
-                lastModified = dateTimeProvider.currentTimeMillis(),
-                tabIds = listOf(sourceId, destinationId),
-            )
-        tabGroupRepository.createTabGroupWithTabs(tabGroup = tabGroup)
-        return tabGroup.id
+        return tabGroupStorageOperations.createGroup(
+            title = formState.name,
+            theme = formState.theme,
+            tabIds = listOf(sourceId, destinationId),
+        )
     }
 
     private suspend fun handleSaveFromMultiSelection(
         formState: TabGroupFormState,
         selectedTabIds: List<String>,
     ): String? {
-        val savedTabGroup =
-            TabGroup(
-                title = formState.name,
-                theme = formState.theme.toStorageValue(),
-                lastModified = dateTimeProvider.currentTimeMillis(),
-                tabIds = selectedTabIds,
-            )
-
         if (formState.tabGroupId == null) {
             if (selectedTabIds.isNotEmpty()) {
                 // Obtain the ID of the selected tab that appears sequentially first in the tab data to sequence
@@ -793,19 +760,23 @@ class TabStorageMiddleware(
                 // to hoist tab data more globally.
                 val sequentiallyFirstTabId =
                     combinedDataFlow.value?.tabs?.first { it.id in selectedTabIds }?.id ?: selectedTabIds.first()
-
                 sequenceGroupedTabsTogether(
                     tabIds = selectedTabIds - sequentiallyFirstTabId,
                     targetTabId = sequentiallyFirstTabId,
                 )
-
-                tabGroupRepository.createTabGroupWithTabs(tabGroup = savedTabGroup)
-            } else {
-                tabGroupRepository.addNewTabGroup(savedTabGroup)
             }
-            return savedTabGroup.id
+            return tabGroupStorageOperations.createGroup(
+                title = formState.name,
+                theme = formState.theme,
+                tabIds = selectedTabIds,
+            )
         } else {
-            tabGroupRepository.updateTabGroup(tabGroup = savedTabGroup.copy(id = formState.tabGroupId))
+            tabGroupStorageOperations.updateGroup(
+                id = formState.tabGroupId,
+                title = formState.name,
+                theme = formState.theme,
+                tabIds = selectedTabIds,
+            )
         }
         return null
     }

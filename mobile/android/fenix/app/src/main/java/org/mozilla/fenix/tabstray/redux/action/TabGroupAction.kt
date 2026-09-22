@@ -128,7 +128,7 @@ sealed interface TabGroupAction : TabsTrayAction {
      * @property groupId The ID of the group the tab is being added into.
      * @property groupTitle The title of the group, used to display a SnackBar.
      */
-    data class TabAddedToExistingTabGroup(val tabId: String, val groupId: String, val groupTitle: String) :
+    data class TabAddedToExistingTabGroup(val tabId: String, val groupId: String, val groupTitle: String = "") :
         TabGroupAction, TabsStorageAction
 
     /**
