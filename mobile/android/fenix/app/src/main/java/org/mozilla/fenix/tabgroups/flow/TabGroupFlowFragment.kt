@@ -172,6 +172,7 @@ class TabGroupFlowFragment : DialogFragment() {
                     listOf(
                         TabGroupFlowTelemetryMiddleware(),
                         TabGroupFlowSnackBarMiddleware(requireComponents.appStore),
+                        TabGroupFlowStorageMiddleware(requireComponents.tabDataCoordinator),
                     ),
             )
         }
@@ -267,7 +268,7 @@ class TabGroupFlowFragment : DialogFragment() {
                     TabGroupFlowDestination.AddToTabGroup(tabId = tabGroupFlowEntryPoint.tabId)
                 }
                 is TabGroupFlowEntryPoint.MoveTabToGroup -> {
-                    TabGroupFlowDestination.AddToTabGroup(tabId = tabGroupFlowEntryPoint.tabId)
+                    TabGroupFlowDestination.MoveToTabGroup(tabId = tabGroupFlowEntryPoint.tabId)
                 }
                 is TabGroupFlowEntryPoint.EditGroup -> {
                     TabGroupFlowDestination.EditTabGroup
