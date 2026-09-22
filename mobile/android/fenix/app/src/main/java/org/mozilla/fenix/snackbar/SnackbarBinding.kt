@@ -371,14 +371,7 @@ class SnackbarBinding(
                             duration = context.components.settings.getSnackbarTimeout(hasAction = true).value.toInt(),
                             action = context.getString(R.string.snackbar_action_view),
                         ) {
-                            navController.navigate(
-                                BrowserFragmentDirections.actionGlobalTabManagementFragment(
-                                    enterMultiselect = false,
-                                    accessPoint = AccessPoint.BrowserMenu,
-                                    page = Page.NormalTabs,
-                                    groupId = state.groupId,
-                                )
-                            )
+                            navigateToTabsTrayWithGroup(state.groupId)
                         }
                         appStore.dispatch(SnackbarAction.SnackbarShown)
                     }
@@ -389,14 +382,7 @@ class SnackbarBinding(
                             duration = context.components.settings.getSnackbarTimeout(hasAction = true).value.toInt(),
                             action = context.getString(R.string.snackbar_action_view),
                         ) {
-                            navController.navigate(
-                                BrowserFragmentDirections.actionGlobalTabManagementFragment(
-                                    enterMultiselect = false,
-                                    accessPoint = AccessPoint.BrowserMenu,
-                                    page = Page.NormalTabs,
-                                    groupId = state.groupId,
-                                )
-                            )
+                            navigateToTabsTrayWithGroup(state.groupId)
                         }
                         appStore.dispatch(SnackbarAction.SnackbarShown)
                     }
@@ -415,6 +401,17 @@ class SnackbarBinding(
                     is SnackbarState.IPProtectionShowSnackbar -> showIPProtectionSnackBar(state.title)
                 }
             }
+    }
+
+    private fun navigateToTabsTrayWithGroup(groupId: String) {
+        navController.navigate(
+            BrowserFragmentDirections.actionGlobalTabManagementFragment(
+                enterMultiselect = false,
+                accessPoint = AccessPoint.BrowserMenu,
+                page = Page.NormalTabs,
+                groupId = groupId,
+            )
+        )
     }
 
     private fun showBookmarkAddedSnackbarFor(state: SnackbarState.BookmarkAdded) {

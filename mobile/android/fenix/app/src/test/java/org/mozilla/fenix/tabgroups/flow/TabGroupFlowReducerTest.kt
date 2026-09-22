@@ -6,7 +6,9 @@ package org.mozilla.fenix.tabgroups.flow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import org.mozilla.fenix.tabstray.data.TabGroupTheme
 import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
+import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 
 class TabGroupFlowReducerTest {
     @Test
@@ -151,6 +153,66 @@ class TabGroupFlowReducerTest {
         assertEquals(
             expected = listOf(TabGroupFlowDestination.Root),
             actual = resultState.backStack,
+        )
+    }
+
+    @Test
+    fun `WHEN NameChanged invoked THEN name is updated`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack =
+                    listOf(
+                        TabGroupFlowDestination.Root,
+                        TabGroupFlowDestination.AddToTabGroup(tabId = "123"),
+                        TabGroupFlowDestination.EditTabGroup,
+                    ),
+                formState =
+                    TabGroupFormState(
+                        tabGroupId = "123",
+                        name = "OldName",
+                        theme = TabGroupTheme.Red,
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
+            )
+
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.NameChanged("NewName"),
+            )
+        assertEquals(
+            expected = initialState.copy(formState = initialState.formState!!.copy(name = "NewName", edited = true)),
+            actual = resultState,
+        )
+    }
+
+    @Test
+    fun `WHEN ThemeChanged invoked THEN theme is updated`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack =
+                    listOf(
+                        TabGroupFlowDestination.Root,
+                        TabGroupFlowDestination.AddToTabGroup(tabId = "123"),
+                        TabGroupFlowDestination.EditTabGroup,
+                    ),
+                formState =
+                    TabGroupFormState(
+                        tabGroupId = "123",
+                        name = "OldName",
+                        theme = TabGroupTheme.Red,
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = "123"),
+            )
+
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.ThemeChanged(TabGroupTheme.Pink),
+            )
+        assertEquals(
+            expected = initialState.copy(formState = initialState.formState!!.copy(theme = TabGroupTheme.Pink, edited = true)),
+            actual = resultState,
         )
     }
 }

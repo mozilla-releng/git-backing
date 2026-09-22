@@ -6,6 +6,7 @@ package org.mozilla.fenix.tabgroups.flow
 import androidx.compose.runtime.Immutable
 import mozilla.components.lib.state.State
 import org.mozilla.fenix.tabgroups.TabGroupTelemetry
+import org.mozilla.fenix.tabgroups.storage.TabGroupStorageContext
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.redux.state.TabGroupFormState
 import org.mozilla.fenix.tabstray.redux.state.TabsTrayState
@@ -17,6 +18,7 @@ import org.mozilla.fenix.tabstray.redux.state.newTabGroupForm
  * @property groups The list of groups for display or selection.
  * @property formState The state of the tab group edit form, for creating or updating a group.
  * @property config Tracks user configuration options impacting the flow.
+ * @property tabPendingNewGroup A tab id that is pending addition to a newly created TabGroup. May be null.
  */
 @Immutable
 data class TabGroupFlowState(
@@ -25,7 +27,8 @@ data class TabGroupFlowState(
     override val groups: List<TabsTrayItem.TabGroup> = emptyList(),
     override val formState: TabGroupFormState? = null,
     val config: Config = Config(),
-) : State, TabGroupTelemetry.TabGroupTelemetryContext {
+    val tabPendingNewGroup: String? = null,
+) : State, TabGroupTelemetry.TabGroupTelemetryContext, TabGroupStorageContext {
     /** Drops the last entry of [TabsTrayState.backStack]. If [backStack] only has one entry, no changes occur. */
     internal fun popBackStack(): List<TabGroupFlowDestination> =
         if (backStack.size > 1) {

@@ -1,0 +1,98 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+package org.mozilla.fenix.tabgroups.flow
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import mozilla.components.feature.tabdata.coordinator.TabDataCoordinator
+import mozilla.components.lib.state.Middleware
+import mozilla.components.lib.state.Store
+import org.mozilla.fenix.tabgroups.storage.TabGroupStorage
+import org.mozilla.fenix.tabstray.redux.action.TabGroupAction
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction
+import org.mozilla.fenix.tabstray.redux.action.TabsTrayAction.TabsStorageAction
+
+/**
+ * Helper class that handles TabGroup flow storage actions outside the TabsTray.
+ *
+ * @param tabDataCoordinator The [TabDataCoordinator] used to observe and update tab data.
+ * @param scope The [CoroutineScope] for running tab data updates off of the main thread.
+ * @param mainScope The [CoroutineScope] for running tab data updates on the main thread.
+ */
+class TabGroupFlowStorageMiddleware(
+    private val tabDataCoordinator: TabDataCoordinator,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val mainScope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+) : Middleware<TabGroupFlowState, TabGroupAction> {
+    private val tabGroupStorage = TabGroupStorage(tabDataCoordinator = tabDataCoordinator, scope = scope)
+
+    override fun invoke(
+        store: Store<TabGroupFlowState, TabGroupAction>,
+        next: (TabGroupAction) -> Unit,
+        action: TabGroupAction,
+    ) {
+        when (action) {
+            is TabsStorageAction ->
+                processAction(
+                    action = action,
+                    store = store,
+                )
+
+            else -> {}
+        }
+
+        next(action)
+    }
+
+    private fun processAction(
+        action: TabsStorageAction,
+        store: Store<TabGroupFlowState, TabGroupAction>,
+    ) {
+        when (action) {
+            is TabGroupAction.SaveClicked -> {
+                val form = store.state.formState ?: return
+                val tabId = store.state.formState?.tabGroupId ?: store.state.tabPendingNewGroup ?: return
+                scope.launch {
+                    val groupId =
+                        tabGroupStorage.handleSaveFromMultiSelection(
+                            formState = form,
+                            selectedTabIds = listOf(tabId),
+                        )
+                    if (groupId != null) {
+                        mainScope.launch {
+                            store.dispatch(TabGroupAction.NewGroupCreated(groupId))
+                        }
+                    }
+                }
+            }
+
+            is TabGroupAction.TabAddedToExistingTabGroup -> {
+                scope.launch {
+                    tabDataCoordinator.addTabsToTabGroup(tabGroupId = action.groupId, tabIds = listOf(action.tabId))
+                }
+            }
+
+            is TabGroupAction.TabMovedToExistingTabGroup -> {
+                scope.launch {
+                    tabDataCoordinator.addTabsToTabGroup(tabGroupId = action.groupId, tabIds = listOf(action.tabId))
+                }
+            }
+
+            // Actions not handled outside the tabs tray currently
+            is TabGroupAction.CloseTabAndDeleteGroupConfirmed,
+            is TabGroupAction.CloseTabGroupClicked,
+            is TabGroupAction.DeleteConfirmed,
+            is TabGroupAction.DragAndDropInitiated,
+            is TabGroupAction.OpenTabGroupClicked,
+            is TabGroupAction.SelectedTabsAddedToGroup,
+            is TabGroupAction.TabAddedToNewTabGroup,
+            is TabGroupAction.TabClosed,
+            is TabGroupAction.UngroupConfirmed,
+            TabsTrayAction.InitAction,
+            is TabsTrayAction.ReorderTabsTrayItem -> {}
+        }
+    }
+}
