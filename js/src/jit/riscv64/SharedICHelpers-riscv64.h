@@ -36,9 +36,10 @@ inline void EmitBaselineLeaveStubFrame(MacroAssembler& masm) {
       ICStubReg);
 
   masm.movePtr(FramePointer, StackPointer);
+  masm.Pop(FramePointer);
 
   // Load the return address.
-  masm.PopRegs(FramePointer, ICTailCallReg);
+  masm.Pop(ICTailCallReg);
 
   // Discard the frame descriptor.
   {

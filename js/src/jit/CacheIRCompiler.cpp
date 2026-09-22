@@ -8085,13 +8085,15 @@ bool CacheIRCompiler::emitLoadDataViewValueResult(
       masm.jump(&done);
 
       masm.bind(&fail);
-      masm.popRegs(bigIntScratch, bigInt);
+      masm.pop(bigIntScratch);
+      masm.pop(bigInt);
       masm.jump(failure->label());
 
       masm.bind(&done);
       masm.initializeBigInt64(elementType, bigInt, outputReg64);
       masm.tagValue(JSVAL_TYPE_BIGINT, bigInt, output.valueReg());
-      masm.popRegs(bigIntScratch, bigInt);
+      masm.pop(bigIntScratch);
+      masm.pop(bigInt);
       break;
     }
     case Scalar::Uint8Clamped:

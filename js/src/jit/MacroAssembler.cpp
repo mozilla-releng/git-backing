@@ -4782,7 +4782,8 @@ MacroAssembler::AutoProfilerCallInstrumentation::
 
   masm.appendProfilerCallSite(label);
 
-  masm.popRegs(reg2, reg);
+  masm.pop(reg2);
+  masm.pop(reg);
 }
 
 void MacroAssembler::linkProfilerCallSites(JitCode* code) {
