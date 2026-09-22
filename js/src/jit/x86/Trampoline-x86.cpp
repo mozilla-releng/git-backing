@@ -65,7 +65,9 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm,
   // Save non-volatile registers. These must be saved by the trampoline,
   // rather than the JIT'd code, because they are scanned by the conservative
   // scanner.
-  masm.pushRegs(ebx, esi, edi);
+  masm.push(ebx);
+  masm.push(esi);
+  masm.push(edi);
 
   if (mode == EnterJitMode::GeneratorResume) {
     Register reg_argv = ebx;
@@ -461,7 +463,9 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   Register temp1 = eax;
   Register temp2 = ebx;
   Register temp3 = ecx;
-  masm.pushRegs(temp1, temp2, temp3);
+  masm.push(temp1);
+  masm.push(temp2);
+  masm.push(temp3);
 
   Label noBarrier;
   masm.emitPreBarrierFastPath(type, temp1, temp2, temp3, &noBarrier);

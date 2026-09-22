@@ -2821,7 +2821,8 @@ void CreateDependentString::generate(MacroAssembler& masm,
 
     masm.store32(temp1_, Address(string_, JSString::offsetOfLength()));
 
-    masm.pushRegs(string_, base);
+    masm.push(string_);
+    masm.push(base);
 
     MOZ_ASSERT(startIndexAddress.base == FramePointer,
                "startIndexAddress is still valid after stack pushes");
@@ -6925,7 +6926,8 @@ void JitRuntime::generateIonGenericHandleUnderflow(MacroAssembler& masm,
   // We also set up a register pointing to the last copied argument. On x86
   // we don't have enough registers, so we spill the calleeReg and numMissing.
   if (mustSpill) {
-    masm.pushRegs(calleeReg, numMissing);
+    masm.push(calleeReg);
+    masm.push(numMissing);
   }
   masm.computeEffectiveAddress(BaseValueIndex(src, argcReg), srcEnd);
 
