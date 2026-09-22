@@ -17,7 +17,7 @@ class TabGroupMenuBindingTest {
     private val testDispatcher = StandardTestDispatcher()
 
     @Test
-    fun `WHEN tab is in a group and not a custom tab THEN tab group options are displayed`() {
+    fun `WHEN tab is in a group and not a custom tab THEN group status updated to true`() {
         val tabDataCoordinator =
             FakeTabDataCoordinator(
                 TabsSnapshot(
@@ -38,7 +38,7 @@ class TabGroupMenuBindingTest {
     }
 
     @Test
-    fun `WHEN tab is not in a group and not a custom tab THEN tab group options are not displayed`() {
+    fun `WHEN tab is not in a group and not a custom tab THEN group status updated to false`() {
 
         val tabDataCoordinator =
             FakeTabDataCoordinator(
@@ -61,12 +61,12 @@ class TabGroupMenuBindingTest {
 
     private fun startBinding(
         tabDataCoordinator: TabDataCoordinator,
-        onDisplayGroupOptionsUpdated: (Boolean) -> Unit,
+        onGroupStatusUpdated: (Boolean) -> Unit,
     ) {
         val tabGroupMenuBinding =
             TabGroupMenuBinding(
                 tabDataCoordinator = tabDataCoordinator,
-                onGroupStatusUpdated = onDisplayGroupOptionsUpdated,
+                onGroupStatusUpdated = onGroupStatusUpdated,
                 mainDispatcher = testDispatcher,
             )
         tabGroupMenuBinding.start()
