@@ -5,7 +5,9 @@
 #ifndef jit_arm64_MacroAssembler_arm64_h
 #define jit_arm64_MacroAssembler_arm64_h
 
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include "jit/arm64/Assembler-arm64.h"
 #include "jit/arm64/vixl/MacroAssembler-vixl.h"
@@ -215,17 +217,99 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   template <typename... Regs>
   void pushRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0 && sizeof...(Regs) <= 4);
+    static_assert(sizeof...(Regs) > 0);
+
+#if defined(XP_DARWIN)
+    // Store-to-load forwarding is broken when either the store or the load in
+    // the pair is paired (STP and LDP) on some Apple Silicon. See also Bug
+    // 2073458 and
+    // <https://lemire.me/blog/2024/04/29/careful-with-pair-of-registers-instructions-on-apple-silicon/>.
+    // Thus, use N single stores, fusing the stack adjustment into the first
+    // access.
+
+    if (((static_cast<Register>(regs) == getStackPointer()) || ...)) {
+      (push(regs), ...);
+      return;
+    }
+
+    const vixl::Register& sp = GetStackPointer64();
+
+    // Pre-indexed offsets are 9-bit signed.
+    static_assert(sizeof...(Regs) <= ((1 << (9 - 1)) / sizeof(intptr_t)));
+
+    constexpr int32_t Bytes = int32_t(sizeof...(Regs) * sizeof(intptr_t));
+    MOZ_ASSERT_IF(sp.Is(vixl::sp), Bytes % 16 == 0);
+
+    if (!sp.Is(vixl::sp)) {
+      // Stay above the memory we are about to store to.
+      Sub(vixl::sp, sp, Operand(Bytes));
+    }
+
+    const auto pack = std::forward_as_tuple(regs...);
+    // str regs[N-1], [SP, #-(8*N)]!
+    Str(ARMRegister(std::get<sizeof...(Regs) - 1>(pack), 64),
+        MemOperand(sp, -Bytes, vixl::PreIndex));
+    // str regs[N-2], [SP, #8]
+    // str regs[N-3], [SP, #16]
+    // ...
+    // str regs[0], [SP, #(8*(N-1))]
+    [&]<size_t... ISeq>(std::index_sequence<ISeq...>) {
+      int32_t offset = 0;
+      (storePtr(
+           std::get<sizeof...(Regs) - 2 - ISeq>(pack),
+           Address(getStackPointer(), offset += int32_t(sizeof(intptr_t)))),
+       ...);
+    }(std::make_index_sequence<sizeof...(Regs) - 1>{});
+#else
+    static_assert(sizeof...(Regs) <= 4);
 
     push(regs...);
+#endif
   }
 
   template <typename... Regs>
   void popRegs(const Regs&... regs) {
     static_assert((std::is_convertible_v<Regs, Register> && ...));
-    static_assert(sizeof...(Regs) > 0 && sizeof...(Regs) <= 4);
+    static_assert(sizeof...(Regs) > 0);
+
+#if defined(XP_DARWIN)
+    // See pushRegs() above.
+
+    if (((static_cast<Register>(regs) == getStackPointer()) || ...)) {
+      (pop(regs), ...);
+      return;
+    }
+
+    const vixl::Register& sp = GetStackPointer64();
+
+    // Post-indexed offsets are 9-bit signed.
+    static_assert(sizeof...(Regs) <= ((1 << (9 - 1)) / sizeof(intptr_t)));
+
+    constexpr int32_t Bytes = int32_t(sizeof...(Regs) * sizeof(intptr_t));
+    MOZ_ASSERT_IF(sp.Is(vixl::sp), Bytes % 16 == 0);
+
+    const auto pack = std::forward_as_tuple(regs...);
+    // ldr regs[0], [SP], #(8*N)
+    Ldr(ARMRegister(std::get<0>(pack), 64),
+        MemOperand(sp, Bytes, vixl::PostIndex));
+    // ldr regs[1], [SP, #(-8*(N-1))]
+    // ldr regs[2], [SP, #(-8*(N-2))]
+    // ...
+    // ldr regs[N-1], [SP, #-8]
+    [&]<size_t... ISeq>(std::index_sequence<ISeq...>) {
+      int32_t offset = -Bytes;
+      (loadPtr(Address(getStackPointer(), offset += int32_t(sizeof(intptr_t))),
+               std::get<ISeq + 1>(pack)),
+       ...);
+    }(std::make_index_sequence<sizeof...(Regs) - 1>{});
+
+    // Commit the changes to SP.
+    syncStackPtr();
+#else
+    static_assert(sizeof...(Regs) <= 4);
 
     pop(regs...);
+#endif
   }
 
   // Update sp with the value of the current active stack pointer, if necessary.
