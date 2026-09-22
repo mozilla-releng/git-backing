@@ -8,6 +8,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
 import mozilla.components.lib.state.State
 import org.mozilla.fenix.tabgroups.TabGroupTelemetry
+import org.mozilla.fenix.tabgroups.storage.TabGroupStorageContext
 import org.mozilla.fenix.tabstray.data.TabsTrayItem
 import org.mozilla.fenix.tabstray.navigation.TabManagerNavDestination
 import org.mozilla.fenix.tabstray.syncedtabs.SyncedTabsListItem
@@ -221,7 +222,7 @@ data class TabsTrayState(
         val showCollectionsMigrationCard: Boolean = false,
         val enteringGroupId: String? = null,
         val dragProcessingState: DragProcessingState = DragProcessingState.UNINITIALIZED,
-    ) : TabGroupTelemetry.TabGroupTelemetryContext
+    ) : TabGroupTelemetry.TabGroupTelemetryContext, TabGroupStorageContext
 
     /** State for the drag handling flow for Tab Groups. */
     enum class DragProcessingState {
