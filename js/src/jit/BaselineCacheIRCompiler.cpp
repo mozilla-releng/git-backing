@@ -720,7 +720,8 @@ bool BaselineCacheIRCompiler::emitCallDOMGetterResult(ObjOperandId objId,
   // Load the JSJitInfo in the scratch register.
   masm.loadPtr(jitInfoAddr, scratch);
 
-  masm.PushRegs(obj, scratch);
+  masm.Push(obj);
+  masm.Push(scratch);
 
   using Fn =
       bool (*)(JSContext*, const JSJitInfo*, HandleObject, MutableHandleValue);
@@ -746,7 +747,8 @@ bool BaselineCacheIRCompiler::emitProxyGetResult(ObjOperandId objId,
   // Load the jsid in the scratch register.
   masm.loadPtr(idAddr, scratch);
 
-  masm.PushRegs(scratch, obj);
+  masm.Push(scratch);
+  masm.Push(obj);
 
   using Fn = bool (*)(JSContext*, HandleObject, HandleId, MutableHandleValue);
   callVM<Fn, ProxyGetProperty>(masm);
@@ -810,9 +812,11 @@ bool BaselineCacheIRCompiler::emitCompareStringResult(JSOp op,
     // - |left <= right| is implemented as |right >= left|.
     // - |left > right| is implemented as |right < left|.
     if (op == JSOp::Le || op == JSOp::Gt) {
-      masm.PushRegs(left, right);
+      masm.Push(left);
+      masm.Push(right);
     } else {
-      masm.PushRegs(right, left);
+      masm.Push(right);
+      masm.Push(left);
     }
 
     using Fn = bool (*)(JSContext*, HandleString, HandleString, bool*);
@@ -1518,7 +1522,8 @@ bool BaselineCacheIRCompiler::emitCallNativeSetter(
   masm.loadPtr(setterAddr, scratch);
 
   masm.Push(val);
-  masm.PushRegs(receiver, scratch);
+  masm.Push(receiver);
+  masm.Push(scratch);
 
   using Fn = bool (*)(JSContext*, HandleFunction, HandleObject, HandleValue);
   callVM<Fn, CallNativeSetter>(masm);
@@ -1644,7 +1649,8 @@ bool BaselineCacheIRCompiler::emitCallDOMSetter(ObjOperandId objId,
   masm.loadPtr(jitInfoAddr, scratch);
 
   masm.Push(val);
-  masm.PushRegs(obj, scratch);
+  masm.Push(obj);
+  masm.Push(scratch);
 
   using Fn = bool (*)(JSContext*, const JSJitInfo*, HandleObject, HandleValue);
   callVM<Fn, CallDOMSetter>(masm);
@@ -1698,7 +1704,8 @@ bool BaselineCacheIRCompiler::emitProxySet(ObjOperandId objId,
 
   masm.Push(Imm32(strict));
   masm.Push(val);
-  masm.PushRegs(scratch, obj);
+  masm.Push(scratch);
+  masm.Push(obj);
 
   using Fn = bool (*)(JSContext*, HandleObject, HandleId, HandleValue, bool);
   callVM<Fn, ProxySetProperty>(masm);
@@ -1758,7 +1765,8 @@ bool BaselineCacheIRCompiler::emitCallAddOrUpdateSparseElementHelper(
 
   masm.Push(Imm32(strict));
   masm.Push(val);
-  masm.PushRegs(id, obj);
+  masm.Push(id);
+  masm.Push(obj);
 
   using Fn = bool (*)(JSContext* cx, Handle<NativeObject*> obj, int32_t int_id,
                       HandleValue v, bool strict);
@@ -2988,7 +2996,8 @@ bool BaselineCacheIRCompiler::emitCallNativeShared(
   masm.push(argcReg);
 
   masm.push(FrameDescriptor(FrameType::BaselineStub));
-  masm.pushRegs(ICTailCallReg, FramePointer);
+  masm.push(ICTailCallReg);
+  masm.push(FramePointer);
   masm.loadJSContext(scratch);
   masm.enterFakeExitFrameForNative(scratch, scratch, isConstructing);
 
@@ -3249,7 +3258,8 @@ void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
   // an alloc site.
 
   // Push argv/argc for rooting in CreateThisFromIC
-  masm.pushRegs(argcReg, argvReg);
+  masm.push(argcReg);
+  masm.push(argvReg);
 
   if (hasCreateThisData) {
     masm.loadPtr(stubAddress(createThisData_->allocSiteOffset), scratch);
@@ -3258,11 +3268,15 @@ void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
 
   if (isBoundFunction) {
     // Push the bound function's target as callee and newTarget.
-    masm.pushRegs(calleeReg, calleeReg);
+    masm.push(calleeReg);
+    masm.push(calleeReg);
   } else {
-    // Push newTarget and callee:
+    // Push newTarget:
     loadStackObject(ArgumentKind::NewTarget, flags, argcReg, scratch);
-    masm.pushRegs(scratch, calleeReg);
+    masm.push(scratch);
+
+    // Push callee.
+    masm.push(calleeReg);
   }
 
   if (hasCreateThisData) {
@@ -3805,7 +3819,9 @@ bool BaselineCacheIRCompiler::emitNewFunctionCloneResult(
     AutoStubFrame stubFrame(*this);
     stubFrame.enter(masm, scratch);
 
-    masm.PushRegs(site, envChain, canonical);
+    masm.Push(site);
+    masm.Push(envChain);
+    masm.Push(canonical);
 
     using Fn =
         JSObject* (*)(JSContext*, HandleFunction, HandleObject, gc::AllocSite*);
@@ -3947,7 +3963,9 @@ bool BaselineCacheIRCompiler::emitCallRegExpMatcherResult(
     masm.Push(scratch);
 
     masm.bind(&pushedMatches);
-    masm.PushRegs(lastIndex, input, regexp);
+    masm.Push(lastIndex);
+    masm.Push(input);
+    masm.Push(regexp);
 
     using Fn = bool (*)(JSContext*, HandleObject regexp, HandleString input,
                         int32_t lastIndex, MatchPairs* pairs,
@@ -4007,7 +4025,9 @@ bool BaselineCacheIRCompiler::emitCallRegExpSearcherResult(
     masm.Push(scratch);
 
     masm.bind(&pushedMatches);
-    masm.PushRegs(lastIndex, input, regexp);
+    masm.Push(lastIndex);
+    masm.Push(input);
+    masm.Push(regexp);
 
     using Fn = bool (*)(JSContext*, HandleObject regexp, HandleString input,
                         int32_t lastIndex, MatchPairs* pairs, int32_t* result);
@@ -4060,7 +4080,8 @@ bool BaselineCacheIRCompiler::emitRegExpBuiltinExecMatchResult(
     masm.Push(scratch);
 
     masm.bind(&pushedMatches);
-    masm.PushRegs(input, regexp);
+    masm.Push(input);
+    masm.Push(regexp);
 
     using Fn =
         bool (*)(JSContext*, Handle<RegExpObject*> regexp, HandleString input,
@@ -4108,7 +4129,8 @@ bool BaselineCacheIRCompiler::emitRegExpBuiltinExecTestResult(
   {
     masm.bind(&vmCall);
 
-    masm.PushRegs(input, regexp);
+    masm.Push(input);
+    masm.Push(regexp);
 
     using Fn = bool (*)(JSContext*, Handle<RegExpObject*> regexp,
                         HandleString input, bool* result);
@@ -4156,7 +4178,8 @@ bool BaselineCacheIRCompiler::emitRegExpHasCaptureGroupsResult(
     AutoStubFrame stubFrame(*this);
     stubFrame.enter(masm, scratch);
 
-    masm.PushRegs(input, regexp);
+    masm.Push(input);
+    masm.Push(regexp);
 
     using Fn =
         bool (*)(JSContext*, Handle<RegExpObject*>, Handle<JSString*>, bool*);
