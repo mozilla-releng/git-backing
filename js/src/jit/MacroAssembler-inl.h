@@ -10,7 +10,6 @@
 #include "mozilla/FloatingPoint.h"
 
 #include <bit>
-#include <type_traits>
 
 #include "gc/Zone.h"
 #include "jit/CalleeToken.h"
@@ -97,24 +96,6 @@ CodeOffset MacroAssembler::PushWithPatch(ImmWord word) {
 
 CodeOffset MacroAssembler::PushWithPatch(ImmPtr imm) {
   return PushWithPatch(ImmWord(uintptr_t(imm.value)));
-}
-
-template <typename... Regs>
-void MacroAssembler::PushRegs(const Regs&... regs) {
-  static_assert((std::is_convertible_v<Regs, Register> && ...));
-  static_assert(sizeof...(Regs) > 0);
-
-  pushRegs(regs...);
-  adjustFrame(int32_t(sizeof...(Regs) * sizeof(intptr_t)));
-}
-
-template <typename... Regs>
-void MacroAssembler::PopRegs(const Regs&... regs) {
-  static_assert((std::is_convertible_v<Regs, Register> && ...));
-  static_assert(sizeof...(Regs) > 0);
-
-  popRegs(regs...);
-  adjustFrame(-int32_t(sizeof...(Regs) * sizeof(intptr_t)));
 }
 
 // ===============================================================
