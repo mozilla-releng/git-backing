@@ -1401,9 +1401,11 @@ bool IonCacheIRCompiler::emitCompareStringResult(JSOp op, StringOperandId lhsId,
   // - |left <= right| is implemented as |right >= left|.
   // - |left > right| is implemented as |right < left|.
   if (op == JSOp::Le || op == JSOp::Gt) {
-    masm.PushRegs(left, right);
+    masm.Push(left);
+    masm.Push(right);
   } else {
-    masm.PushRegs(right, left);
+    masm.Push(right);
+    masm.Push(left);
   }
 
   using Fn = bool (*)(JSContext*, HandleString, HandleString, bool*);
@@ -1913,7 +1915,8 @@ bool IonCacheIRCompiler::emitCallAddOrUpdateSparseElementHelper(
 
   masm.Push(Imm32(strict));
   masm.Push(val);
-  masm.PushRegs(id, obj);
+  masm.Push(id);
+  masm.Push(obj);
 
   using Fn = bool (*)(JSContext* cx, Handle<NativeObject*> obj, int32_t int_id,
                       HandleValue v, bool strict);
