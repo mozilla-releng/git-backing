@@ -651,7 +651,7 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-addon'
-                    staging: '{trust-domain}-1-addon'
+                    staging: '{trust-domain}-1-addon-dev'
         balrog:
             provisioner: scriptworker-k8s
             implementation: balrog
@@ -659,7 +659,7 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-balrog'
-                    staging: '{trust-domain}-1-balrog'
+                    staging: '{trust-domain}-1-balrog-dev'
         bouncer:
             provisioner: scriptworker-k8s
             # Note that this implementation doesn't correspond with an
@@ -669,7 +669,7 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-bouncer'
-                    staging: '{trust-domain}-1-bouncer'
+                    staging: '{trust-domain}-1-bouncer-dev'
         beetmover:
             provisioner: scriptworker-k8s
             implementation: beetmover
@@ -681,7 +681,7 @@ workers:
                     default:
                         by-release-level:
                             production: '{trust-domain}-3-beetmover'
-                            staging: '{trust-domain}-1-beetmover'
+                            staging: '{trust-domain}-1-beetmover-dev'
         beetmover-android:
             provisioner: scriptworker-k8s
             implementation: scriptworker-beetmover
@@ -689,7 +689,7 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-beetmover'
-                    staging: '{trust-domain}-1-beetmover'
+                    staging: '{trust-domain}-1-beetmover-dev'
         shipit:
             provisioner: scriptworker-k8s
             implementation: shipit
@@ -697,12 +697,12 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-shipit'
-                    staging: '{trust-domain}-1-shipit'
+                    staging: '{trust-domain}-1-shipit-dev'
         linux-depsigning:
             provisioner: scriptworker-k8s
             implementation: scriptworker-signing
             os: linux
-            worker-type: '{trust-domain}-t-signing'
+            worker-type: '{trust-domain}-t-signing-dev'
         linux-signing:
             provisioner: scriptworker-k8s
             implementation: scriptworker-signing
@@ -710,7 +710,7 @@ workers:
             worker-type:
                 by-release-level:
                     production: '{trust-domain}-3-signing'
-                    staging: '{trust-domain}-t-signing'
+                    staging: '{trust-domain}-t-signing-dev'
         mac-depsigning:
             provisioner: scriptworker-prov-v1
             implementation: iscript
@@ -728,14 +728,17 @@ workers:
             provisioner: scriptworker-k8s
             implementation: scriptworker-pushapk
             os: linux
-            worker-type: '{trust-domain}-{level}-pushapk'
+            worker-type:
+                by-release-level:
+                    production: '{trust-domain}-3-signing'
+                    staging: '{trust-domain}-1-pushapk-dev'
         pushflatpak:
             provisioner: scriptworker-k8s
             implementation: push-flatpak
             os: linux
             worker-type:
                 by-release-level:
-                    staging: '{trust-domain}-1-pushflatpak'
+                    staging: '{trust-domain}-1-pushflatpak-dev'
                     production: '{trust-domain}-3-pushflatpak'
         pushmsix:
             provisioner: scriptworker-k8s
@@ -743,7 +746,7 @@ workers:
             os: linux
             worker-type:
                 by-release-level:
-                    staging: '{trust-domain}-1-pushmsix'
+                    staging: '{trust-domain}-1-pushmsix-dev'
                     production: '{trust-domain}-3-pushmsix'
         tree:
             provisioner: scriptworker-k8s
@@ -763,7 +766,7 @@ workers:
                     default:
                         by-release-level:
                             production: '{trust-domain}-3-tree'
-                            staging: '{trust-domain}-1-tree'
+                            staging: '{trust-domain}-1-tree-dev'
         tree-dev:
             provisioner: scriptworker-k8s
             implementation: treescript
