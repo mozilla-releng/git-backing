@@ -2836,7 +2836,8 @@ void CreateDependentString::generate(MacroAssembler& masm,
 
     CopyStringChars(masm, string_, temp2_, temp1_, base, encoding_);
 
-    masm.popRegs(base, string_);
+    masm.pop(base);
+    masm.pop(string_);
 
     masm.jump(&done);
   }
@@ -8533,7 +8534,8 @@ void CodeGenerator::emitAssertResultV(const ValueOperand input,
   }
 
   masm.bind(&done);
-  masm.popRegs(temp2, temp1);
+  masm.pop(temp2);
+  masm.pop(temp1);
 }
 
 void CodeGenerator::emitGCThingResultChecks(LInstruction* lir,
@@ -14505,12 +14507,12 @@ void JitRuntime::generateLazyLinkStub(MacroAssembler& masm) {
 
   // Discard exit frame and restore frame pointer.
   masm.leaveExitFrame(0);
+  masm.pop(FramePointer);
+
 #ifdef JS_USE_LINK_REGISTER
   // Restore the return address such that the emitPrologue function of the
   // CodeGenerator can push it back on the stack with pushReturnAddress.
-  masm.popRegs(FramePointer, LinkRegister);
-#else
-  masm.pop(FramePointer);
+  masm.popReturnAddress();
 #endif
   masm.jump(ReturnReg);
 }

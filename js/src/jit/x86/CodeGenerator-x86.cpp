@@ -471,7 +471,8 @@ void CodeGenerator::visitWasmAtomicBinopI64(LWasmAtomicBinopI64* ins) {
   masm.wasmAtomicFetchOp32x2(ins->access(), ins->operation(), valueAddr,
                              srcAddr, value, output);
 
-  masm.PopRegs(ebx, ecx);
+  masm.Pop(ebx);
+  masm.Pop(ecx);
 }
 
 namespace js {
