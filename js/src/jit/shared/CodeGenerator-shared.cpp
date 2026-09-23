@@ -143,12 +143,11 @@ bool CodeGeneratorShared::generatePrologue() {
   MOZ_ASSERT(!gen->compilingWasm());
 
 #ifdef JS_USE_LINK_REGISTER
-  // LR, then FP for frame prologue.
-  masm.pushRegs(LinkRegister, FramePointer);
-#else
+  masm.pushReturnAddress();
+#endif
+
   // Frame prologue.
   masm.push(FramePointer);
-#endif
   masm.moveStackPtrTo(FramePointer);
 
   // Ensure that the Ion frame is properly aligned.

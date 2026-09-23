@@ -61,10 +61,13 @@ inline void EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch) {
 #endif
 
   // Push frame descriptor and return address.
-  // Save old frame pointer, stack pointer, and stub reg.
   masm.Push(FrameDescriptor(FrameType::BaselineJS));
-  masm.PushRegs(ICTailCallReg, FramePointer);
+  masm.Push(ICTailCallReg);
+
+  // Save old frame pointer, stack pointer and stub reg.
+  masm.Push(FramePointer);
   masm.mov(StackPointer, FramePointer);
+
   masm.Push(ICStubReg);
 
   // We pushed 4 words, so the stack is still aligned to 8 bytes.
