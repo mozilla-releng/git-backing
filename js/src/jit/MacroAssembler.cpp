@@ -4762,7 +4762,8 @@ MacroAssembler::AutoProfilerCallInstrumentation::
 
   Register reg = CallTempReg0;
   Register reg2 = CallTempReg1;
-  masm.pushRegs(reg, reg2);
+  masm.push(reg);
+  masm.push(reg2);
 
   CodeOffset label = masm.movWithPatch(ImmWord(uintptr_t(-1)), reg);
   masm.loadJSContext(reg2);
