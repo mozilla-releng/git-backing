@@ -44,9 +44,10 @@ class ScriptworkerParser(BaseTryParser):
         [
             ["task_type"],
             {
-                "choices": ["list"] + list(TASK_TYPES.keys()),
+                "choices": ["list", "all"] + list(TASK_TYPES.keys()),
                 "metavar": "TASK-TYPE",
-                "help": "Scriptworker task types to run. (Use `list` to show possibilities)",
+                "help": "Scriptworker task types to run. Use `all` to run every "
+                "known task type, or `list` to show possibilities.",
             },
         ],
         [
@@ -88,11 +89,19 @@ def get_nightly_graph():
     )
 
 
+def get_tasks_for_type(task_type):
+    if task_type == "all":
+        return list(
+            dict.fromkeys(task for tasks in TASK_TYPES.values() for task in tasks)
+        )
+    return TASK_TYPES[task_type]
+
+
 def print_available_task_types():
     print("Available task types:")
-    for task_type, tasks in TASK_TYPES.items():
+    for task_type in ["all"] + list(TASK_TYPES.keys()):
         print(" " * 4 + f"{task_type}:")
-        for task in tasks:
+        for task in get_tasks_for_type(task_type):
             print(" " * 8 + f"- {task}")
 
 
@@ -165,7 +174,7 @@ def run(
         task_config["parameters"][param] = previous_parameters[param]
 
     try_config = task_config["parameters"].setdefault("try_task_config", {})
-    try_config["tasks"] = TASK_TYPES[task_type]
+    try_config["tasks"] = get_tasks_for_type(task_type)
     for label in try_config["tasks"]:
         if label in existing_tasks:
             del existing_tasks[label]
