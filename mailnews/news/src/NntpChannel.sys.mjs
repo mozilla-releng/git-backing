@@ -68,6 +68,7 @@ export class NntpChannel extends MailChannel {
     // nsIChannel attributes.
     this.originalURI = uri;
     this.URI = uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
+    this._needsSecurityCheck = !!loadInfo;
     this.loadInfo = loadInfo || {
       QueryInterface: ChromeUtils.generateQI(["nsILoadInfo"]),
       loadingPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
@@ -162,6 +163,11 @@ export class NntpChannel extends MailChannel {
 
   asyncOpen(listener) {
     this._logger.debug("asyncOpen", this.URI.spec);
+    if (this._needsSecurityCheck) {
+      listener = Cc["@mozilla.org/contentsecuritymanager;1"]
+        .getService(Ci.nsIContentSecurityManager)
+        .performSecurityCheck(this, listener);
+    }
     const url = new URL(this.URI.spec);
     this._listener = listener;
 
