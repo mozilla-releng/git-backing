@@ -430,9 +430,11 @@ void nsImapServerResponseParser::ProcessBadCommand(const char* commandToken) {
   else if (!PL_strcasecmp(commandToken, "LOGOUT"))
     fIMAPstate = kNonAuthenticated;  // ??
   else if (!PL_strcasecmp(commandToken, "SELECT") ||
-           !PL_strcasecmp(commandToken, "EXAMINE"))
+           !PL_strcasecmp(commandToken, "EXAMINE")) {
+    mozilla::MutexAutoLock mon(mLock);
     fIMAPstate = kAuthenticated;  // nothing selected
-  else if (!PL_strcasecmp(commandToken, "CLOSE"))
+    PR_FREEIF(fSelectedMailboxName);
+  } else if (!PL_strcasecmp(commandToken, "CLOSE"))
     fIMAPstate = kAuthenticated;  // nothing selected
 }
 
@@ -620,16 +622,17 @@ void nsImapServerResponseParser::response_data() {
         else {
           // check if custom command
           nsAutoCString customCommand;
-          fServerConnection.GetCurrentUrl()->GetCommand(customCommand);
-          if (customCommand.Equals(fNextToken)) {
+          // There is no running url while idling.
+          nsIImapUrl* currentUrl = fServerConnection.GetCurrentUrl();
+          if (currentUrl) currentUrl->GetCommand(customCommand);
+          if (currentUrl && customCommand.Equals(fNextToken)) {
             nsAutoCString customCommandResponse;
             while (Connected() && !fAtEndOfLine) {
               AdvanceToNextToken();
               customCommandResponse.Append(fNextToken);
               customCommandResponse.Append(' ');
             }
-            fServerConnection.GetCurrentUrl()->SetCustomCommandResult(
-                customCommandResponse);
+            currentUrl->SetCustomCommandResult(customCommandResponse);
           } else
             SetSyntaxError(true);
         }
@@ -1187,12 +1190,15 @@ void nsImapServerResponseParser::msg_fetch() {
           fetchResult = CreateAstring();
           AdvanceToNextToken();
         }
-        if (imapAction == nsIImapUrl::nsImapUserDefinedFetchAttribute)
+        if (!fetchResult) {
+          SetSyntaxError(true);
+        } else if (imapAction == nsIImapUrl::nsImapUserDefinedFetchAttribute) {
           fServerConnection.GetCurrentUrl()->SetCustomAttributeResult(
               nsDependentCString(fetchResult));
-        if (imapAction == nsIImapUrl::nsImapUserDefinedMsgCommand)
+        } else {
           fServerConnection.GetCurrentUrl()->SetCustomCommandResult(
               nsDependentCString(fetchResult));
+        }
         PR_Free(fetchResult);
       } else
         SetSyntaxError(true);
@@ -2039,6 +2045,7 @@ void nsImapServerResponseParser::language_data() {
 
 void nsImapServerResponseParser::authChallengeResponse_data() {
   AdvanceToNextToken();
+  PR_FREEIF(fAuthChallenge);
   fAuthChallenge = strdup(fNextToken);
   fWaitingForMoreClientInput = true;
 
