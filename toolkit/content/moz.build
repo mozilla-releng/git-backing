@@ -263,7 +263,7 @@ with Files("timepicker*"):
 with Files("treeUtils.js"):
     BUG_COMPONENT = ("Toolkit", "General")
 
-with Files("viewZoomOverlay.js"):
+with Files("ZoomManager.mjs"):
     BUG_COMPONENT = ("Toolkit", "General")
 
 with Files("preferencesBindings.js"):

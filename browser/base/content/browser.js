@@ -154,10 +154,10 @@ XPCOMUtils.defineLazyScriptGetter(
   "PrintUtils",
   "chrome://global/content/printUtils.js"
 );
-XPCOMUtils.defineLazyScriptGetter(
+ChromeUtils.defineESModuleGetters(
   this,
-  "ZoomManager",
-  "chrome://global/content/viewZoomOverlay.js"
+  { ZoomManager: "chrome://global/content/ZoomManager.mjs" },
+  { global: "current" }
 );
 XPCOMUtils.defineLazyScriptGetter(
   this,

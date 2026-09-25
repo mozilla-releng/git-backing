@@ -2,14 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const { XPCOMUtils } = ChromeUtils.importESModule(
+  "resource://gre/modules/XPCOMUtils.sys.mjs"
+);
+
 /**
  * Document Zoom Management Code
  *
- * To use this, you'll need to have a global gBrowser variable
- * or pass the browser to be modified to the methods.
+ * Load this into a window with ChromeUtils.defineESModuleGetters() or
+ * ChromeUtils.importESModule(), passing { global: "current" }. To use it,
+ * you'll need to have a global gBrowser variable in that window or pass the
+ * browser to be modified to the methods.
  */
-
-var ZoomManager = {
+export const ZoomManager = {
   set useFullZoom(aVal) {
     Services.prefs.setBoolPref("browser.zoom.full", aVal);
   },
@@ -96,53 +101,47 @@ var ZoomManager = {
   },
 };
 
-{
-  const { XPCOMUtils } = ChromeUtils.importESModule(
-    "resource://gre/modules/XPCOMUtils.sys.mjs"
-  );
+XPCOMUtils.defineLazyPreferenceGetter(
+  ZoomManager,
+  "MIN",
+  "zoom.minPercent",
+  30,
+  null,
+  v => v / 100
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  ZoomManager,
+  "MAX",
+  "zoom.maxPercent",
+  500,
+  null,
+  v => v / 100
+);
 
-  XPCOMUtils.defineLazyPreferenceGetter(
-    ZoomManager,
-    "MIN",
-    "zoom.minPercent",
-    30,
-    null,
-    v => v / 100
-  );
-  XPCOMUtils.defineLazyPreferenceGetter(
-    ZoomManager,
-    "MAX",
-    "zoom.maxPercent",
-    500,
-    null,
-    v => v / 100
-  );
+XPCOMUtils.defineLazyPreferenceGetter(
+  ZoomManager,
+  "zoomValues",
+  "toolkit.zoomManager.zoomValues",
+  ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2,2.4,3,4,5",
+  null,
+  zoomValues => {
+    zoomValues = zoomValues.split(",").map(parseFloat);
+    zoomValues.sort((a, b) => a - b);
 
-  XPCOMUtils.defineLazyPreferenceGetter(
-    ZoomManager,
-    "zoomValues",
-    "toolkit.zoomManager.zoomValues",
-    ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2,2.4,3,4,5",
-    null,
-    zoomValues => {
-      zoomValues = zoomValues.split(",").map(parseFloat);
-      zoomValues.sort((a, b) => a - b);
-
-      while (zoomValues[0] < ZoomManager.MIN) {
-        zoomValues.shift();
-      }
-
-      while (zoomValues[zoomValues.length - 1] > ZoomManager.MAX) {
-        zoomValues.pop();
-      }
-
-      return zoomValues;
+    while (zoomValues[0] < ZoomManager.MIN) {
+      zoomValues.shift();
     }
-  );
 
-  XPCOMUtils.defineLazyPreferenceGetter(
-    ZoomManager,
-    "useFullZoom",
-    "browser.zoom.full"
-  );
-}
+    while (zoomValues[zoomValues.length - 1] > ZoomManager.MAX) {
+      zoomValues.pop();
+    }
+
+    return zoomValues;
+  }
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  ZoomManager,
+  "useFullZoom",
+  "browser.zoom.full"
+);

@@ -5,16 +5,12 @@
 
 "use strict";
 
-var { XPCOMUtils } = ChromeUtils.importESModule(
-  "resource://gre/modules/XPCOMUtils.sys.mjs"
-);
-
 // Make some `topBrowsingContext.topChromeWindow` properties available in
 // separate devtools window.
 //
 // (see bug 1659618)
-XPCOMUtils.defineLazyScriptGetter(
+ChromeUtils.defineESModuleGetters(
   this,
-  "ZoomManager",
-  "chrome://global/content/viewZoomOverlay.js"
+  { ZoomManager: "chrome://global/content/ZoomManager.mjs" },
+  { global: "current" }
 );

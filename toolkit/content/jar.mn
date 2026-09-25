@@ -78,7 +78,7 @@ toolkit.jar:
    content/global/ScrollOffsets.mjs                (ScrollOffsets.mjs)
    content/global/treeUtils.js
 #ifndef MOZ_GECKOVIEW
-   content/global/viewZoomOverlay.js
+   content/global/ZoomManager.mjs
 #endif
    content/global/widgets.css
    content/global/bindings/calendar.js         (widgets/calendar.js)
