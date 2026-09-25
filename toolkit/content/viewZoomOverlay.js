@@ -6,7 +6,7 @@
  * Document Zoom Management Code
  *
  * To use this, you'll need to have a global gBrowser variable
- * or use the methods that accept a browser to be modified.
+ * or pass the browser to be modified to the methods.
  */
 
 var ZoomManager = {
@@ -14,22 +14,18 @@ var ZoomManager = {
     Services.prefs.setBoolPref("browser.zoom.full", aVal);
   },
 
-  get zoom() {
-    return this.getZoomForBrowser(gBrowser);
-  },
-
-  useFullZoomForBrowser: function ZoomManager_useFullZoomForBrowser(aBrowser) {
+  useFullZoomForBrowser(aBrowser) {
     return this.useFullZoom || aBrowser.isSyntheticDocument;
   },
 
-  getFullZoomForBrowser: function ZoomManager_getFullZoomForBrowser(aBrowser) {
+  getFullZoomForBrowser(aBrowser) {
     if (!this.useFullZoomForBrowser(aBrowser)) {
       return 1.0;
     }
     return this.getZoomForBrowser(aBrowser);
   },
 
-  getZoomForBrowser: function ZoomManager_getZoomForBrowser(aBrowser) {
+  getZoomForBrowser(aBrowser) {
     let zoom = this.useFullZoomForBrowser(aBrowser)
       ? aBrowser.fullZoom
       : aBrowser.textZoom;
@@ -37,11 +33,7 @@ var ZoomManager = {
     return Number(zoom ? zoom.toFixed(2) : 1);
   },
 
-  set zoom(aVal) {
-    this.setZoomForBrowser(gBrowser, aVal);
-  },
-
-  setZoomForBrowser: function ZoomManager_setZoomForBrowser(aBrowser, aVal) {
+  setZoomForBrowser(aBrowser, aVal) {
     if (aVal < this.MIN || aVal > this.MAX) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
@@ -55,7 +47,7 @@ var ZoomManager = {
     }
   },
 
-  enlargeForBrowser: function ZoomManager_enlargeForBrowser(aBrowser) {
+  enlargeForBrowser(aBrowser) {
     var i =
       this.zoomValues.indexOf(this.snap(this.getZoomForBrowser(aBrowser))) + 1;
     if (i < this.zoomValues.length) {
@@ -63,7 +55,7 @@ var ZoomManager = {
     }
   },
 
-  reduceForBrowser: function ZoomManager_reduceForBrowser(aBrowser) {
+  reduceForBrowser(aBrowser) {
     var i =
       this.zoomValues.indexOf(this.snap(this.getZoomForBrowser(aBrowser))) - 1;
     if (i >= 0) {
@@ -71,26 +63,26 @@ var ZoomManager = {
     }
   },
 
-  enlarge: function ZoomManager_enlarge() {
-    this.enlargeForBrowser(gBrowser);
+  enlarge(aBrowser = gBrowser) {
+    this.enlargeForBrowser(aBrowser);
   },
 
-  reduce: function ZoomManager_reduce() {
-    this.reduceForBrowser(gBrowser);
+  reduce(aBrowser = gBrowser) {
+    this.reduceForBrowser(aBrowser);
   },
 
-  reset: function ZoomManager_reset() {
-    this.zoom = 1;
+  reset(aBrowser = gBrowser) {
+    this.setZoomForBrowser(aBrowser, 1);
   },
 
-  toggleZoom: function ZoomManager_toggleZoom() {
-    var zoomLevel = this.zoom;
+  toggleZoom(aBrowser = gBrowser) {
+    var zoomLevel = this.getZoomForBrowser(aBrowser);
 
     this.useFullZoom = !this.useFullZoom;
-    this.zoom = zoomLevel;
+    this.setZoomForBrowser(aBrowser, zoomLevel);
   },
 
-  snap: function ZoomManager_snap(aVal) {
+  snap(aVal) {
     var values = this.zoomValues;
     for (var i = 0; i < values.length; i++) {
       if (values[i] >= aVal) {
@@ -104,47 +96,53 @@ var ZoomManager = {
   },
 };
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  ZoomManager,
-  "MIN",
-  "zoom.minPercent",
-  30,
-  null,
-  v => v / 100
-);
-XPCOMUtils.defineLazyPreferenceGetter(
-  ZoomManager,
-  "MAX",
-  "zoom.maxPercent",
-  500,
-  null,
-  v => v / 100
-);
+{
+  const { XPCOMUtils } = ChromeUtils.importESModule(
+    "resource://gre/modules/XPCOMUtils.sys.mjs"
+  );
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  ZoomManager,
-  "zoomValues",
-  "toolkit.zoomManager.zoomValues",
-  ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2,2.4,3,4,5",
-  null,
-  zoomValues => {
-    zoomValues = zoomValues.split(",").map(parseFloat);
-    zoomValues.sort((a, b) => a - b);
+  XPCOMUtils.defineLazyPreferenceGetter(
+    ZoomManager,
+    "MIN",
+    "zoom.minPercent",
+    30,
+    null,
+    v => v / 100
+  );
+  XPCOMUtils.defineLazyPreferenceGetter(
+    ZoomManager,
+    "MAX",
+    "zoom.maxPercent",
+    500,
+    null,
+    v => v / 100
+  );
 
-    while (zoomValues[0] < this.MIN) {
-      zoomValues.shift();
+  XPCOMUtils.defineLazyPreferenceGetter(
+    ZoomManager,
+    "zoomValues",
+    "toolkit.zoomManager.zoomValues",
+    ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2,2.4,3,4,5",
+    null,
+    zoomValues => {
+      zoomValues = zoomValues.split(",").map(parseFloat);
+      zoomValues.sort((a, b) => a - b);
+
+      while (zoomValues[0] < ZoomManager.MIN) {
+        zoomValues.shift();
+      }
+
+      while (zoomValues[zoomValues.length - 1] > ZoomManager.MAX) {
+        zoomValues.pop();
+      }
+
+      return zoomValues;
     }
+  );
 
-    while (zoomValues[zoomValues.length - 1] > this.MAX) {
-      zoomValues.pop();
-    }
-
-    return zoomValues;
-  }
-);
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  ZoomManager,
-  "useFullZoom",
-  "browser.zoom.full"
-);
+  XPCOMUtils.defineLazyPreferenceGetter(
+    ZoomManager,
+    "useFullZoom",
+    "browser.zoom.full"
+  );
+}

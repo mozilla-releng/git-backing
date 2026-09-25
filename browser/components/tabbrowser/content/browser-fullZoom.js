@@ -326,15 +326,15 @@ var FullZoom = {
    *
    * @param {boolean} [forceResetEnabled=false]
    *   Set to true if the zoom reset command should be enabled regardless of
-   *   whether or not the ZoomManager.zoom level is at 1.0. This is specifically
+   *   whether or not the ZoomManager zoom level is at 1.0. This is specifically
    *   for when using scaling zoom via the pinch gesture which doesn't cause
-   *   the ZoomManager.zoom level to change.
+   *   the ZoomManager zoom level to change.
    * @returns {Promise<void>}
    */
   updateCommands: async function FullZoom_updateCommands(
     forceResetEnabled = false
   ) {
-    let zoomLevel = ZoomManager.zoom;
+    let zoomLevel = ZoomManager.getZoomForBrowser(gBrowser);
     let defaultZoomLevel = await ZoomUI.getGlobalValue();
     let reduceCmd = document.getElementById("cmd_fullZoomReduce");
     if (zoomLevel == ZoomManager.MIN) {

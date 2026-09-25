@@ -7,7 +7,11 @@
 add_task(async function () {
   info("Check zoom in button existence and functionality");
 
-  is(ZoomManager.zoom, 1, "Initial zoom factor should be 1");
+  is(
+    ZoomManager.getZoomForBrowser(gBrowser),
+    1,
+    "Initial zoom factor should be 1"
+  );
 
   CustomizableUI.addWidgetToArea(
     "zoom-controls",
@@ -39,7 +43,7 @@ add_task(async function () {
   ok(zoomInButton, "Zoom in button exists in Panel Menu");
 
   zoomInButton.click();
-  let pageZoomLevel = parseInt(ZoomManager.zoom * 100);
+  let pageZoomLevel = parseInt(ZoomManager.getZoomForBrowser(gBrowser) * 100);
   info("Page zoom level is: " + pageZoomLevel);
 
   let zoomResetButton = document.getElementById("zoom-reset-button");

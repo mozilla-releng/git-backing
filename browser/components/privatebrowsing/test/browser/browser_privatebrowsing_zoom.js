@@ -16,13 +16,17 @@ add_task(async function test() {
     "about:mozilla"
   );
 
-  let mozillaZoom = win.ZoomManager.zoom;
+  let mozillaZoom = win.ZoomManager.getZoomForBrowser(win.gBrowser);
 
   // change the zoom on the mozilla page
   win.FullZoom.enlarge();
   // make sure the zoom level has been changed
-  isnot(win.ZoomManager.zoom, mozillaZoom, "Zoom level can be changed");
-  mozillaZoom = win.ZoomManager.zoom;
+  isnot(
+    win.ZoomManager.getZoomForBrowser(win.gBrowser),
+    mozillaZoom,
+    "Zoom level can be changed"
+  );
+  mozillaZoom = win.ZoomManager.getZoomForBrowser(win.gBrowser);
 
   // switch to about: tab
   await BrowserTestUtils.switchTab(win.gBrowser, tabAbout);
@@ -32,7 +36,7 @@ add_task(async function test() {
 
   // make sure the zoom level has not changed
   is(
-    win.ZoomManager.zoom,
+    win.ZoomManager.getZoomForBrowser(win.gBrowser),
     mozillaZoom,
     "Entering private browsing should not reset the zoom on a tab"
   );

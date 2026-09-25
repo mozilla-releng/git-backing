@@ -90,7 +90,7 @@ add_task(async function test_update_browser_zoom() {
 
       // 120% global zoom
       info("Changing default zoom by a single level");
-      ZoomManager.zoom = 1.2;
+      ZoomManager.setZoomForBrowser(gBrowser, 1.2);
 
       await waitForCommandEnabledState({
         enlarge: true,
@@ -100,7 +100,7 @@ add_task(async function test_update_browser_zoom() {
       await assertTextZoomCommandCheckedState(textZoom);
 
       // Now max out the zoom level.
-      ZoomManager.zoom = ZoomManager.MAX;
+      ZoomManager.setZoomForBrowser(gBrowser, ZoomManager.MAX);
 
       await waitForCommandEnabledState({
         enlarge: false,
@@ -110,7 +110,7 @@ add_task(async function test_update_browser_zoom() {
       await assertTextZoomCommandCheckedState(textZoom);
 
       // Now min out the zoom level.
-      ZoomManager.zoom = ZoomManager.MIN;
+      ZoomManager.setZoomForBrowser(gBrowser, ZoomManager.MIN);
       await waitForCommandEnabledState({
         enlarge: true,
         reduce: false,
@@ -119,7 +119,7 @@ add_task(async function test_update_browser_zoom() {
       await assertTextZoomCommandCheckedState(textZoom);
 
       // Now reset back to the default zoom level
-      ZoomManager.zoom = 1;
+      ZoomManager.setZoomForBrowser(gBrowser, 1);
       await waitForCommandEnabledState({
         enlarge: true,
         reduce: true,
@@ -147,8 +147,8 @@ add_task(async function test_update_browser_zoom() {
     // back to when choosing to reset the zoom level.
     //
     // It's a bit maddening that changeDefaultZoom takes values in integer
-    // units from 30 to 500, whereas ZoomManager.zoom takes things in float
-    // units from 0.3 to 5.0, but c'est la vie for now.
+    // units from 30 to 500, whereas ZoomManager.setZoomForBrowser takes
+    // things in float units from 0.3 to 5.0, but c'est la vie for now.
     await FullZoomHelper.changeDefaultZoom(200);
     registerCleanupFunction(async () => {
       await FullZoomHelper.changeDefaultZoom(100);
@@ -162,7 +162,7 @@ add_task(async function test_update_browser_zoom() {
 
     // 120% global zoom
     info("Changing default zoom by a single level");
-    ZoomManager.zoom = 2.2;
+    ZoomManager.setZoomForBrowser(gBrowser, 2.2);
 
     await waitForCommandEnabledState({
       enlarge: true,
@@ -172,7 +172,7 @@ add_task(async function test_update_browser_zoom() {
     await assertTextZoomCommandCheckedState(false);
 
     // Now max out the zoom level.
-    ZoomManager.zoom = ZoomManager.MAX;
+    ZoomManager.setZoomForBrowser(gBrowser, ZoomManager.MAX);
 
     await waitForCommandEnabledState({
       enlarge: false,
@@ -182,7 +182,7 @@ add_task(async function test_update_browser_zoom() {
     await assertTextZoomCommandCheckedState(false);
 
     // Now min out the zoom level.
-    ZoomManager.zoom = ZoomManager.MIN;
+    ZoomManager.setZoomForBrowser(gBrowser, ZoomManager.MIN);
     await waitForCommandEnabledState({
       enlarge: true,
       reduce: false,
@@ -191,7 +191,7 @@ add_task(async function test_update_browser_zoom() {
     await assertTextZoomCommandCheckedState(false);
 
     // Now reset back to the default zoom level
-    ZoomManager.zoom = 2;
+    ZoomManager.setZoomForBrowser(gBrowser, 2);
     await waitForCommandEnabledState({
       enlarge: true,
       reduce: true,

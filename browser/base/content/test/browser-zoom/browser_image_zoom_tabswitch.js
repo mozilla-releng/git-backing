@@ -17,18 +17,26 @@ function test() {
     await FullZoomHelper.selectTabAndWaitForLocationChange(tab1);
     await FullZoomHelper.load(tab1, TEST_IMAGE);
 
-    is(ZoomManager.zoom, 1, "initial zoom level for first should be 1");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      1,
+      "initial zoom level for first should be 1"
+    );
 
     await FullZoom.enlarge(tab1.linkedBrowser);
-    let zoom = ZoomManager.zoom;
+    let zoom = ZoomManager.getZoomForBrowser(gBrowser);
     isnot(zoom, 1, "zoom level should have changed");
 
     await FullZoomHelper.selectTabAndWaitForLocationChange(tab2);
-    is(ZoomManager.zoom, 1, "initial zoom level for second tab should be 1");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      1,
+      "initial zoom level for second tab should be 1"
+    );
 
     await FullZoomHelper.selectTabAndWaitForLocationChange(tab1);
     is(
-      ZoomManager.zoom,
+      ZoomManager.getZoomForBrowser(gBrowser),
       zoom,
       "zoom level for first tab should not have changed"
     );

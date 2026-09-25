@@ -128,7 +128,9 @@ export async function updateZoomUI(aBrowser, aAnimate = false) {
   let customizableZoomControls = win.document.getElementById("zoom-controls");
   let customizableZoomReset = win.document.getElementById("zoom-reset-button");
   let urlbarZoomButton = win.document.getElementById("urlbar-zoom-button");
-  let zoomFactor = Math.round(win.ZoomManager.zoom * 100);
+  let zoomFactor = Math.round(
+    win.ZoomManager.getZoomForBrowser(win.gBrowser) * 100
+  );
 
   let defaultZoom = Math.round((await ZoomUI.getGlobalValue()) * 100);
 

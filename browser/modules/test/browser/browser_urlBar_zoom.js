@@ -4,7 +4,7 @@
 
 "use strict";
 
-var initialPageZoom = ZoomManager.zoom;
+var initialPageZoom = ZoomManager.getZoomForBrowser(gBrowser);
 const kTimeoutInMS = 20000;
 
 async function testZoomButtonAppearsAndDisappearsBasedOnZoomChanges(
@@ -29,23 +29,27 @@ async function testZoomButtonAppearsAndDisappearsBasedOnZoomChanges(
   );
   FullZoom.enlarge();
   await labelUpdatePromise;
-  info("Zoom increased to " + Math.floor(ZoomManager.zoom * 100) + "%");
+  info(
+    "Zoom increased to " +
+      Math.floor(ZoomManager.getZoomForBrowser(gBrowser) * 100) +
+      "%"
+  );
   is(zoomResetButton.hidden, false, "Zoom reset button is now visible");
-  let pageZoomLevel = Math.floor(ZoomManager.zoom * 100);
+  let pageZoomLevel = Math.floor(ZoomManager.getZoomForBrowser(gBrowser) * 100);
   let expectedZoomLevel = 110;
   let buttonZoomLevel = parseInt(zoomResetButton.getAttribute("label"), 10);
   is(
     buttonZoomLevel,
     expectedZoomLevel,
     "Button label updated successfully to " +
-      Math.floor(ZoomManager.zoom * 100) +
+      Math.floor(ZoomManager.getZoomForBrowser(gBrowser) * 100) +
       "%"
   );
 
   let zoomResetPromise = BrowserTestUtils.waitForEvent(window, zoomEventType);
   zoomResetButton.click();
   await zoomResetPromise;
-  pageZoomLevel = Math.floor(ZoomManager.zoom * 100);
+  pageZoomLevel = Math.floor(ZoomManager.getZoomForBrowser(gBrowser) * 100);
   expectedZoomLevel = 100;
   is(
     pageZoomLevel,
@@ -92,8 +96,8 @@ add_task(async function () {
 
 add_task(async function asyncCleanup() {
   // reset zoom level and customizable widget
-  ZoomManager.zoom = initialPageZoom;
-  is(ZoomManager.zoom, 1, "Zoom level was restored");
+  ZoomManager.setZoomForBrowser(gBrowser, initialPageZoom);
+  is(ZoomManager.getZoomForBrowser(gBrowser), 1, "Zoom level was restored");
   if (document.getElementById("zoom-controls")) {
     CustomizableUI.removeWidgetFromArea(
       "zoom-controls",

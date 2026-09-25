@@ -1,11 +1,15 @@
 var tabElm, zoomLevel;
 function start_test_prefNotSet() {
   (async function () {
-    is(ZoomManager.zoom, 1, "initial zoom level should be 1");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      1,
+      "initial zoom level should be 1"
+    );
     FullZoom.enlarge();
 
     // capture the zoom level to test later
-    zoomLevel = ZoomManager.zoom;
+    zoomLevel = ZoomManager.getZoomForBrowser(gBrowser);
     isnot(zoomLevel, 1, "zoom level should have changed");
 
     await FullZoomHelper.load(
@@ -17,7 +21,11 @@ function start_test_prefNotSet() {
 
 function continue_test_prefNotSet() {
   (async function () {
-    is(ZoomManager.zoom, 1, "zoom level pref should not apply to an image");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      1,
+      "zoom level pref should not apply to an image"
+    );
     await FullZoom.reset();
 
     await FullZoomHelper.load(
@@ -29,7 +37,11 @@ function continue_test_prefNotSet() {
 
 function end_test_prefNotSet() {
   (async function () {
-    is(ZoomManager.zoom, zoomLevel, "the zoom level should have persisted");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      zoomLevel,
+      "the zoom level should have persisted"
+    );
 
     // Reset the zoom so that other tests have a fresh zoom level
     await FullZoom.reset();

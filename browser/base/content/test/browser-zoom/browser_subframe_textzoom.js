@@ -26,7 +26,7 @@ function test() {
     // Change the zoom level and then save it so we can compare it to the level
     // after loading the sub-document.
     FullZoom.enlarge();
-    var zoomLevel = ZoomManager.zoom;
+    var zoomLevel = ZoomManager.getZoomForBrowser(gBrowser);
 
     // Start the sub-document load.
     await new Promise(resolve => {
@@ -34,7 +34,7 @@ function test() {
         BrowserTestUtils.browserLoaded(testBrowser, true).then(url => {
           is(url, TEST_IFRAME_URL, "got the load event for the iframe");
           is(
-            ZoomManager.zoom,
+            ZoomManager.getZoomForBrowser(gBrowser),
             zoomLevel,
             "zoom is retained after sub-document load"
           );

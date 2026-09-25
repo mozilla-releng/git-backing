@@ -37,14 +37,14 @@ add_task(async function test() {
   function doTest(aIsZoomedWindow, aWindow) {
     if (aIsZoomedWindow) {
       is(
-        aWindow.ZoomManager.zoom,
+        aWindow.ZoomManager.getZoomForBrowser(aWindow.gBrowser),
         1,
         "Zoom level for freshly loaded about:blank should be 1"
       );
       // change the zoom on the blank page
       aWindow.FullZoom.enlarge();
       isnot(
-        aWindow.ZoomManager.zoom,
+        aWindow.ZoomManager.getZoomForBrowser(aWindow.gBrowser),
         1,
         "Zoom level for about:blank should be changed"
       );
@@ -53,7 +53,7 @@ add_task(async function test() {
 
     // make sure the zoom level is set to 1
     is(
-      aWindow.ZoomManager.zoom,
+      aWindow.ZoomManager.getZoomForBrowser(aWindow.gBrowser),
       1,
       "Zoom level for about:privatebrowsing should be reset"
     );

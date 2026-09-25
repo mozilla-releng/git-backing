@@ -4,7 +4,7 @@
 
 "use strict";
 
-var initialPageZoom = ZoomManager.zoom;
+var initialPageZoom = ZoomManager.getZoomForBrowser(gBrowser);
 
 add_task(async function () {
   info("Check zoom reset button existence and functionality");
@@ -49,7 +49,9 @@ add_task(async function () {
       zoomResetButton.click();
       await zoomChange;
 
-      let pageZoomLevel = Math.floor(ZoomManager.zoom * 100);
+      let pageZoomLevel = Math.floor(
+        ZoomManager.getZoomForBrowser(gBrowser) * 100
+      );
       let expectedZoomLevel = 100;
       let buttonZoomLevel = parseInt(zoomResetButton.getAttribute("label"), 10);
       is(pageZoomLevel, expectedZoomLevel, "Page zoom reset correctly");
@@ -70,6 +72,6 @@ add_task(async function () {
 
 add_task(async function asyncCleanup() {
   // reset zoom level
-  ZoomManager.zoom = initialPageZoom;
+  ZoomManager.setZoomForBrowser(gBrowser, initialPageZoom);
   info("Zoom level was restored");
 });

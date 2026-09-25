@@ -8,7 +8,7 @@ var gTestTab, gBgTab, gTestZoom;
 function testBackgroundLoad() {
   (async function () {
     is(
-      ZoomManager.zoom,
+      ZoomManager.getZoomForBrowser(gBrowser),
       gTestZoom,
       "opening a background tab should not change foreground zoom"
     );
@@ -23,10 +23,14 @@ function testBackgroundLoad() {
 
 function testInitialZoom() {
   (async function () {
-    is(ZoomManager.zoom, 1, "initial zoom level should be 1");
+    is(
+      ZoomManager.getZoomForBrowser(gBrowser),
+      1,
+      "initial zoom level should be 1"
+    );
     FullZoom.enlarge();
 
-    gTestZoom = ZoomManager.zoom;
+    gTestZoom = ZoomManager.getZoomForBrowser(gBrowser);
     isnot(gTestZoom, 1, "zoom level should have changed");
 
     gBgTab = BrowserTestUtils.addTab(gBrowser);

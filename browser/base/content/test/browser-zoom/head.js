@@ -48,7 +48,7 @@ var FullZoomHelper = {
     // the expected level is actually simplest to make sure we're okay to
     // proceed.
     await TestUtils.waitForCondition(() => {
-      return ZoomManager.zoom == parsedZoomValue;
+      return ZoomManager.getZoomForBrowser(gBrowser) == parsedZoomValue;
     });
   },
 
