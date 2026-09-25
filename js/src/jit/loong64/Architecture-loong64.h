@@ -719,6 +719,9 @@ enum class LOONG64Extension : uint32_t {
 
   // Atomic operations AMCAS{,_DB}.[BHWD].
   Lamcas,
+
+  // LoongArch SIMD Extension (128-bit SIMD).
+  Lsx,
 };
 
 using LOONG64Extensions = mozilla::EnumSet<LOONG64Extension>;
@@ -751,6 +754,10 @@ class LOONG64Flags final {
 
   static bool HasLamcasExtension() {
     return extensions.contains(LOONG64Extension::Lamcas);
+  }
+
+  static bool HasLsxExtension() {
+    return extensions.contains(LOONG64Extension::Lsx);
   }
 };
 

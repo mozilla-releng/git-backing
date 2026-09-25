@@ -2089,6 +2089,7 @@ class AssemblerLOONG64 : public AssemblerShared {
   void as_break(uint32_t code);
 
  public:
+  static bool HasLSX() { return LOONG64Flags::HasLsxExtension(); };
   static bool SupportsFloatingPoint() {
 #if defined(__loongarch_hard_float) || defined(JS_SIMULATOR_LOONG64)
     return true;
@@ -2098,7 +2099,7 @@ class AssemblerLOONG64 : public AssemblerShared {
   }
   static bool SupportsUnalignedAccesses() { return true; }
   static bool SupportsFastUnalignedFPAccesses() { return true; }
-  static bool SupportsWasmSimd() { return true; }
+  static bool SupportsWasmSimd() { return LOONG64Flags::HasLsxExtension(); }
   static bool SupportsFloat64To16() { return false; }
   static bool SupportsFloat32To16() { return false; }
 
