@@ -211,7 +211,8 @@ PurgeTrackerService.prototype = {
       Services.clearData.deleteDataFromPrincipal(
         principal,
         false,
-        Ci.nsIClearDataService.CLEAR_STATE_FOR_TRACKER_PURGING,
+        Ci.nsIClearDataService.CLEAR_STATE_FOR_TRACKER_PURGING &
+          ~Ci.nsIClearDataService.CLEAR_BOUNCE_TRACKING_PROTECTION_STATE,
         resolve
       );
     });
