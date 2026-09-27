@@ -59,6 +59,9 @@ if CONFIG["TARGET_CPU"].startswith("x86"):
     ]
     SOURCES["SIMD_avx2.cpp"].flags += ["-mavx2"]
 
+if CONFIG["TARGET_CPU"].startswith("loongarch"):
+    SOURCES["SIMD.cpp"].flags += CONFIG["LSX_FLAGS"]
+
 if not CONFIG["JS_STANDALONE"]:
     EXPORTS.mozilla += [
         "ProcessType.h",
