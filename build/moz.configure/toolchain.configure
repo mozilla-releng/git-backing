@@ -4001,6 +4001,10 @@ set_config(
 )
 
 
+set_config("LSX_FLAGS", ["-mlsx"])
+set_config("LASX_FLAGS", ["-mlasx"])
+
+
 @depends(target, c_compiler)
 def htmlaccel_config(target, c_compiler):
     # Keep this is sync with the mozilla::htmlaccel::htmlaccelEnabled function.
