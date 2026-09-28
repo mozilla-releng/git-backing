@@ -189,9 +189,11 @@ if CONFIG["TARGET_CPU"] == "aarch64" or CONFIG["BUILD_ARM_NEON"]:
 if CONFIG["TARGET_CPU"] == "loongarch64":
     SOURCES += [
         "ConvolutionFilterLSX.cpp",
+        "ImageScalingLSX.cpp",
     ]
     DEFINES["USE_LSX"] = True
     SOURCES["ConvolutionFilterLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+    SOURCES["ImageScalingLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
 
 include("/ipc/chromium/chromium-config.mozbuild")
 
