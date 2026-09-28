@@ -29,12 +29,6 @@ bool gfxAlphaRecovery::RecoverAlpha(gfxImageSurface* blackSurf,
     return true;
   }
 #endif
-#ifdef MOZILLA_MAY_SUPPORT_NEON
-  if (mozilla::supports_neon() &&
-      RecoverAlphaGeneric<xsimd::neon>(blackSurf, whiteSurf)) {
-    return true;
-  }
-#endif
 
   blackSurf->Flush();
   whiteSurf->Flush();
