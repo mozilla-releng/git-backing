@@ -217,6 +217,13 @@ if CONFIG["TARGET_CPU"] == "aarch64" or CONFIG["BUILD_ARM_NEON"]:
         "SwizzleNEON.h",
     ]
 
+if CONFIG["TARGET_CPU"] == "loongarch64":
+    SOURCES += [
+        "ConvolutionFilterLSX.cpp",
+    ]
+    DEFINES["USE_LSX"] = True
+    SOURCES["ConvolutionFilterLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
