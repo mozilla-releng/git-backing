@@ -4,9 +4,6 @@
 ---
 task-defaults:
     description: 'Run lint over all modules'
-    run:
-        using: gradlew
-        gradlew: ['lint']
     worker:
         max-run-time: 2700
         docker-image: {in-tree: lint}
@@ -14,8 +11,6 @@ task-defaults:
     attributes:
         build_platform: android
         code-review: true
-    dependencies:
-        build-fat-aar: build-fat-aar-android-geckoview-fat-aar/opt
     fetches:
         toolchain:
             - android-sdk-linux
@@ -23,8 +18,6 @@ task-defaults:
             - linux64-nimbus-fml
             - android-gradle-dependencies
             - linux64-jdk-repack
-        build-fat-aar:
-            - target.maven.zip
     platform: 'lint/opt'
     treeherder:
         kind: test
@@ -37,9 +30,15 @@ task-defaults:
 
 android-components:
     run:
+        using: gradlew
         pre-gradlew:
             - ["cd", "mobile/android/android-components"]
-        gradlew: ["--no-parallel"]
+        gradlew: ['lint', "--no-parallel"]
+    dependencies:
+        build-fat-aar: build-fat-aar-android-geckoview-fat-aar/opt
+    fetches:
+        build-fat-aar:
+            - target.maven.zip
     treeherder:
         symbol: lint(AC)
     worker:
@@ -54,8 +53,15 @@ focus:
             - "mobile/android/focus-android/**"
             - "mobile/android/shared-lint.xml"
     run:
+        using: gradlew
         pre-gradlew:
             - ["cd", "mobile/android/focus-android"]
+        gradlew: ['lint']
+    dependencies:
+        build-fat-aar: build-fat-aar-android-geckoview-fat-aar/opt
+    fetches:
+        build-fat-aar:
+            - target.maven.zip
     treeherder:
         symbol: lint(focus)
     worker:
@@ -70,9 +76,13 @@ fenix:
             - "mobile/android/fenix/**"
             - "mobile/android/shared-lint.xml"
     run:
-        pre-gradlew:
-            - ["cd", "mobile/android/fenix"]
-        gradlew: ['lintDebug']
+        using: mach-gradle
+        gradle-project: "."
+        mach-build-exports: true
+        gradle-args:
+            - "-Pandroid-lint"
+            - "-PdisableAndroidComponentsTasks=true"
+            - ":fenix:lintDebug"
     treeherder:
         symbol: lint(fenix)
     worker:
