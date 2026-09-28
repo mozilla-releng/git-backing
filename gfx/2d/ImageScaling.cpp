@@ -8,6 +8,7 @@
 
 #include "2D.h"
 #include "DataSurfaceHelpers.h"
+#include "mozilla/LSX.h"
 #include "mozilla/SSE.h"
 
 namespace mozilla {
@@ -156,6 +157,10 @@ void ImageHalfScaler::HalfImage2D(uint8_t* aSource, int32_t aSourceStride,
   if (mozilla::supports_sse2()) {
     HalfImage2D_SSE2(aSource, aSourceStride, aSourceSize, aDest, aDestStride);
   } else
+#elif defined(USE_LSX)
+  if (mozilla::supports_lsx()) {
+    HalfImage2D_LSX(aSource, aSourceStride, aSourceSize, aDest, aDestStride);
+  } else
 #endif
   {
     HalfImage2D_C(aSource, aSourceStride, aSourceSize, aDest, aDestStride);
@@ -169,6 +174,11 @@ void ImageHalfScaler::HalfImageVertical(uint8_t* aSource, int32_t aSourceStride,
   if (mozilla::supports_sse2()) {
     HalfImageVertical_SSE2(aSource, aSourceStride, aSourceSize, aDest,
                            aDestStride);
+  } else
+#elif defined(USE_LSX)
+  if (mozilla::supports_lsx()) {
+    HalfImageVertical_LSX(aSource, aSourceStride, aSourceSize, aDest,
+                          aDestStride);
   } else
 #endif
   {
@@ -186,6 +196,11 @@ void ImageHalfScaler::HalfImageHorizontal(uint8_t* aSource,
   if (mozilla::supports_sse2()) {
     HalfImageHorizontal_SSE2(aSource, aSourceStride, aSourceSize, aDest,
                              aDestStride);
+  } else
+#elif defined(USE_LSX)
+  if (mozilla::supports_lsx()) {
+    HalfImageHorizontal_LSX(aSource, aSourceStride, aSourceSize, aDest,
+                            aDestStride);
   } else
 #endif
   {
