@@ -52,6 +52,17 @@ class ImageHalfScaler {
                                 const IntSize& aSourceSize, uint8_t* aDest,
                                 uint32_t aDestStride);
 
+  // This is our LSX scaling function. Unaligned accesses are supported.
+  void HalfImage2D_LSX(uint8_t* aSource, int32_t aSourceStride,
+                       const IntSize& aSourceSize, uint8_t* aDest,
+                       uint32_t aDestStride);
+  void HalfImageVertical_LSX(uint8_t* aSource, int32_t aSourceStride,
+                             const IntSize& aSourceSize, uint8_t* aDest,
+                             uint32_t aDestStride);
+  void HalfImageHorizontal_LSX(uint8_t* aSource, int32_t aSourceStride,
+                               const IntSize& aSourceSize, uint8_t* aDest,
+                               uint32_t aDestStride);
+
   void HalfImage2D_C(uint8_t* aSource, int32_t aSourceStride,
                      const IntSize& aSourceSize, uint8_t* aDest,
                      uint32_t aDestStride);
