@@ -222,11 +222,17 @@ if CONFIG["TARGET_CPU"] == "loongarch64":
         "ConvolutionFilterLSX.cpp",
         "FilterProcessingLSX.cpp",
         "ImageScalingLSX.cpp",
+        "LuminanceLSX.cpp",
     ]
     DEFINES["USE_LSX"] = True
     SOURCES["ConvolutionFilterLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
     SOURCES["FilterProcessingLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
     SOURCES["ImageScalingLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+    SOURCES["LuminanceLSX.cpp"].flags += CONFIG["LSX_FLAGS"]
+
+    SOURCE_HEADERS += [
+        "LuminanceLSX.h",
+    ]
 
 include("/ipc/chromium/chromium-config.mozbuild")
 
