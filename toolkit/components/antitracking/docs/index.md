@@ -10,6 +10,7 @@ Content Classifier <content-classifier/index.md>
 Cookie Purging <cookie-purging/index.md>
 Data Sanitization <data-sanitization/index.md>
 Privacy Capabilities Overview <etp-matrix/index.md>
+Image Input Telemetry <image-input-telemetry/index.md>
 Query Stripping <query-stripping/index.md>
 SmartBlock Embeds <smartblock-embeds/index.md>
 Tracking Lists <tracking-lists/index.md>
