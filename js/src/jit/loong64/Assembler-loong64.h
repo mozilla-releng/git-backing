@@ -2122,6 +2122,17 @@ class AssemblerLOONG64 : public AssemblerShared {
   // returned as the lower 13 bits.
   static std::optional<uint16_t> EncodeVldiImmediate(const SimdConstant& v);
 
+  // Check if |value| can be encoded directly as an immediate in the emitted
+  // instruction for |op|, without needing an extra scratch register.
+  static bool CanEncodeSimdCompareImmediateFor(wasm::SimdOp op,
+                                               const SimdConstant& value);
+
+  // Try to encode |rhs| into the [su]i5 field of vs{le,lt}i.[bhdw]{,u} and
+  // vseqi.[bhdw], iff |rhs| is a splat to all lanes.
+  template <typename T>
+  static std::optional<int64_t> EncodeSimdCompareImmediate(
+      const SimdConstant& rhs, Condition cond);
+
   // label operations
   void bind(Label* label, BufferOffset boff = BufferOffset());
   virtual void bind(InstImm* inst, uintptr_t branch, uintptr_t target) = 0;
