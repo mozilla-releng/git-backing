@@ -42,6 +42,13 @@ def assert_paths(a, b):
             "expected": ["subdir1/subdir3/d.js"],
         },
         {
+            "paths": ["subdir1/subdir3"],
+            "include": ["subdir1/subdir3"],
+            "exclude": ["subdir1", "**/*.py"],
+            "expected": ["subdir1/subdir3"],
+            "expected_exclude": ["subdir1/subdir3/d.py"],
+        },
+        {
             "paths": ["."],
             "include": ["."],
             "exclude": ["**/c.py", "subdir1/subdir3"],
@@ -257,6 +264,25 @@ def test_collapse(paths, expected):
 
     print(f"inputs: {inputs}")
     assert_paths(pathutils.collapse(inputs), expected)
+
+
+def test_find_globs_symlink(tmp_path):
+    (tmp_path / "real").mkdir()
+    (tmp_path / "real" / "skip.py").write_text("")
+    try:
+        (tmp_path / "link").symlink_to(tmp_path / "real", target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are not supported")
+    found = pathutils._find_globs(str(tmp_path), ["**/skip.py"], set())
+    assert sorted(found) == ["link/skip.py", "real/skip.py"]
+
+
+def test_find_globs_dot_dir(tmp_path):
+    for d in (".gen", ".other"):
+        (tmp_path / d).mkdir()
+        (tmp_path / d / "bad.py").write_text("")
+    found = pathutils._find_globs(str(tmp_path), [".gen/*.py", "**/*.py"], set())
+    assert sorted(found) == [".gen/bad.py"]
 
 
 def test_findobject_loads_from_root(monkeypatch):
