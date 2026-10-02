@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
+
 import mozunit
 import pytest
 from mozpack import path as mozpath
@@ -115,6 +117,15 @@ def test_license_ref_spdx_expression_is_accepted(lint, paths):
 def test_id_declared_twice_is_left_to_the_build(lint, paths):
     # mozbuild.licenses rejects it, within one moz.build and across two.
     assert lint(paths("bad/duplicate.build")) == []
+
+
+def test_target_spelled_in_another_case(lint, paths):
+    root = paths()[0]
+    target = paths("bad/bad.build")[0]
+    expected = lint([target])
+    assert expected
+    swapped = os.path.join(root, os.path.relpath(target, root).swapcase())
+    assert lint([swapped]) == expected
 
 
 if __name__ == "__main__":
