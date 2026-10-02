@@ -8205,7 +8205,7 @@ NS_IMETHODIMP nsImapMailFolder::RenameClient(nsIMsgWindow* msgWindow,
       bool changed = false;
       msgFolder->MatchOrChangeFilterDestination(
           child, false /*caseInsensitive*/, &changed);
-      if (changed) msgFolder->AlertFilterChanged(msgWindow);
+      if (changed) AlertFilterChanged(msgFolder);
       if (m_copyState) {
         m_copyState->m_arrFolder = child;
       }
@@ -8306,7 +8306,7 @@ NS_IMETHODIMP nsImapMailFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
       bool changed = false;
       msgFolder->MatchOrChangeFilterDestination(
           child, false /*caseInsensitive*/, &changed);
-      if (changed) msgFolder->AlertFilterChanged(msgWindow);
+      if (changed) AlertFilterChanged(msgFolder);
       child->RenameSubFolders(msgWindow, msgFolder);
     }
   }
