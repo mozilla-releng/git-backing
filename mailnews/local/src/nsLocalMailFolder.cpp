@@ -488,7 +488,7 @@ NS_IMETHODIMP nsMsgLocalMailFolder::GetDatabaseWithReparse(
             // we need to null out the db so that parsing gets kicked off again.
             mDatabase->RemoveListener(this);
             mDatabase = nullptr;
-            ThrowAlertMsg("parsingFolderFailed", aMsgWindow);
+            AlertFolderError(this, "parsingFolderFailed");
           }
           return rv;
         }
@@ -1167,7 +1167,7 @@ nsMsgLocalMailFolder::DeleteMessages(
           }
         }
       } else if (rv == NS_MSG_FOLDER_BUSY) {
-        ThrowAlertMsg("deletingMsgsFailed", msgWindow);
+        AlertFolderError(this, "deletingMsgsFailed");
       }
 
       // Let everyone know the operation has finished.
@@ -1541,7 +1541,7 @@ nsMsgLocalMailFolder::CopyMessages(nsIMsgFolder* srcFolder,
                      isFolder, allowUndo);
 
   if (NS_FAILED(rv)) {
-    ThrowAlertMsg("operationFailedFolderBusy", msgWindow);
+    AlertFolderError(this, "operationFailedFolderBusy");
     (void)OnCopyCompleted(srcSupport, false);
     return rv;
   }
@@ -2150,7 +2150,7 @@ NS_IMETHODIMP nsMsgLocalMailFolder::CopyData(nsIInputStream* aIStream,
 // Upon failure, sets mCopyState->m_writeFailed and returns false.
 bool nsMsgLocalMailFolder::CopyLine(mozilla::Span<const char> line) {
   if (!mCopyState->m_fileStream) {
-    ThrowAlertMsg("copyMsgWriteFailed", mCopyState->m_msgWindow);
+    AlertFolderError(this, "copyMsgWriteFailed");
     mCopyState->m_writeFailed = true;
     return false;  // Stop processing!
   }
@@ -2160,7 +2160,7 @@ bool nsMsgLocalMailFolder::CopyLine(mozilla::Span<const char> line) {
   nsresult rv = mCopyState->m_fileStream->Write(line.data(), line.Length(),
                                                 &bytesWritten);
   if (NS_FAILED(rv)) {
-    ThrowAlertMsg("copyMsgWriteFailed", mCopyState->m_msgWindow);
+    AlertFolderError(this, "copyMsgWriteFailed");
     mCopyState->m_writeFailed = true;
     return false;  // Stop processing!
   }
@@ -3491,9 +3491,9 @@ nsMsgLocalMailFolder::WarnIfLocalFileTooBig(nsIMsgWindow* aWindow,
   if (NS_SUCCEEDED(rv) && spaceAvailable) {
     *aTooBig = false;
   } else if (rv == NS_ERROR_FILE_TOO_BIG) {
-    ThrowAlertMsg("mailboxTooLarge", aWindow);
+    AlertFolderError(this, "mailboxTooLarge");
   } else {
-    ThrowAlertMsg("outOfDiskSpace", aWindow);
+    AlertFolderError(this, "outOfDiskSpace");
   }
   return NS_OK;
 }
