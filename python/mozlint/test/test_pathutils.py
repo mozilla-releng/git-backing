@@ -227,6 +227,30 @@ def test_filterpaths(test):
             },
             id="A path that does not exist expands to nothing.",
         ),
+        pytest.param(
+            {
+                "paths": ["subdir1", "subdir2"],
+                "config": {"global_exclude": ["subdir1/subdir3", "**/*.py"]},
+                "expected": ["subdir1/b.js", "subdir2/c.js", "subdir2/noext"],
+            },
+            id="Global excludes apply to a directory nothing else filters.",
+        ),
+        pytest.param(
+            {
+                "paths": ["subdir1/b.js", "subdir2/c.js"],
+                "config": {"global_exclude": ["subdir1"]},
+                "expected": ["subdir2/c.js"],
+            },
+            id="Global excludes apply to files passed explicitly.",
+        ),
+        pytest.param(
+            {
+                "paths": ["subdir1/b.js"],
+                "config": {"global_exclude": ["subdir1/b"]},
+                "expected": ["subdir1/b.js"],
+            },
+            id="An exclude does not match a file whose name only starts with it.",
+        ),
     ),
 )
 def test_expand_exclusions(test):
