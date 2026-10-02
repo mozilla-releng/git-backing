@@ -370,8 +370,36 @@ interface nsIMsgFolder : nsISupports {
    * change the name of the folder
    *
    * @param name the new name of the folder
+   *
+   * @deprecated Use renameAsync/renameWithListener instead.
    */
   void rename(in AUTF8String name, in nsIMsgWindow msgWindow);
+
+  /**
+   * Change the name of the folder. Returns a promise that resolves once the
+   * rename has completed, or rejects with an error code on failure.
+   *
+   * Expected failure values:
+   * NS_MSG_FOLDER_EXISTS
+   * NS_MSG_ERROR_INVALID_FOLDER_NAME
+   * NS_ERROR_FAILURE (IMAP, when the name contains the hierarchy delimiter)
+   * NS_ERROR_CONNECTION_REFUSED (or other network errors)
+   *
+   * @param name the new name of the folder
+   */
+  [implicit_jscontext]
+  Promise renameAsync(in AUTF8String name);
+
+  /**
+   * Change the name of the folder. Intended for use by C++ callers while
+   * renameAsync is intended for use by JavaScript callers.
+   * See renameAsync for expected statuses.
+   *
+   * @param name the new name of the folder
+   * @param listener notified via onStopRunningUrl() once the rename has
+   *   completed, with a null URL.
+   */
+  void renameWithListener(in AUTF8String name, in nsIUrlListener listener);
   void renameSubFolders(in nsIMsgWindow msgWindow, in nsIMsgFolder oldFolder);
 
   AUTF8String generateUniqueSubfolderName(in AUTF8String prefix,
@@ -752,7 +780,6 @@ interface nsIMsgFolder : nsISupports {
                                          in boolean caseInsensitive);
   boolean confirmFolderDeletionForFilter(in nsIMsgWindow msgWindow);
   void alertFilterChanged(in nsIMsgWindow msgWindow);
-  void throwAlertMsg(in string msgName, in nsIMsgWindow msgWindow);
   AString getStringWithFolderNameFromBundle(in string msgName);
 
   /**

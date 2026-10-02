@@ -111,8 +111,7 @@ async function SetUpTree(forceToServer, getOnlyNew) {
 
     gSubscribableServer.startPopulating(msgWindow, forceToServer, getOnlyNew);
   } catch (e) {
-    if (e.result == 0x80550014) {
-      // NS_MSG_ERROR_OFFLINE
+    if (e.result == Cr.NS_MSG_ERROR_OFFLINE) {
       const offlineString =
         await document.l10n.formatValue("subscribe-offline");
       MailServices.feedback.reportStatus(offlineString, "stop-meteors");
