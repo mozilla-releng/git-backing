@@ -24,6 +24,109 @@ ChromeUtils.defineLazyGetter(lazy, "messengerBundle", () =>
     "chrome://messenger/locale/messenger.properties"
   )
 );
+ChromeUtils.defineLazyGetter(
+  lazy,
+  "folderL10n",
+  () => new Localization(["messenger/folder-commands.ftl"], true)
+);
+
+/**
+ * Whether deleting this folder would move it to the trash rather than destroy
+ * it. A folder already inside the trash has nowhere left to go.
+ *
+ * @param {nsIMsgFolder} folder
+ * @returns {boolean}
+ */
+function deleteMovesToTrash(folder) {
+  return (
+    !folder.isSpecialFolder(Ci.nsMsgFolderFlags.Trash, true) &&
+    serverDeletesToTrash(folder.server)
+  );
+}
+
+/**
+ * Whether this server moves a deleted folder to the trash, rather than
+ * destroying it. Only meaningful for a folder that isn't in the trash already.
+ *
+ * @param {nsIMsgIncomingServer} server
+ * @returns {boolean}
+ */
+function serverDeletesToTrash(server) {
+  if (!(server instanceof Ci.nsIImapIncomingServer)) {
+    return true;
+  }
+  if (server.deleteModel != Ci.nsMsgImapDeleteModels.MoveToTrash) {
+    return false;
+  }
+  // The server also has to be willing to keep folders in the trash.
+  const trash = server.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Trash);
+  return !!trash?.canCreateSubfolders && server.dualUseFolders;
+}
+
+/**
+ * Ask the user to confirm deleting a folder, warning them separately if any
+ * filters point at it.
+ *
+ * @param {nsIMsgFolder} folder - The folder about to be deleted.
+ * @param {boolean} [movesToTrash] - Whether the folder will end up in the
+ *   trash rather than being destroyed. Defaults to asking the folder.
+ * @returns {boolean} Whether the deletion should go ahead.
+ */
+function confirmFolderDeletion(
+  folder,
+  movesToTrash = deleteMovesToTrash(folder)
+) {
+  if (folder.isSpecialFolder(Ci.nsMsgFolderFlags.Trash, false)) {
+    // Emptying the trash is the user's own doing; don't ask again.
+    return true;
+  }
+
+  // A folder that is about to be destroyed is always worth confirming. One
+  // that only moves to the trash is confirmed unless the user turned that off.
+  if (
+    !movesToTrash ||
+    Services.prefs.getBoolPref("mailnews.confirm.moveFoldersToTrash", true)
+  ) {
+    const [title, button, message] = lazy.folderL10n.formatValuesSync([
+      "folder-delete-title",
+      "folder-delete-button",
+      {
+        id: movesToTrash
+          ? "folder-delete-confirm"
+          : "folder-delete-no-trash-confirm",
+        args: { name: folder.localizedName },
+      },
+    ]);
+    if (
+      Services.prompt.confirmEx(
+        window.top,
+        title,
+        message,
+        // Default the dialog to "cancel".
+        Services.prompt.BUTTON_TITLE_IS_STRING * Services.prompt.BUTTON_POS_0 +
+          Services.prompt.BUTTON_TITLE_CANCEL * Services.prompt.BUTTON_POS_1,
+        button,
+        null,
+        null,
+        null,
+        {}
+      )
+    ) {
+      return false;
+    }
+  }
+
+  if (folder.matchOrChangeFilterDestination(null, false)) {
+    const message = lazy.folderL10n.formatValueSync(
+      "folder-delete-filter-confirm",
+      { name: folder.localizedName }
+    );
+    if (!Services.prompt.confirm(window.top, null, message)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /**
  * Tell the user about a folder-level failure, via nsIMsgMailSession so that
@@ -55,7 +158,7 @@ function alertFolderNameFailure(ex, fallbackName) {
   const stringName =
     ex.result == Cr.NS_MSG_FOLDER_EXISTS ? "folderExists" : fallbackName;
   Services.prompt.alert(
-    window,
+    window.top,
     null,
     lazy.messengerBundle.GetStringFromName(stringName)
   );
@@ -395,6 +498,8 @@ function deleteFolder(folder) {
       /* the yes button is in position 0 */
       return;
     }
+  } else if (!confirmFolderDeletion(folder)) {
+    return;
   }
 
   try {
@@ -576,6 +681,7 @@ function compactAllFoldersForAccount(folder) {
 }
 
 export const FolderCommands = {
+  confirmFolderDeletion,
   newFolder,
   newVirtualFolder,
   renameFolder,
