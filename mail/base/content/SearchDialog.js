@@ -27,7 +27,6 @@ var gDBView;
 var nsMsgKey_None = 0xffffffff;
 var nsMsgViewIndex_None = 0xffffffff;
 
-var messenger;
 var msgWindow;
 
 var gCurrentFolder;
@@ -82,13 +81,6 @@ function FolderDisplayWidget() {
    *  one of these per tab.  The caller is responsible for setting this.
    */
   this.msgWindow = null;
-  /**
-   * The nsIMessenger instance that corresponds to our tab/window.  We do not
-   *  use this ourselves, but are responsible for using it to update the
-   *  global |messenger| object so that our tab maintains its own undo and
-   *  navigation history.  At some point we might touch it for those reasons.
-   */
-  this.messenger = null;
 
   /**
    * Flag to expose whether all messages are loaded or not.  Set by
@@ -167,7 +159,6 @@ FolderDisplayWidget.prototype = {
    */
   close() {
     this.view.close();
-    this.messenger = null;
   },
 
   /*   ===============================   */
@@ -1009,10 +1000,7 @@ function searchOnLoad() {
   initializeSearchWidgets();
   initializeSearchWindowWidgets();
 
-  messenger = Cc["@mozilla.org/messenger;1"].createInstance(Ci.nsIMessenger);
-
   gFolderDisplay = new SearchFolderDisplayWidget();
-  gFolderDisplay.messenger = messenger;
   gFolderDisplay.msgWindow = msgWindow;
   gFolderDisplay.tree = document.getElementById("threadTree");
 
