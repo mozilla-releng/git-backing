@@ -1347,7 +1347,8 @@ NS_IMETHODIMP ExchangeFolder::EmptyTrash(nsIUrlListener* aListener) {
 }
 
 NS_IMETHODIMP ExchangeFolder::CompactAll(nsIUrlListener* aListener,
-                                         nsIMsgWindow* aMsgWindow) {
+                                         nsIMsgWindow* aMsgWindow,
+                                         bool expunge) {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMsgFolder> rootFolder;
   rv = GetRootFolder(getter_AddRefs(rootFolder));
@@ -1387,12 +1388,12 @@ NS_IMETHODIMP ExchangeFolder::CompactAll(nsIUrlListener* aListener,
     }
   }
 
-  return AsyncCompactFolders(folderArray, aListener, aMsgWindow);
+  return AsyncCompactFolders(folderArray, aListener);
 }
 
 NS_IMETHODIMP ExchangeFolder::Compact(nsIUrlListener* aListener,
                                       nsIMsgWindow* aMsgWindow) {
-  return AsyncCompactFolders({this}, aListener, aMsgWindow);
+  return AsyncCompactFolders({this}, aListener);
 }
 
 nsresult ExchangeFolder::GetExchangeId(nsACString& exchangeId) {
