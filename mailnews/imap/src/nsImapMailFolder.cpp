@@ -1918,10 +1918,8 @@ nsImapMailFolder::MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) {
       NS_ENSURE_SUCCESS(rv, rv);
 
       // Setup a undo-state
-      if (aMsgWindow) {
-        rv = AddMarkAllReadUndoAction(aMsgWindow, thoseMarked.Elements(),
-                                      thoseMarked.Length());
-      }
+      rv = AddMarkAllReadUndoAction(thoseMarked.Elements(),
+                                    thoseMarked.Length());
     }
   }
   return rv;
@@ -5299,7 +5297,7 @@ nsImapMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
 
               m_copyState->m_curIndex++;
               if (m_copyState->m_curIndex >= m_copyState->m_messages.Length()) {
-                if (m_copyState->m_msgWindow && m_copyState->m_undoMsgTxn) {
+                if (m_copyState->m_undoMsgTxn) {
                   nsCOMPtr<nsITransactionManager> txnMgr;
                   nsCOMPtr<nsIMsgTransactionService> txns =
                       mozilla::components::Txns::Service();
