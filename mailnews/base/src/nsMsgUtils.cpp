@@ -673,6 +673,10 @@ nsresult AlertFolderError(nsIMsgFolder* folder, const char* msgName) {
   return mailSession->AlertUser(message, serverKey, false);
 }
 
+nsresult AlertFilterChanged(nsIMsgFolder* folder) {
+  return AlertFolderError(folder, "alertFilterChanged");
+}
+
 /* NOTE: ~copied from uriloader/base/nsDocLoader.cpp */
 /* static */
 mozilla::Maybe<nsLiteralCString> StatusCodeToL10nId(nsresult aStatus) {

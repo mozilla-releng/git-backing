@@ -888,7 +888,7 @@ NS_IMETHODIMP nsMsgLocalMailFolder::Rename(const nsACString& aNewName,
     bool changed = false;
     MatchOrChangeFilterDestination(newFolder, true /*case-insensitive*/,
                                    &changed);
-    if (changed) AlertFilterChanged(msgWindow);
+    if (changed) AlertFilterChanged(this);
 
     if (count > 0) newFolder->RenameSubFolders(msgWindow, this);
 
@@ -937,7 +937,7 @@ NS_IMETHODIMP nsMsgLocalMailFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
       bool changed = false;
       msgFolder->MatchOrChangeFilterDestination(
           newFolder, true /*case-insensitive*/, &changed);
-      if (changed) msgFolder->AlertFilterChanged(msgWindow);
+      if (changed) AlertFilterChanged(msgFolder);
       newFolder->RenameSubFolders(msgWindow, msgFolder);
     }
   }
