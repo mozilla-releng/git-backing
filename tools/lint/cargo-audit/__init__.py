@@ -290,6 +290,14 @@ def setup(root, log, **lintargs) -> int:
             installed_version = get_audit_version()
 
         if not installed_version or installed_version != desired_version:
+            fetches_dir = os.environ.get("MOZ_FETCHES_DIR")
+            if fetches_dir and os.path.isdir(os.path.join(fetches_dir, "cargo-audit")):
+                log.error(
+                    f"cargo-audit_version.txt asks for cargo-audit {desired_version}, "
+                    f"but found {installed_version or 'none'}. Update the cargo-audit "
+                    "fetch in taskcluster/kinds/fetch/toolchains.yml to match."
+                )
+                return 1
             output = run_process([
                 "cargo",
                 "install",
