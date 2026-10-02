@@ -861,6 +861,14 @@ var folderPaneContextMenu = {
         { once: true }
       );
     }
+    if (
+      isMove &&
+      targetFolder.isSpecialFolder(Ci.nsMsgFolderFlags.Trash, true) &&
+      !FolderCommands.confirmFolderDeletion(sourceFolder, true)
+    ) {
+      return;
+    }
+
     // Do the transfer. A slight delay in calling copyFolder() helps the
     // folder-menupopup chain of items get properly closed so the next folder
     // context popup can occur.

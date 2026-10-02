@@ -3848,8 +3848,10 @@ NS_IMETHODIMP nsMsgDBFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
 NS_IMETHODIMP nsMsgDBFolder::RenameWithListener(const nsACString& aNewName,
                                                 nsIUrlListener* aListener) {
   // The base implementation is synchronous, so the listener can be notified
-  // as soon as Rename() returns. Backends which rename on a server
-  // override this and notify once the server has answered.
+  // as soon as Rename() returns. nsImapMailFolder overrides this to notify
+  // once the server has answered. ExchangeFolder does not, so a listener
+  // waiting on an EWS rename is told it finished as soon as the request has
+  // been sent - see the FIXME in ExchangeFolder::Rename().
   nsresult rv = Rename(aNewName, nullptr);
   if (aListener) {
     aListener->OnStopRunningUrl(nullptr, rv);
@@ -5129,15 +5131,6 @@ nsMsgDBFolder::GetStringWithFolderNameFromBundle(const char* msgName,
     if (NS_SUCCEEDED(rv)) aResult.Assign(resultStr);
   }
   return rv;
-}
-
-NS_IMETHODIMP nsMsgDBFolder::ConfirmFolderDeletionForFilter(
-    nsIMsgWindow* msgWindow, bool* confirmed) {
-  nsString confirmString;
-  nsresult rv = GetStringWithFolderNameFromBundle(
-      "confirmFolderDeletionForFilter", confirmString);
-  NS_ENSURE_SUCCESS(rv, rv);
-  return ThrowConfirmationPrompt(msgWindow, confirmString, confirmed);
 }
 
 NS_IMETHODIMP nsMsgDBFolder::NotifyAboutToCompact() {
