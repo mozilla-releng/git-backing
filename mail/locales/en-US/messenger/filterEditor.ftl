@@ -87,10 +87,6 @@ filter-editor-must-select-target-folder = You must select a target folder.
 filter-editor-enter-valid-email-forward = Enter a valid email address to forward to.
 filter-editor-pick-template-reply = Choose a template to reply with.
 
-# Variables:
-# $filterName (String) - The name of the filter that was applied.
-filter-continue-execution = Applying filter { $filterName } failed. Would you like to continue applying filters?
-
 filter-list-backup-message =
     Your filters do not work because the msgFilterRules.dat file, which contains your filters, could not be read. A new msgFilterRules.dat file will be created and a backup of the old file, called rulesbackup.dat, will be created in the same directory.
 
