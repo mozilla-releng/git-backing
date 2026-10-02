@@ -1074,6 +1074,16 @@ class FileFinder(BaseFinder):
         Ignores file names starting with a '.' under the given path. If the
         path itself has leafs starting with a '.', they are not ignored.
         """
+        for child in self.walk(path):
+            if f := self.get(child, known_to_exist=True):
+                yield child, f
+
+    def walk(self, path):
+        """
+        Yield the files under the given directory, in the order that
+        ``_find_dir`` yields them. Ignored directories are skipped, but the
+        files themselves are left for ``get`` to test against ``ignore``.
+        """
         if self._ignored(path):
             return
 
@@ -1091,9 +1101,9 @@ class FileFinder(BaseFinder):
         for name, is_dir in entries:
             child = mozpath.join(path, name)
             if is_dir:
-                yield from self._find_dir(child)
-            elif f := self.get(child, known_to_exist=True):
-                yield child, f
+                yield from self.walk(child)
+            else:
+                yield child
 
     def get(self, path, known_to_exist=False):
         srcpath = os.path.join(self.base, path)
