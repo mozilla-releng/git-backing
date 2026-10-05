@@ -4211,6 +4211,55 @@ criteria = "safe-to-deploy"
 delta = "0.4.1 -> 0.4.3"
 notes = "A small number of smaller misc changes. No unsafe changed, added, or removed."
 
+[[audits.kamadak-exif]]
+who = "Emma Zuehlcke <emz@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.6.1"
+notes = """
+Reviewed in full for bug 2058913, which parses a bounded prefix of image files
+a user has handed to a web page, in a content process.
+
+One unsafe block, in value.rs: a &Value -> &UIntValue cast where UIntValue is
+#[repr(transparent)] over Value. Sound by that attribute plus lifetime elision.
+The variant match beside it guards UIntValue::get's panic!, not the cast. No
+unsafe impl, no build script, and no filesystem, network, environment or
+process access in library code.
+
+No reachable panic found on attacker-controlled input. The loads in endian.rs
+leave bounds to their callers, and every call site guarantees them; tiff.rs
+bounds every out-of-line value with a checked_mul and an ofs + vallen <=
+data.len() test, which is also what caps every Vec::with_capacity in value.rs
+at the input length.
+
+Three denial-of-service shapes, none fixed upstream:
+
+1. parse_ifd does not track which IFD offsets it has walked, and the pointer
+   tags span three contexts (ExifIFDPointer and GPSInfoIFDPointer are
+   Context::Tiff, InteropIFDPointer is Context::Exif), so a file repeating them
+   nests Tiff -> Exif -> Interop and pushes the product of three IFD widths.
+   parse_body also walks up to eight top-level IFDs before its limit fires,
+   which multiplies that product by eight when eight distinct IFDs share the
+   children; a chain that points back at itself does the same work but ends in
+   an error that discards every field. Measured 640,000 fields and 44.7 MB from
+   5,786 bytes of input; a 64 KB block does not complete.
+2. parse_ifd_entry accepts any value that fits inside the block, so every entry
+   may declare the whole block as its value, and Exif::fields then decodes each
+   one; an ASCII value costs twenty-four bytes per input byte. Quadratic in the
+   block size: 1.83 GB peak RSS from a 32 KiB block.
+3. isobmff.rs parse_iloc runs extent_count iterations per item while consuming
+   no input, because size048(0) returns Ok(Some(0)). Measured about 3.5 s of
+   CPU for one 128 KiB input.
+
+The first two are accepted as known issues rather than guarded. Both need a
+block built to repeat itself consistently, which accidental malformation does
+not produce. The caller parses at most a 128 KiB prefix of a file the user
+chose to hand to a page, off the main thread in a content process; that bounds
+the input but not the cost of these two shapes, so a crafted file can still
+exhaust the content process. Firefox avoids the third by not calling
+read_from_container for HEIF or AVIF, which is also the entry point the crate's
+one advisory, RUSTSEC-2021-0143 (fixed in 0.5.3), was in.
+"""
+
 [[audits.keccak]]
 who = "Simon Friedberger <simon@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -5003,6 +5052,30 @@ version = "0.8.0"
 who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
 version = "0.8.0"
+
+[[audits.mutate_once]]
+who = "Emma Zuehlcke <emz@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.1.2"
+notes = """
+Reviewed in full for bug 2058913; roughly 90 lines of library code, no
+dependencies, no build script, no I/O of any kind.
+
+A RefCell-shaped single-shot cell: UnsafeCell<T> beside a Cell<State>, with
+three unsafe dereferences whose exclusivity is enforced dynamically by that
+state machine. get_mut panics if a mutable borrow is already live or the value
+has been fixed, get_ref panics while a mutable borrow is live, and RefMut's
+Drop restores the state. The guard has a private field and is neither Clone nor
+constructible from outside, and Deref/DerefMut tie their output to the guard
+rather than to the cell, so no aliasing sequence is expressible in safe code.
+UnsafeCell and Cell make the type !Sync, so it cannot be raced across threads
+and a static of it does not compile. Leaking a guard leaves the cell permanently
+panicking rather than aliasing.
+
+Worth recording that the soundness argument is dynamic: misuse is a panic, which
+under panic=abort is a controlled crash. The only consumer, kamadak-exif's
+tiff.rs, keeps every guard scope-local.
+"""
 
 [[audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
