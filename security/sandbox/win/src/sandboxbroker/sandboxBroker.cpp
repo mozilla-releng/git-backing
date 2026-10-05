@@ -1413,6 +1413,13 @@ void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
   AddShaderCachesToPolicy(&trackingConfig, aSandboxLevel);
 
   if (aSandboxLevel >= 2) {
+    if (StaticPrefs::security_sandbox_font_file_rule_enabled_AtStartup()) {
+      // Font file access is validated by the broker against the installed font
+      // files, so we don't need individual rules for user fonts.
+      SANDBOX_SUCCEED_OR_CRASH(trackingConfig.AllowFontFileAccess());
+      return;
+    }
+
     // We don't want to add a rule directly here but use the same retrieval and
     // caching mechanism to get the Windows user's dirs.
     EnsureWindowsDirCached(FOLDERID_Profile, sWindowsProfileDir,
