@@ -71,7 +71,8 @@ bool QueryBroker(IpcTag ipc_id, CountedParameterSetBase* params) {
       processor.Evaluate(kShortEval, params->parameters, params->count);
   DCHECK_NT(POLICY_ERROR != result);
 
-  return POLICY_MATCH == result && ASK_BROKER == processor.GetAction();
+  return POLICY_MATCH == result && (ASK_BROKER == processor.GetAction() ||
+                                    FONT_CHECK == processor.GetAction());
 }
 
 // -----------------------------------------------------------------------

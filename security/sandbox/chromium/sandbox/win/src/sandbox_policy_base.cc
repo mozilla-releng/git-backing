@@ -184,6 +184,13 @@ bool ConfigBase::Freeze() {
   DCHECK(IsOnCreatingThread());
   DCHECK(!configured_);
 
+  // Font file rules must be added last, so that they are only used when no
+  // other rule matches.
+  if (allow_font_file_access_ &&
+      !FileSystemPolicy::GenerateFontRules(PolicyMaker())) {
+    return false;
+  }
+
   if (policy_) {
     if (!policy_maker_->Done())
       return false;
@@ -261,6 +268,11 @@ ResultCode ConfigBase::AllowFileAccess(FileSemantics semantics,
     return SBOX_ERROR_BAD_PARAMS;
   }
   return SBOX_ALL_OK;
+}
+
+void ConfigBase::AllowFontFileAccess() {
+  DCHECK(!configured_);
+  allow_font_file_access_ = true;
 }
 
 ResultCode ConfigBase::AllowRegistryRead(const wchar_t* pattern) {

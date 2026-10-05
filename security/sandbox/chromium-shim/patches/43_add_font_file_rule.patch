@@ -1,0 +1,342 @@
+# HG changeset patch
+# User Bob Owen <bobowencode@gmail.com>
+# Date 1791219595 0
+#      Mon Oct 05 16:59:55 2026 +0000
+Add font file rules that defer to a broker validator.
+
+diff --git a/sandbox/win/src/broker_services.cc b/sandbox/win/src/broker_services.cc
+index e40fffbad0fc..5e5fd9256800 100644
+--- a/sandbox/win/src/broker_services.cc
++++ b/sandbox/win/src/broker_services.cc
+@@ -25,6 +25,7 @@
+ #include "base/win/windows_version.h"
+ #include "build/build_config.h"
+ #include "sandbox/win/src/app_container.h"
++#include "sandbox/win/src/filesystem_policy.h"
+ #include "sandbox/win/src/process_mitigations.h"
+ #include "sandbox/win/src/sandbox.h"
+ #include "sandbox/win/src/sandbox_policy_base.h"
+@@ -760,4 +761,8 @@ bool BrokerServicesBase::DeriveCapabilitySidFromName(const wchar_t* name,
+   return ::CopySid(sid_buffer_length, derived_sid, sid->GetPSID());
+ }
+ 
++void BrokerServicesBase::SetFontFileValidator(FontFileValidatorFn validator) {
++  FileSystemPolicy::SetFontFileValidator(validator);
++}
++
+ }  // namespace sandbox
+diff --git a/sandbox/win/src/broker_services.h b/sandbox/win/src/broker_services.h
+index 9bf684087bcb..0ed6c77ea7dd 100644
+--- a/sandbox/win/src/broker_services.h
++++ b/sandbox/win/src/broker_services.h
+@@ -86,6 +86,8 @@ class BrokerServicesBase final : public BrokerServices,
+   bool DeriveCapabilitySidFromName(const wchar_t* name, PSID derived_sid,
+                                    DWORD sid_buffer_length) override;
+ 
++  void SetFontFileValidator(FontFileValidatorFn validator) override;
++
+  private:
+   // Implements Init and InitForTesting.
+   ResultCode InitInternal(
+diff --git a/sandbox/win/src/filesystem_policy.cc b/sandbox/win/src/filesystem_policy.cc
+index debce2aeef39..342d8debd6ee 100644
+--- a/sandbox/win/src/filesystem_policy.cc
++++ b/sandbox/win/src/filesystem_policy.cc
+@@ -10,6 +10,7 @@
+ #include <ntstatus.h>
+ #include <stdint.h>
+ 
++#include <atomic>
+ #include <string>
+ 
+ #include "base/notreached.h"
+@@ -75,6 +76,32 @@ NTSTATUS NtCreateFileInTarget(HANDLE* target_file_handle,
+   return STATUS_SUCCESS;
+ }
+ 
++// We consider all flags that are not known to be readonly as potentially used
++// for write.
++constexpr DWORD kReadonlyAllowedFlags =
++    FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | SYNCHRONIZE |
++    FILE_EXECUTE | GENERIC_READ | GENERIC_EXECUTE | READ_CONTROL;
++constexpr DWORD kReadonlyRestrictedFlags = ~kReadonlyAllowedFlags;
++
++// Font file rules are restricted to paths with a drive letter.
++constexpr wchar_t kFontFilePattern[] = L"\\??\\*:\\*";
++
++std::atomic<FontFileValidatorFn> g_font_file_validator = nullptr;
++
++bool IsAllowedResult(EvalResult eval_result, const std::wstring& file) {
++  if (ASK_BROKER == eval_result) {
++    return true;
++  }
++
++  if (FONT_CHECK != eval_result) {
++    return false;
++  }
++
++  FontFileValidatorFn validator =
++      g_font_file_validator.load(std::memory_order_acquire);
++  return validator && validator(file);
++}
++
+ }  // namespace.
+ 
+ bool FileSystemPolicy::GenerateRules(const wchar_t* name,
+@@ -103,15 +130,11 @@ bool FileSystemPolicy::GenerateRules(const wchar_t* name,
+   PolicyRule query_full(result);
+ 
+   if (semantics == FileSemantics::kAllowReadonly) {
+-    // We consider all flags that are not known to be readonly as potentially
+-    // used for write.
+-    DWORD allowed_flags = FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA |
+-                          SYNCHRONIZE | FILE_EXECUTE | GENERIC_READ |
+-                          GENERIC_EXECUTE | READ_CONTROL;
+-    DWORD restricted_flags = ~allowed_flags;
+-    open.AddNumberMatch(IF_NOT, OpenFile::ACCESS, restricted_flags, AND);
++    open.AddNumberMatch(IF_NOT, OpenFile::ACCESS, kReadonlyRestrictedFlags,
++                        AND);
+     open.AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL);
+-    create.AddNumberMatch(IF_NOT, OpenFile::ACCESS, restricted_flags, AND);
++    create.AddNumberMatch(IF_NOT, OpenFile::ACCESS, kReadonlyRestrictedFlags,
++                          AND);
+     create.AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL);
+   }
+ 
+@@ -150,6 +173,34 @@ bool FileSystemPolicy::GenerateRules(const wchar_t* name,
+   return true;
+ }
+ 
++bool FileSystemPolicy::GenerateFontRules(LowLevelPolicy* policy) {
++  PolicyRule create(FONT_CHECK);
++  PolicyRule open(FONT_CHECK);
++  PolicyRule query(FONT_CHECK);
++  PolicyRule query_full(FONT_CHECK);
++
++  for (PolicyRule* rule : {&create, &open}) {
++    if (!rule->AddNumberMatch(IF_NOT, OpenFile::ACCESS,
++                              kReadonlyRestrictedFlags, AND) ||
++        !rule->AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL)) {
++      return false;
++    }
++  }
++
++  return create.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
++         policy->AddRule(IpcTag::NTCREATEFILE, &create) &&
++         open.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
++         policy->AddRule(IpcTag::NTOPENFILE, &open) &&
++         query.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
++         policy->AddRule(IpcTag::NTQUERYATTRIBUTESFILE, &query) &&
++         query_full.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
++         policy->AddRule(IpcTag::NTQUERYFULLATTRIBUTESFILE, &query_full);
++}
++
++void FileSystemPolicy::SetFontFileValidator(FontFileValidatorFn validator) {
++  g_font_file_validator.store(validator, std::memory_order_release);
++}
++
+ bool FileSystemPolicy::CreateFileAction(EvalResult eval_result,
+                                         const ClientInfo& client_info,
+                                         const std::wstring& file,
+@@ -163,9 +214,9 @@ bool FileSystemPolicy::CreateFileAction(EvalResult eval_result,
+                                         NTSTATUS* nt_status,
+                                         ULONG_PTR* io_information) {
+   *handle = nullptr;
+-  // The only action supported is ASK_BROKER which means create the requested
+-  // file as specified.
+-  if (ASK_BROKER != eval_result) {
++  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
++  // which mean create the requested file as specified.
++  if (!IsAllowedResult(eval_result, file)) {
+     *nt_status = STATUS_ACCESS_DENIED;
+     return false;
+   }
+@@ -191,9 +242,9 @@ bool FileSystemPolicy::OpenFileAction(EvalResult eval_result,
+                                       NTSTATUS* nt_status,
+                                       ULONG_PTR* io_information) {
+   *handle = nullptr;
+-  // The only action supported is ASK_BROKER which means open the requested
+-  // file as specified.
+-  if (ASK_BROKER != eval_result) {
++  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
++  // which mean open the requested file as specified.
++  if (!IsAllowedResult(eval_result, file)) {
+     *nt_status = STATUS_ACCESS_DENIED;
+     return false;
+   }
+@@ -217,9 +268,9 @@ bool FileSystemPolicy::QueryAttributesFileAction(
+     uint32_t attributes,
+     FILE_BASIC_INFORMATION* file_info,
+     NTSTATUS* nt_status) {
+-  // The only action supported is ASK_BROKER which means query the requested
+-  // file as specified.
+-  if (ASK_BROKER != eval_result) {
++  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
++  // which mean query the requested file as specified.
++  if (!IsAllowedResult(eval_result, file)) {
+     *nt_status = STATUS_ACCESS_DENIED;
+     return false;
+   }
+@@ -237,9 +288,9 @@ bool FileSystemPolicy::QueryFullAttributesFileAction(
+     uint32_t attributes,
+     FILE_NETWORK_OPEN_INFORMATION* file_info,
+     NTSTATUS* nt_status) {
+-  // The only action supported is ASK_BROKER which means query the requested
+-  // file as specified.
+-  if (ASK_BROKER != eval_result) {
++  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
++  // which mean query the requested file as specified.
++  if (!IsAllowedResult(eval_result, file)) {
+     *nt_status = STATUS_ACCESS_DENIED;
+     return false;
+   }
+diff --git a/sandbox/win/src/filesystem_policy.h b/sandbox/win/src/filesystem_policy.h
+index ddf28a689e25..07a729d483a6 100644
+--- a/sandbox/win/src/filesystem_policy.h
++++ b/sandbox/win/src/filesystem_policy.h
+@@ -28,6 +28,13 @@ class FileSystemPolicy {
+                             FileSemantics semantics,
+                             LowLevelPolicy* policy);
+ 
++  // Creates the read-only low-level policy rules for font files, which are
++  // only allowed if the font file validator accepts the path.
++  static bool GenerateFontRules(LowLevelPolicy* policy);
++
++  // Sets the validator used for requests matched by the font file rules.
++  static void SetFontFileValidator(FontFileValidatorFn validator);
++
+   // Performs the desired policy action on a create request with an
+   // API that is compatible with the IPC-received parameters.
+   // 'client_info' : the target process that is making the request.
+diff --git a/sandbox/win/src/policy_engine_opcodes.h b/sandbox/win/src/policy_engine_opcodes.h
+index 8eb45012e9a3..d84907acbf53 100644
+--- a/sandbox/win/src/policy_engine_opcodes.h
++++ b/sandbox/win/src/policy_engine_opcodes.h
+@@ -67,6 +67,9 @@ enum EvalResult {
+   FAKE_SUCCESS,    // Do not call original function. Just return 'success'.
+   FAKE_ACCESS_DENIED,  // Do not call original function. Just return 'denied'
+                        // and do not do IPC.
++  FONT_CHECK,  // The target must generate an IPC to the broker. On the broker
++               // side, this means grant access if the font file validator
++               // accepts the resource.
+ };
+ 
+ // The following are the implemented opcodes. uint16_t purely to pack nicely.
+diff --git a/sandbox/win/src/policy_target.cc b/sandbox/win/src/policy_target.cc
+index 7acb500a5eba..77fea73efc8a 100644
+--- a/sandbox/win/src/policy_target.cc
++++ b/sandbox/win/src/policy_target.cc
+@@ -71,7 +71,8 @@ bool QueryBroker(IpcTag ipc_id, CountedParameterSetBase* params) {
+       processor.Evaluate(kShortEval, params->parameters, params->count);
+   DCHECK_NT(POLICY_ERROR != result);
+ 
+-  return POLICY_MATCH == result && ASK_BROKER == processor.GetAction();
++  return POLICY_MATCH == result && (ASK_BROKER == processor.GetAction() ||
++                                    FONT_CHECK == processor.GetAction());
+ }
+ 
+ // -----------------------------------------------------------------------
+diff --git a/sandbox/win/src/sandbox.h b/sandbox/win/src/sandbox.h
+index dfb591c4d1bb..2d2157ea3530 100644
+--- a/sandbox/win/src/sandbox.h
++++ b/sandbox/win/src/sandbox.h
+@@ -174,6 +174,11 @@ class [[clang::lto_visibility_public]] BrokerServices {
+                                            PSID derived_sid,
+                                            DWORD sid_buffer_length) = 0;
+ 
++  // Sets the validator used for requests matched by rules added with
++  // TargetConfig::AllowFontFileAccess. If no validator is set, those requests
++  // are denied. Pass nullptr to remove the validator.
++  virtual void SetFontFileValidator(FontFileValidatorFn validator) = 0;
++
+  protected:
+   virtual ~BrokerServices() = default;
+ };
+diff --git a/sandbox/win/src/sandbox_policy.h b/sandbox/win/src/sandbox_policy.h
+index 3227faf7489a..cb554f6877fa 100644
+--- a/sandbox/win/src/sandbox_policy.h
++++ b/sandbox/win/src/sandbox_policy.h
+@@ -8,6 +8,8 @@
+ #include <stddef.h>
+ #include <stdint.h>
+ 
++#include <string_view>
++
+ #include "base/containers/span.h"
+ #include "sandbox/win/src/sandbox_types.h"
+ #include "sandbox/win/src/security_level.h"
+@@ -38,6 +40,11 @@ enum class FileSemantics {
+   kAllowQuery,     // Allows access to query the attributes of a file.
+ };
+ 
++// Called by the broker, on any thread, for requests matched by rules added with
++// TargetConfig::AllowFontFileAccess. `nt_path` is the path as sent by the
++// target. Returns true if read-only access should be allowed.
++using FontFileValidatorFn = bool (*)(std::wstring_view nt_path);
++
+ // Configures sandbox policy to close a given handle or set of handles in the
+ // target just before entering lockdown.
+ enum class HandleToClose {
+@@ -181,6 +188,12 @@ class [[clang::lto_visibility_public]] TargetConfig {
+   [[nodiscard]] virtual ResultCode AllowRegistryRead(
+       const wchar_t* pattern) = 0;
+ 
++  // Adds read-only policy rules for font files, which are allowed if the font
++  // file validator set with BrokerServices::SetFontFileValidator accepts the
++  // path. These rules are always added after all other rules, so they are only
++  // used when no other rule matches.
++  virtual void AllowFontFileAccess() = 0;
++
+   // Adds a policy rule effective for processes spawned using this policy.
+   // Modules patching `path` exactly can still be loaded under
+   // Code-Integrity Guard (MITIGATION_FORCE_MS_SIGNED_BINS).
+diff --git a/sandbox/win/src/sandbox_policy_base.cc b/sandbox/win/src/sandbox_policy_base.cc
+index 677bb48ecd8f..1a2f5200e743 100644
+--- a/sandbox/win/src/sandbox_policy_base.cc
++++ b/sandbox/win/src/sandbox_policy_base.cc
+@@ -184,6 +184,13 @@ bool ConfigBase::Freeze() {
+   DCHECK(IsOnCreatingThread());
+   DCHECK(!configured_);
+ 
++  // Font file rules must be added last, so that they are only used when no
++  // other rule matches.
++  if (allow_font_file_access_ &&
++      !FileSystemPolicy::GenerateFontRules(PolicyMaker())) {
++    return false;
++  }
++
+   if (policy_) {
+     if (!policy_maker_->Done())
+       return false;
+@@ -263,6 +270,11 @@ ResultCode ConfigBase::AllowFileAccess(FileSemantics semantics,
+   return SBOX_ALL_OK;
+ }
+ 
++void ConfigBase::AllowFontFileAccess() {
++  DCHECK(!configured_);
++  allow_font_file_access_ = true;
++}
++
+ ResultCode ConfigBase::AllowRegistryRead(const wchar_t* pattern) {
+   if (!RegistryPolicy::GenerateRules(pattern, PolicyMaker())) {
+     return SBOX_ERROR_BAD_PARAMS;
+diff --git a/sandbox/win/src/sandbox_policy_base.h b/sandbox/win/src/sandbox_policy_base.h
+index 592f0de02ba3..11e3909b78e9 100644
+--- a/sandbox/win/src/sandbox_policy_base.h
++++ b/sandbox/win/src/sandbox_policy_base.h
+@@ -63,6 +63,7 @@ class ConfigBase final : public TargetConfig {
+   ResultCode AllowFileAccess(FileSemantics semantics,
+                              const wchar_t* pattern) override;
+   ResultCode AllowRegistryRead(const wchar_t* pattern) final;
++  void AllowFontFileAccess() final;
+   ResultCode AllowExtraDll(const wchar_t* path) override;
+   ResultCode SetFakeGdiInit() override;
+   void AddDllToUnload(const wchar_t* dll_name) override;
+@@ -139,6 +140,7 @@ class ConfigBase final : public TargetConfig {
+   TokenLevel initial_level_;
+   bool use_restricting_sids_ = true;
+   bool force_known_dll_loading_fallback_ = false;
++  bool allow_font_file_access_ = false;
+   JobLevel job_level_;
+   IntegrityLevel integrity_level_;
+   IntegrityLevel delayed_integrity_level_;

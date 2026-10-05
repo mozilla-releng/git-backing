@@ -25,6 +25,7 @@
 #include "base/win/windows_version.h"
 #include "build/build_config.h"
 #include "sandbox/win/src/app_container.h"
+#include "sandbox/win/src/filesystem_policy.h"
 #include "sandbox/win/src/process_mitigations.h"
 #include "sandbox/win/src/sandbox.h"
 #include "sandbox/win/src/sandbox_policy_base.h"
@@ -758,6 +759,10 @@ bool BrokerServicesBase::DeriveCapabilitySidFromName(const wchar_t* name,
     return false;
   }
   return ::CopySid(sid_buffer_length, derived_sid, sid->GetPSID());
+}
+
+void BrokerServicesBase::SetFontFileValidator(FontFileValidatorFn validator) {
+  FileSystemPolicy::SetFontFileValidator(validator);
 }
 
 }  // namespace sandbox

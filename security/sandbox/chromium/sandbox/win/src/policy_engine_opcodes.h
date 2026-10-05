@@ -67,6 +67,9 @@ enum EvalResult {
   FAKE_SUCCESS,    // Do not call original function. Just return 'success'.
   FAKE_ACCESS_DENIED,  // Do not call original function. Just return 'denied'
                        // and do not do IPC.
+  FONT_CHECK,  // The target must generate an IPC to the broker. On the broker
+               // side, this means grant access if the font file validator
+               // accepts the resource.
 };
 
 // The following are the implemented opcodes. uint16_t purely to pack nicely.

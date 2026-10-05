@@ -28,6 +28,13 @@ class FileSystemPolicy {
                             FileSemantics semantics,
                             LowLevelPolicy* policy);
 
+  // Creates the read-only low-level policy rules for font files, which are
+  // only allowed if the font file validator accepts the path.
+  static bool GenerateFontRules(LowLevelPolicy* policy);
+
+  // Sets the validator used for requests matched by the font file rules.
+  static void SetFontFileValidator(FontFileValidatorFn validator);
+
   // Performs the desired policy action on a create request with an
   // API that is compatible with the IPC-received parameters.
   // 'client_info' : the target process that is making the request.

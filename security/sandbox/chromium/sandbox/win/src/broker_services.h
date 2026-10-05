@@ -86,6 +86,8 @@ class BrokerServicesBase final : public BrokerServices,
   bool DeriveCapabilitySidFromName(const wchar_t* name, PSID derived_sid,
                                    DWORD sid_buffer_length) override;
 
+  void SetFontFileValidator(FontFileValidatorFn validator) override;
+
  private:
   // Implements Init and InitForTesting.
   ResultCode InitInternal(

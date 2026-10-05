@@ -10,6 +10,7 @@
 #include <ntstatus.h>
 #include <stdint.h>
 
+#include <atomic>
 #include <string>
 
 #include "base/notreached.h"
@@ -75,6 +76,32 @@ NTSTATUS NtCreateFileInTarget(HANDLE* target_file_handle,
   return STATUS_SUCCESS;
 }
 
+// We consider all flags that are not known to be readonly as potentially used
+// for write.
+constexpr DWORD kReadonlyAllowedFlags =
+    FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | SYNCHRONIZE |
+    FILE_EXECUTE | GENERIC_READ | GENERIC_EXECUTE | READ_CONTROL;
+constexpr DWORD kReadonlyRestrictedFlags = ~kReadonlyAllowedFlags;
+
+// Font file rules are restricted to paths with a drive letter.
+constexpr wchar_t kFontFilePattern[] = L"\\??\\*:\\*";
+
+std::atomic<FontFileValidatorFn> g_font_file_validator = nullptr;
+
+bool IsAllowedResult(EvalResult eval_result, const std::wstring& file) {
+  if (ASK_BROKER == eval_result) {
+    return true;
+  }
+
+  if (FONT_CHECK != eval_result) {
+    return false;
+  }
+
+  FontFileValidatorFn validator =
+      g_font_file_validator.load(std::memory_order_acquire);
+  return validator && validator(file);
+}
+
 }  // namespace.
 
 bool FileSystemPolicy::GenerateRules(const wchar_t* name,
@@ -103,15 +130,11 @@ bool FileSystemPolicy::GenerateRules(const wchar_t* name,
   PolicyRule query_full(result);
 
   if (semantics == FileSemantics::kAllowReadonly) {
-    // We consider all flags that are not known to be readonly as potentially
-    // used for write.
-    DWORD allowed_flags = FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA |
-                          SYNCHRONIZE | FILE_EXECUTE | GENERIC_READ |
-                          GENERIC_EXECUTE | READ_CONTROL;
-    DWORD restricted_flags = ~allowed_flags;
-    open.AddNumberMatch(IF_NOT, OpenFile::ACCESS, restricted_flags, AND);
+    open.AddNumberMatch(IF_NOT, OpenFile::ACCESS, kReadonlyRestrictedFlags,
+                        AND);
     open.AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL);
-    create.AddNumberMatch(IF_NOT, OpenFile::ACCESS, restricted_flags, AND);
+    create.AddNumberMatch(IF_NOT, OpenFile::ACCESS, kReadonlyRestrictedFlags,
+                          AND);
     create.AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL);
   }
 
@@ -150,6 +173,34 @@ bool FileSystemPolicy::GenerateRules(const wchar_t* name,
   return true;
 }
 
+bool FileSystemPolicy::GenerateFontRules(LowLevelPolicy* policy) {
+  PolicyRule create(FONT_CHECK);
+  PolicyRule open(FONT_CHECK);
+  PolicyRule query(FONT_CHECK);
+  PolicyRule query_full(FONT_CHECK);
+
+  for (PolicyRule* rule : {&create, &open}) {
+    if (!rule->AddNumberMatch(IF_NOT, OpenFile::ACCESS,
+                              kReadonlyRestrictedFlags, AND) ||
+        !rule->AddNumberMatch(IF, OpenFile::OPENONLY, true, EQUAL)) {
+      return false;
+    }
+  }
+
+  return create.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
+         policy->AddRule(IpcTag::NTCREATEFILE, &create) &&
+         open.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
+         policy->AddRule(IpcTag::NTOPENFILE, &open) &&
+         query.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
+         policy->AddRule(IpcTag::NTQUERYATTRIBUTESFILE, &query) &&
+         query_full.AddStringMatch(IF, OpenFile::NAME, kFontFilePattern) &&
+         policy->AddRule(IpcTag::NTQUERYFULLATTRIBUTESFILE, &query_full);
+}
+
+void FileSystemPolicy::SetFontFileValidator(FontFileValidatorFn validator) {
+  g_font_file_validator.store(validator, std::memory_order_release);
+}
+
 bool FileSystemPolicy::CreateFileAction(EvalResult eval_result,
                                         const ClientInfo& client_info,
                                         const std::wstring& file,
@@ -163,9 +214,9 @@ bool FileSystemPolicy::CreateFileAction(EvalResult eval_result,
                                         NTSTATUS* nt_status,
                                         ULONG_PTR* io_information) {
   *handle = nullptr;
-  // The only action supported is ASK_BROKER which means create the requested
-  // file as specified.
-  if (ASK_BROKER != eval_result) {
+  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
+  // which mean create the requested file as specified.
+  if (!IsAllowedResult(eval_result, file)) {
     *nt_status = STATUS_ACCESS_DENIED;
     return false;
   }
@@ -191,9 +242,9 @@ bool FileSystemPolicy::OpenFileAction(EvalResult eval_result,
                                       NTSTATUS* nt_status,
                                       ULONG_PTR* io_information) {
   *handle = nullptr;
-  // The only action supported is ASK_BROKER which means open the requested
-  // file as specified.
-  if (ASK_BROKER != eval_result) {
+  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
+  // which mean open the requested file as specified.
+  if (!IsAllowedResult(eval_result, file)) {
     *nt_status = STATUS_ACCESS_DENIED;
     return false;
   }
@@ -217,9 +268,9 @@ bool FileSystemPolicy::QueryAttributesFileAction(
     uint32_t attributes,
     FILE_BASIC_INFORMATION* file_info,
     NTSTATUS* nt_status) {
-  // The only action supported is ASK_BROKER which means query the requested
-  // file as specified.
-  if (ASK_BROKER != eval_result) {
+  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
+  // which mean query the requested file as specified.
+  if (!IsAllowedResult(eval_result, file)) {
     *nt_status = STATUS_ACCESS_DENIED;
     return false;
   }
@@ -237,9 +288,9 @@ bool FileSystemPolicy::QueryFullAttributesFileAction(
     uint32_t attributes,
     FILE_NETWORK_OPEN_INFORMATION* file_info,
     NTSTATUS* nt_status) {
-  // The only action supported is ASK_BROKER which means query the requested
-  // file as specified.
-  if (ASK_BROKER != eval_result) {
+  // The only actions supported are ASK_BROKER and FONT_CHECK, if validated,
+  // which mean query the requested file as specified.
+  if (!IsAllowedResult(eval_result, file)) {
     *nt_status = STATUS_ACCESS_DENIED;
     return false;
   }

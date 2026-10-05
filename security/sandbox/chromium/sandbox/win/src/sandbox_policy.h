@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <string_view>
+
 #include "base/containers/span.h"
 #include "sandbox/win/src/sandbox_types.h"
 #include "sandbox/win/src/security_level.h"
@@ -37,6 +39,11 @@ enum class FileSemantics {
                    // (includes access to query the attributes of a file).
   kAllowQuery,     // Allows access to query the attributes of a file.
 };
+
+// Called by the broker, on any thread, for requests matched by rules added with
+// TargetConfig::AllowFontFileAccess. `nt_path` is the path as sent by the
+// target. Returns true if read-only access should be allowed.
+using FontFileValidatorFn = bool (*)(std::wstring_view nt_path);
 
 // Configures sandbox policy to close a given handle or set of handles in the
 // target just before entering lockdown.
@@ -180,6 +187,12 @@ class [[clang::lto_visibility_public]] TargetConfig {
   // into your process via normal Chrome IPC.
   [[nodiscard]] virtual ResultCode AllowRegistryRead(
       const wchar_t* pattern) = 0;
+
+  // Adds read-only policy rules for font files, which are allowed if the font
+  // file validator set with BrokerServices::SetFontFileValidator accepts the
+  // path. These rules are always added after all other rules, so they are only
+  // used when no other rule matches.
+  virtual void AllowFontFileAccess() = 0;
 
   // Adds a policy rule effective for processes spawned using this policy.
   // Modules patching `path` exactly can still be loaded under

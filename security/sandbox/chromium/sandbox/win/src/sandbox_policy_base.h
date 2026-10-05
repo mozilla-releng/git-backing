@@ -63,6 +63,7 @@ class ConfigBase final : public TargetConfig {
   ResultCode AllowFileAccess(FileSemantics semantics,
                              const wchar_t* pattern) override;
   ResultCode AllowRegistryRead(const wchar_t* pattern) final;
+  void AllowFontFileAccess() final;
   ResultCode AllowExtraDll(const wchar_t* path) override;
   ResultCode SetFakeGdiInit() override;
   void AddDllToUnload(const wchar_t* dll_name) override;
@@ -139,6 +140,7 @@ class ConfigBase final : public TargetConfig {
   TokenLevel initial_level_;
   bool use_restricting_sids_ = true;
   bool force_known_dll_loading_fallback_ = false;
+  bool allow_font_file_access_ = false;
   JobLevel job_level_;
   IntegrityLevel integrity_level_;
   IntegrityLevel delayed_integrity_level_;

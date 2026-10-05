@@ -174,6 +174,11 @@ class [[clang::lto_visibility_public]] BrokerServices {
                                            PSID derived_sid,
                                            DWORD sid_buffer_length) = 0;
 
+  // Sets the validator used for requests matched by rules added with
+  // TargetConfig::AllowFontFileAccess. If no validator is set, those requests
+  // are denied. Pass nullptr to remove the validator.
+  virtual void SetFontFileValidator(FontFileValidatorFn validator) = 0;
+
  protected:
   virtual ~BrokerServices() = default;
 };
