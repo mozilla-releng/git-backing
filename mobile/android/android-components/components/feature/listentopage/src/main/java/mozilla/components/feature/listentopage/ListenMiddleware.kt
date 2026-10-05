@@ -79,6 +79,7 @@ class ListenMiddleware(
     private var contentJob: Job? = null
     private var tabClosureJob: Job? = null
     private var voicesJob: Job? = null
+    private var refreshVoicesJob: Job? = null
     private var playbackStatusJob: Job? = null
 
     // The end of every session so far, chained.
@@ -173,13 +174,22 @@ class ListenMiddleware(
             ListenAction.Controls.RewindClicked -> store.skipBy(-SEEK_BACK_INCREMENT_MS)
             ListenAction.Controls.ForwardClicked -> store.skipBy(SEEK_FORWARD_INCREMENT_MS)
 
-            is ListenAction.Controls -> Unit
+            is ListenAction.Controls -> handleListenControlSideEffects(action, store)
             is ListenAction.Playback,
             ListenAction.Content.ContentUnavailable,
             is ListenAction.Voices.AvailableVoicesLoaded,
             ListenAction.Voices.NoOfflineVoicesAvailable,
             ListenAction.Synthesis.SynthesisFailed,
             ListenAction.ErrorDismissed -> Unit
+        }
+    }
+
+    private fun handleListenControlSideEffects(action: ListenAction.Controls, store: Store<ListenState, ListenAction>) {
+        when (action) {
+            is ListenAction.Controls.VoicesClicked -> {
+                store.refreshVoices()
+            }
+            else -> Unit
         }
     }
 
@@ -378,6 +388,39 @@ class ListenMiddleware(
                 true
             }
         }
+
+    /**
+     * Refreshes the voices that are loaded for the player. Will select a fallback voice if the selected voice is no
+     * longer available, or the user has not made a selection. Will send an error if no voices are available.
+     */
+    private fun ListenStore.refreshVoices() {
+        val languageTag = state.languageTag ?: return
+        // abandon a refresh before the page has loaded the first time
+        if (state.voiceState.loadState != VoiceLoadState.Loaded) return
+        refreshVoicesJob?.cancel()
+        refreshVoicesJob = scope.launch {
+            val voices = withContext(ioDispatcher) { synthesizer().loadAvailableVoices(languageTag) }
+            val selected = state.voiceState.selectedVoice
+
+            when {
+                voices.isEmpty() -> dispatch(ListenAction.Voices.NoOfflineVoicesAvailable)
+                selected != null && selected in voices ->
+                    dispatch(
+                        ListenAction.Voices.AvailableVoicesLoaded(
+                            voices = voices,
+                            selectedVoice = selected,
+                        )
+                    )
+                else -> {
+                    val fallback = voices.loadSavedVoiceFor(languageTag)
+                    dispatch(
+                        ListenAction.Voices.AvailableVoicesLoaded(voices = voices, selectedVoice = selected ?: fallback)
+                    )
+                    dispatch(ListenAction.Voices.VoiceSelected(fallback))
+                }
+            }
+        }
+    }
 
     private suspend fun List<Voice>.loadSavedVoiceFor(langTag: String): Voice {
         val savedId = settings.getSelectedVoiceId(langTag.language)

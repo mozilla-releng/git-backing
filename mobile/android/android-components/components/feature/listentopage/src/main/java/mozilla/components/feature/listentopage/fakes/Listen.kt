@@ -49,7 +49,7 @@ private const val FAKE_ENGINE_ERROR = -1
  */
 class FakeSpeechSynthesizer(
     override val maxInputLength: Int = 4000,
-    private val voices: List<Voice> = listOf(Voice(id = "voice-1", locale = Locale.US)),
+    private var voices: List<Voice> = listOf(Voice(id = "voice-1", locale = Locale.US)),
     override val enginePackageName: String = "com.example.tts",
     private val audioDirectory: File? = null,
     private val audioDuration: Duration = 5.seconds,
@@ -95,6 +95,15 @@ class FakeSpeechSynthesizer(
     override suspend fun loadAvailableVoices(langTag: String): List<Voice> {
         voiceRequests.add(langTag)
         return voices
+    }
+
+    /**
+     * Updates the set of available voices. Used for testing voice language updates.
+     *
+     * @param newVoices The new set of voices to return
+     */
+    fun updateVoices(newVoices: List<Voice>) {
+        this.voices = newVoices
     }
 }
 
