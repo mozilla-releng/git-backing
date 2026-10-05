@@ -47,6 +47,10 @@
 #  include "mozilla/MacAutoreleasePool.h"
 #endif
 
+#ifdef XP_WIN
+#  include "mozilla/gfx/FontFileSet.h"
+#endif
+
 #include <numeric>
 
 using namespace mozilla;
@@ -725,6 +729,12 @@ bool gfxPlatformFontList::InitFontList() {
     // to a change notification; it's only the initial creation during startup
     // that may be on another thread.
     MOZ_ASSERT(NS_IsMainThread());
+
+#ifdef XP_WIN
+    // Mark the font file set as stale before rebuilding, so that it is always
+    // stale before child processes can learn about any new fonts.
+    gfx::FontFileSet::MarkStale();
+#endif
 
     // Rebuilding fontlist so clear out font/word caches.
     gfxFontCache* fontCache = gfxFontCache::GetCache();
