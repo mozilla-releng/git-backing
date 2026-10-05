@@ -5,3 +5,7 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
+# Nothing else may be added here. Rust tests cannot link Gecko symbols (see
+# docs/testing-rust-code/index.md), so pulling in nsstring, xpcom, moz_task or
+# static_prefs would take this crate out of RUST_TESTS on every platform.
+kamadak-exif = "0.6.1"

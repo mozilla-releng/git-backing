@@ -333,7 +333,9 @@ Please commit or stash these changes before vendoring, or re-run with `--ignore-
     RUNTIME_LICENSE_PACKAGE_WHITELIST = {
         "BSD-2-Clause": [
             "arrayref",
+            "kamadak-exif",
             "mach",
+            "mutate_once",
             "qlog",
         ],
         "BSD-3-Clause": [
