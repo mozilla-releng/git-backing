@@ -97,6 +97,22 @@ sandbox::ResultCode SizeTrackingConfig::AllowFileAccess(
   return mConfig->AllowFileAccess(aSemantics, aPattern);
 }
 
+sandbox::ResultCode SizeTrackingConfig::AllowFontFileAccess() {
+  // The font file rules are the same as kAllowReadonly rules for a short
+  // pattern containing two wild-cards, which add 2 extra opcodes to each rule.
+  constexpr size_t kPatternRuleSize = sizeof(LR"(\??\*:\*)") - sizeof(wchar_t);
+  constexpr auto opcodeSize = sizeof(sandbox::PolicyOpcode);
+  constexpr int32_t kRequiredSize =
+      (kPatternRuleSize * 4) + (opcodeSize * (12 + 8));
+  if (kRequiredSize > mRemainingSize) {
+    return sandbox::SBOX_ERROR_NO_SPACE;
+  }
+
+  mRemainingSize -= kRequiredSize;
+  mConfig->AllowFontFileAccess();
+  return sandbox::SBOX_ALL_OK;
+}
+
 UserFontConfigHelper::UserFontConfigHelper(const wchar_t* aUserFontKeyPath,
                                            const nsString& aWinUserProfile,
                                            const nsString& aLocalAppData,
