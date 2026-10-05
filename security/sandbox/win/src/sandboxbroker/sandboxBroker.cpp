@@ -1190,10 +1190,18 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
                        "With these static arguments AddRule should never fail, "
                        "what happened?");
   } else {
-    // Add rule to allow access to user specific fonts.
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_LocalAppData,
-                            u"\\Microsoft\\Windows\\Fonts\\*"_ns);
+    if (StaticPrefs::security_sandbox_font_file_rule_enabled_AtStartup()) {
+      // Font file access is validated by the broker against the installed
+      // font files. We also allow read access to the system fonts directory.
+      config->AllowFontFileAccess();
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts);
+    } else {
+      // Add rule to allow access to user specific fonts.
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_LocalAppData,
+                              u"\\Microsoft\\Windows\\Fonts\\*"_ns);
+    }
 
     // Add rule to allow read access to installation directory.
     AddCachedDirRule(config, sandbox::FileSemantics::kAllowReadonly, sBinDir,
@@ -1222,11 +1230,14 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
       "With these static arguments AddRule should never fail, what happened?");
 
   if (aSandboxLevel >= 8) {
-    // Content process still needs to be able to read fonts.
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_Fonts);
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_Fonts, u"\\*"_ns);
+    // If we're not using the font file rule, content process still needs to be
+    // able to read system fonts.
+    if (!StaticPrefs::security_sandbox_font_file_rule_enabled_AtStartup()) {
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts);
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts, u"\\*"_ns);
+    }
 
     // Add access to Windows system binary dir to allow DLLs that are not
     // required in all content processes to load later.
