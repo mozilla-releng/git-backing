@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use super::{scan, EXIFContainer, EXIFScanOutcome};
+use super::{scan, EXIFContainer, EXIFGPSPresence, EXIFScanOutcome};
 
 /// Scans bytes that are the whole file.
 fn scan_all(bytes: &[u8]) -> (EXIFContainer, EXIFScanOutcome) {
@@ -15,6 +15,11 @@ fn scan_all(bytes: &[u8]) -> (EXIFContainer, EXIFScanOutcome) {
 fn scan_prefix(bytes: &[u8], n: usize) -> (EXIFContainer, EXIFScanOutcome) {
     let r = scan(&bytes[..n.min(bytes.len())], bytes.len() as u64);
     (r.container, r.outcome)
+}
+
+/// What a whole file says about where it was taken.
+fn gps_of(bytes: &[u8]) -> EXIFGPSPresence {
+    scan(bytes, bytes.len() as u64).gps_presence
 }
 
 fn push_u16_le(out: &mut Vec<u8>, v: u16) {
@@ -324,6 +329,7 @@ fn heif_and_avif_are_identified_but_not_walked() {
         bytes.resize(32, 0);
         let (_, outcome) = scan_all(&bytes);
         assert_eq!(outcome, EXIFScanOutcome::UnsupportedContainer, "{brand:?}");
+        assert_eq!(gps_of(&bytes), EXIFGPSPresence::None, "{brand:?}");
     }
 }
 
@@ -588,6 +594,28 @@ fn png_chunk_length_with_the_top_bit_set_is_malformed() {
 }
 
 #[test]
+fn png_exif_in_a_clipped_block_is_truncated() {
+    // The chunk header is inside the prefix, so we know where the block is,
+    // but the prefix ends before the coordinates. That is truncation, and the
+    // GPS answer must not be a confident one.
+    let block = tiff_block_with_position();
+    let full = Png::new()
+        .ihdr()
+        .chunk(*b"eXIf", &block)
+        .idat(64)
+        .iend()
+        .build();
+    // Signature, the IHDR chunk, the eXIf chunk header, then forty bytes of
+    // the block: past its IFDs, short of the coordinate values.
+    let cut = 8 + (12 + 13) + 8 + 40;
+    let result = scan(&full[..cut], full.len() as u64);
+    assert_eq!(result.container, EXIFContainer::PNG);
+    assert_eq!(result.outcome, EXIFScanOutcome::EXIFTruncated);
+    assert_ne!(result.gps_presence, EXIFGPSPresence::Position);
+    assert_eq!(scan_all(&full).1, EXIFScanOutcome::Complete);
+}
+
+#[test]
 fn png_exif_beyond_the_prefix_is_location_unknown() {
     let full = Png::new()
         .ihdr()
@@ -689,6 +717,23 @@ fn webp_honours_odd_chunk_padding() {
         scan_all(&bytes),
         (EXIFContainer::WebP, EXIFScanOutcome::Complete)
     );
+}
+
+#[test]
+fn webp_exif_in_a_clipped_block_is_truncated() {
+    let block = tiff_block_with_position();
+    let full = WebP::new()
+        .chunk(*b"VP8 ", &[0u8; 16])
+        .chunk(*b"EXIF", &block)
+        .build();
+    // RIFF header, the VP8 chunk, the EXIF chunk header, then forty bytes of
+    // the block: past its IFDs, short of the coordinate values.
+    let cut = 12 + (8 + 16) + 8 + 40;
+    let result = scan(&full[..cut], full.len() as u64);
+    assert_eq!(result.container, EXIFContainer::WebP);
+    assert_eq!(result.outcome, EXIFScanOutcome::EXIFTruncated);
+    assert_ne!(result.gps_presence, EXIFGPSPresence::Position);
+    assert_eq!(scan_all(&full).1, EXIFScanOutcome::Complete);
 }
 
 #[test]

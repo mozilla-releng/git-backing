@@ -8,6 +8,7 @@
 //! that their share stays visible in the data, but not opened.
 
 use crate::ffi::{EXIFContainer, EXIFGPSPresence, EXIFScanOutcome, EXIFScanResult};
+use crate::gps;
 
 /// The identifier code that introduces EXIF in a JPEG APP1 segment. See EXIF
 /// Section 4.7.2.
@@ -110,23 +111,38 @@ fn finish_with_exif(ctx: &ScanContext, block: &[u8], complete: bool) -> Verdict 
     // We are only here because the container said this was EXIF, so bytes that
     // are not a TIFF header mean the file is inconsistent with itself. If we do
     // not have the whole block yet, we may simply not have reached the header.
-    if find_tiff_header(block).is_none() {
+    let Some(tiff_start) = find_tiff_header(block) else {
         return Verdict::outcome(if complete {
             EXIFScanOutcome::MalformedContainer
         } else {
             incomplete
         });
-    }
+    };
 
-    // The outcome describes what happened to the scan, not what it found.
-    // Callers combine the two: a position is conclusive however little of the
-    // block we had, whereas the absence of one only means something if we had
-    // all of it.
-    Verdict::outcome(if complete {
-        EXIFScanOutcome::Complete
-    } else {
-        incomplete
-    })
+    match gps::classify(&block[tiff_start..]) {
+        // A block present in full that did not parse as a TIFF structure tells
+        // us nothing about GPS, so it must not read as a confident absence.
+        // When we do not have all of the block the failure may be for lack of
+        // bytes, which is truncation rather than malformation.
+        gps::Parsed::Unparseable => Verdict::outcome(if complete {
+            EXIFScanOutcome::MalformedContainer
+        } else {
+            incomplete
+        }),
+
+        // The outcome describes what happened to the scan, not what it found.
+        // Callers combine the two: a position is conclusive however little of
+        // the block we had, whereas the absence of one only means something if
+        // we had all of it.
+        gps::Parsed::Walked(gps_presence) => Verdict {
+            outcome: if complete {
+                EXIFScanOutcome::Complete
+            } else {
+                incomplete
+            },
+            gps_presence,
+        },
+    }
 }
 
 /// JPEG. ISO/IEC 10918-1 marker syntax; EXIF Section 4.7.2 for the APP1 layout.
