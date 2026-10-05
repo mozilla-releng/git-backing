@@ -13,6 +13,7 @@
 #include <string>
 
 #include "ConfigHelpers.h"
+#include "FontFileValidator.h"
 #include "GfxDriverInfo.h"
 #include "WinUtils.h"
 #include "base/win/sid.h"
@@ -33,6 +34,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/WinDllServices.h"
 #include "mozilla/WindowsVersion.h"
+#include "mozilla/gfx/FontPathSet.h"
 #include "mozilla/glean/SecuritySandboxMetrics.h"
 #include "mozilla/ipc/LaunchError.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
@@ -283,6 +285,12 @@ static void AddCachedWindowsDirRule(
 /* static */
 void SandboxBroker::GeckoDependentInitialize() {
   MOZ_ASSERT(NS_IsMainThread());
+
+  if (sBrokerService &&
+      StaticPrefs::security_sandbox_font_file_rule_enabled_AtStartup()) {
+    gfx::FontPathSet::Enable();
+    sBrokerService->SetFontFileValidator(sandboxing::ValidateFontFile);
+  }
 
   // Cache directory paths for use in policy rules, because the directory
   // service must be called on the main thread.

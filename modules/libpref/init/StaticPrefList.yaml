@@ -18925,6 +18925,14 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+  # Whether access to font files is given using a single rule, which the
+  # broker validates against the installed font files, rather than with
+  # individual rules for each font.
+-   name: security.sandbox.font-file-rule.enabled
+    type: bool
+    value: @IS_NIGHTLY_BUILD@
+    mirror: once
 #endif
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
