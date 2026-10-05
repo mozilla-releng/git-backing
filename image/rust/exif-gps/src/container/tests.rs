@@ -776,3 +776,170 @@ fn webp_declared_size_overrunning_a_whole_file_is_malformed() {
         (EXIFContainer::WebP, EXIFScanOutcome::MalformedContainer)
     );
 }
+
+// --------------------------------------------------------------- fixtures
+//
+// Real encoder output with only the metadata block replaced, so that at least
+// some coverage rests on bytes not authored by the same understanding of the
+// format as the code reading them. See test/generate_exif_fixtures.py.
+
+/// Asserts the whole triple for one fixture.
+fn expect_fixture(
+    name: &str,
+    bytes: &[u8],
+    container: EXIFContainer,
+    outcome: EXIFScanOutcome,
+    presence: EXIFGPSPresence,
+) {
+    assert!(!bytes.is_empty(), "{name} is empty");
+    let result = scan(bytes, bytes.len() as u64);
+    assert_eq!(result.container, container, "{name} container");
+    assert_eq!(result.outcome, outcome, "{name} outcome");
+    assert_eq!(result.gps_presence, presence, "{name} gps");
+}
+
+#[test]
+fn real_jpeg_files() {
+    for (name, bytes, presence) in [
+        (
+            "exif_gps.jpg",
+            &include_bytes!("../../test/exif_gps.jpg")[..],
+            EXIFGPSPresence::Position,
+        ),
+        // The same position written little endian, so the fixtures cover both
+        // byte orders and not just the hand-built blocks.
+        (
+            "exif_gps_le.jpg",
+            &include_bytes!("../../test/exif_gps_le.jpg")[..],
+            EXIFGPSPresence::Position,
+        ),
+        (
+            "exif_nogps.jpg",
+            &include_bytes!("../../test/exif_nogps.jpg")[..],
+            EXIFGPSPresence::None,
+        ),
+        // A partially stripped file: the GPS IFD survives, carrying only a
+        // version.
+        (
+            "exif_gps_stripped.jpg",
+            &include_bytes!("../../test/exif_gps_stripped.jpg")[..],
+            EXIFGPSPresence::NoPosition,
+        ),
+        // Stripped in place by blanking the coordinates.
+        (
+            "exif_gps_zeroed.jpg",
+            &include_bytes!("../../test/exif_gps_zeroed.jpg")[..],
+            EXIFGPSPresence::ZeroPosition,
+        ),
+        // The Interoperability IFD, whose 0x0001 and 0x0002 collide with the
+        // GPS tag numbers, against a real file rather than a constructed one.
+        (
+            "exif_interop.jpg",
+            &include_bytes!("../../test/exif_interop.jpg")[..],
+            EXIFGPSPresence::None,
+        ),
+    ] {
+        expect_fixture(
+            name,
+            bytes,
+            EXIFContainer::JPEG,
+            EXIFScanOutcome::Complete,
+            presence,
+        );
+    }
+}
+
+#[test]
+fn real_png_files() {
+    expect_fixture(
+        "exif_gps.png",
+        include_bytes!("../../test/exif_gps.png"),
+        EXIFContainer::PNG,
+        EXIFScanOutcome::Complete,
+        EXIFGPSPresence::Position,
+    );
+    expect_fixture(
+        "exif_nogps.png",
+        include_bytes!("../../test/exif_nogps.png"),
+        EXIFContainer::PNG,
+        EXIFScanOutcome::NoEXIF,
+        EXIFGPSPresence::None,
+    );
+}
+
+#[test]
+fn real_webp_files() {
+    expect_fixture(
+        "exif_gps.webp",
+        include_bytes!("../../test/exif_gps.webp"),
+        EXIFContainer::WebP,
+        EXIFScanOutcome::Complete,
+        EXIFGPSPresence::Position,
+    );
+    expect_fixture(
+        "tree_blend.webp",
+        include_bytes!("../../test/tree_blend.webp"),
+        EXIFContainer::WebP,
+        EXIFScanOutcome::NoEXIF,
+        EXIFGPSPresence::None,
+    );
+}
+
+// Both of these carry a real Exif item. They are not walked, so what they pin
+// is that a file whose metadata we cannot reach is reported as unsupported
+// rather than as an absence of GPS.
+
+#[test]
+fn real_heif_file() {
+    expect_fixture(
+        "tree_exif.heic",
+        include_bytes!("../../test/tree_exif.heic"),
+        EXIFContainer::HEIF,
+        EXIFScanOutcome::UnsupportedContainer,
+        EXIFGPSPresence::None,
+    );
+}
+
+#[test]
+fn real_avif_file() {
+    expect_fixture(
+        "tree_animated.avif",
+        include_bytes!("../../test/tree_animated.avif"),
+        EXIFContainer::AVIF,
+        EXIFScanOutcome::UnsupportedContainer,
+        EXIFGPSPresence::None,
+    );
+}
+
+#[test]
+fn pre_existing_tree_images_scan_cleanly() {
+    // Third-party bytes nobody wrote for this test, copied unmodified from
+    // image/test/gtest. Big endian, with a real Exif sub-IFD. The scan only has
+    // to reach a conclusion rather than run off the end of the file.
+    for (name, bytes) in [
+        (
+            "tree_exif_resolution.jpg",
+            &include_bytes!("../../test/tree_exif_resolution.jpg")[..],
+        ),
+        (
+            "tree_green.jpg",
+            &include_bytes!("../../test/tree_green.jpg")[..],
+        ),
+        (
+            "tree_green.png",
+            &include_bytes!("../../test/tree_green.png")[..],
+        ),
+    ] {
+        let result = scan(bytes, bytes.len() as u64);
+        assert_ne!(result.container, EXIFContainer::Unknown, "{name}");
+        assert_eq!(result.gps_presence, EXIFGPSPresence::None, "{name}");
+        assert!(
+            matches!(
+                result.outcome,
+                EXIFScanOutcome::Complete | EXIFScanOutcome::NoEXIF
+            ),
+            "{name} reached {:?}",
+            result.outcome
+        );
+    }
+}
