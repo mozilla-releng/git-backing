@@ -6244,6 +6244,14 @@ nsresult XREMain::XRE_mainRun() {
     // bug 1592523.
     bool initializedJSContext = false;
 
+#if defined(MOZ_SANDBOX) && defined(XP_WIN)
+    // Profile migration and reset can launch sandboxed processes before user
+    // prefs are loaded, so in that case we have to initialize earlier.
+    if (gDoMigration || gDoProfileReset) {
+      mozilla::SandboxBroker::GeckoDependentInitialize();
+    }
+#endif
+
     {
       // Profile Migration
       if (mAppData->flags & NS_XRE_ENABLE_PROFILE_MIGRATOR && gDoMigration) {
