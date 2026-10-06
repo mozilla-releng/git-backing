@@ -2101,6 +2101,17 @@ permissions-addon-exceptions2 =
     .label = Choose which websites can install extensions
     .accesskey = E
 
+# App links are links that a website can ask to open for you, like email
+# (mailto:) links.
+permissions-allow-app-links =
+    .label = Allow sites to ask to open app links
+    .accesskey = A
+
+# Opens the list of sites that are blocked from asking to open app links.
+permissions-app-links-manage-button =
+    .label = Manage blocked sites
+    .accesskey = M
+
 ## Privacy Section - Data Collection
 
 # The search keyword isn't shown to users but is used to find relevant settings in about:preferences.
