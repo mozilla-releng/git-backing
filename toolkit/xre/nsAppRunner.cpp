@@ -4860,10 +4860,10 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   }
 
 #if defined(MOZ_SANDBOX) && defined(XP_WIN)
-  if (mAppData->sandboxBrokerServices) {
+  if (mAppData->sandboxBrokerData.brokerServices) {
     nsAutoString binDirPath;
     MOZ_ALWAYS_SUCCEEDS(xreBinDirectory->GetPath(binDirPath));
-    SandboxBroker::Initialize(mAppData->sandboxBrokerServices, binDirPath);
+    SandboxBroker::Initialize(mAppData->sandboxBrokerData, binDirPath);
   } else {
 #  if defined(MOZ_SANDBOX)
     // If we're sandboxing content and we fail to initialize, then crashing here
@@ -6711,7 +6711,7 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
 
 #if defined(XP_WIN)
 #  if defined(MOZ_SANDBOX)
-  mAppData->sandboxBrokerServices = aConfig.sandboxBrokerServices;
+  mAppData->sandboxBrokerData = aConfig.sandboxBrokerData;
 #  endif  // defined(MOZ_SANDBOX)
 
 #  if defined(_M_IX86) || defined(_M_X64)

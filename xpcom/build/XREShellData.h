@@ -13,9 +13,7 @@
 #endif
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-namespace sandbox {
-class BrokerServices;
-}
+#  include "mozilla/sandboxing/SandboxBrokerData.h"
 #endif
 
 /**
@@ -24,9 +22,9 @@ class BrokerServices;
 struct XREShellData {
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   /**
-   * Chromium sandbox BrokerServices.
+   * Data used to initialize SandboxBroker.
    */
-  sandbox::BrokerServices* sandboxBrokerServices;
+  mozilla::sandboxing::SandboxBrokerData sandboxBrokerData;
 #endif
 #if defined(ANDROID)
   FILE* outFile;

@@ -62,8 +62,8 @@ int main(int argc, char** argv, char** envp) {
 
   XREShellData shellData;
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-  shellData.sandboxBrokerServices =
-      mozilla::sandboxing::GetInitializedBrokerServices();
+  shellData.sandboxBrokerData =
+      mozilla::sandboxing::GetInitializedSandboxBrokerData();
 #endif
 
   auto bootstrapResult = mozilla::GetBootstrap();

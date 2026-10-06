@@ -1299,8 +1299,8 @@ int XRE_XPCShellMain(int argc, char** argv, char** envp,
 
 #  if defined(MOZ_SANDBOX)
     // Required for sandboxed child processes.
-    if (aShellData->sandboxBrokerServices) {
-      SandboxBroker::Initialize(aShellData->sandboxBrokerServices, binDirPath);
+    if (aShellData->sandboxBrokerData.brokerServices) {
+      SandboxBroker::Initialize(aShellData->sandboxBrokerData, binDirPath);
       SandboxBroker::GeckoDependentInitialize();
     } else {
       NS_WARNING(

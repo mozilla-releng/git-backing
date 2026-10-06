@@ -226,8 +226,7 @@ static int do_main(int argc, char* argv[], char* envp[]) {
 
     XREShellData shellData;
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-    shellData.sandboxBrokerServices =
-        sandboxing::GetInitializedBrokerServices();
+    shellData.sandboxBrokerData = sandboxing::GetInitializedSandboxBrokerData();
 #endif
 
 #ifdef LIBFUZZER
@@ -252,13 +251,11 @@ static int do_main(int argc, char* argv[], char* envp[]) {
   }
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-  sandbox::BrokerServices* brokerServices =
-      sandboxing::GetInitializedBrokerServices();
-  if (!brokerServices) {
+  config.sandboxBrokerData = sandboxing::GetInitializedSandboxBrokerData();
+  if (!config.sandboxBrokerData.brokerServices) {
     Output("Couldn't initialize the broker services.\n");
     return 255;
   }
-  config.sandboxBrokerServices = brokerServices;
 #endif
 
 #ifdef LIBFUZZER
