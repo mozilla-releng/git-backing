@@ -1,6 +1,9 @@
 [DEFAULT]
 support-files = ["browser_registerProtocolHandler_notification.html"]
 
+["browser_registerProtocolHandler_frame_telemetry.js"]
+support-files = ["browser_registerProtocolHandler_relative.html"]
+
 ["browser_registerProtocolHandler_notification.js"]
 
 ["browser_registerProtocolHandler_permission.js"]

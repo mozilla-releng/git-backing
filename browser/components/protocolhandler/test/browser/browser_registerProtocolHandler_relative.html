@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Protocol registrar page with a same-origin handler</title>
+  </head>
+  <body>
+    <script>
+      navigator.registerProtocolHandler("web+testprotocol", "/foobar?uri=%s");
+    </script>
+  </body>
+</html>
