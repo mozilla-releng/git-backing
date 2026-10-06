@@ -1208,10 +1208,17 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
                        "With these static arguments AddRule should never fail, "
                        "what happened?");
   } else {
-    // Add rule to allow access to user specific fonts.
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_LocalAppData,
-                            u"\\Microsoft\\Windows\\Fonts\\*"_ns);
+    if (sFontFileRuleEnabled) {
+      // Font file access is added at the end, but we also allow read access to
+      // the system fonts directory.
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts);
+    } else {
+      // Add rule to allow access to user specific fonts.
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_LocalAppData,
+                              u"\\Microsoft\\Windows\\Fonts\\*"_ns);
+    }
 
     // Add rule to allow read access to installation directory.
     AddCachedDirRule(config, sandbox::FileSemantics::kAllowReadonly, sBinDir,
@@ -1240,11 +1247,14 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
       "With these static arguments AddRule should never fail, what happened?");
 
   if (aSandboxLevel >= 8) {
-    // Content process still needs to be able to read fonts.
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_Fonts);
-    AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
-                            FOLDERID_Fonts, u"\\*"_ns);
+    // If we're not using the font file rule, content process still needs to be
+    // able to read system fonts.
+    if (!sFontFileRuleEnabled) {
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts);
+      AddCachedWindowsDirRule(config, sandbox::FileSemantics::kAllowReadonly,
+                              FOLDERID_Fonts, u"\\*"_ns);
+    }
 
     // Add access to Windows system binary dir to allow DLLs that are not
     // required in all content processes to load later.
@@ -1355,6 +1365,15 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
       LOG_E("Failed (ResultCode %d) to add rule for International Geo.",
             result);
     }
+  }
+
+  // Font file access is validated by the broker against the installed font
+  // files. This is added last, so that paths allowed by other rules never wait
+  // for the font path set to be rebuilt.
+  if (sFontFileRuleEnabled && aSandboxLevel != 1 && !aIsFileProcess) {
+    result = config->AllowFontFileAccess();
+    MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
+                       "Failed to add font file rules.");
   }
 }
 
