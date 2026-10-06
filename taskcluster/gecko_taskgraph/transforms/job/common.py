@@ -159,6 +159,10 @@ def support_vcs_checkout(config, job, taskdesc, repo_configs):
             taskdesc["scopes"].append(f"secrets:get:{repo_config.ssh_secret_name}")
 
     gecko_path = env.setdefault("GECKO_PATH", geckodir)
+    env.setdefault(
+        "RUN_TASK_PRE_COMMAND_HOOK",
+        f"{gecko_path}/taskcluster/scripts/run-task-setup.py",
+    )
 
     if "comm_base_repository" in config.params:
         taskdesc["worker"]["env"].update({
