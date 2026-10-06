@@ -1430,7 +1430,7 @@ void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
 
   AddShaderCachesToPolicy(&trackingConfig, aSandboxLevel);
 
-  if (aSandboxLevel >= 2) {
+  if (aSandboxLevel >= 2 && !sFontFileRuleEnabled) {
     // We don't want to add a rule directly here but use the same retrieval and
     // caching mechanism to get the Windows user's dirs.
     EnsureWindowsDirCached(FOLDERID_Profile, sWindowsProfileDir,
@@ -1449,6 +1449,18 @@ void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
         SANDBOX_SUCCEED_OR_CRASH(config->SetTokenLevel(
             initialTokenLevel, sandbox::USER_INTERACTIVE));
       }
+    }
+  }
+
+  // Font file access is validated by the broker against the installed font
+  // files. This is added last, so that paths allowed by other rules never wait
+  // for the font path set to be rebuilt.
+  if (aSandboxLevel >= 2 && sFontFileRuleEnabled) {
+    if (trackingConfig.AllowFontFileAccess() != sandbox::SBOX_ALL_OK) {
+      // Fall back to the standard per-user fonts directory.
+      AddCachedWindowsDirRule(
+          &trackingConfig, sandbox::FileSemantics::kAllowReadonly,
+          FOLDERID_LocalAppData, u"\\Microsoft\\Windows\\Fonts\\*"_ns);
     }
   }
 }
