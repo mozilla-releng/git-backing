@@ -4,6 +4,7 @@
 
 SOURCES += [
     "ConfigHelpers.cpp",
+    "FontFileValidator.cpp",
     "sandboxBroker.cpp",
 ]
 
