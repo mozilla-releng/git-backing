@@ -65,6 +65,9 @@ COPY topsrcdir/taskcluster/docker/recipes/dot-config /builds/worker/.config
 # %include taskcluster/scripts/run-task
 COPY topsrcdir/taskcluster/scripts/run-task /builds/worker/bin/run-task-hg
 
+# %include taskcluster/scripts/run-task-setup.py
+COPY topsrcdir/taskcluster/scripts/run-task-setup.py /builds/worker/bin/run-task-setup.py
+
 # %include-run-task
 
 RUN chown -R worker:worker /builds/worker/bin && chmod 755 /builds/worker/bin/*

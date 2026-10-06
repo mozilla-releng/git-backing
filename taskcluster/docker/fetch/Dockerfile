@@ -29,6 +29,9 @@ RUN /usr/local/sbin/setup_packages.sh $TASKCLUSTER_ROOT_URL $DOCKER_IMAGE_PACKAG
 # %include taskcluster/scripts/run-task
 COPY topsrcdir/taskcluster/scripts/run-task /builds/worker/bin/run-task-hg
 
+# %include taskcluster/scripts/run-task-setup.py
+COPY topsrcdir/taskcluster/scripts/run-task-setup.py /builds/worker/bin/run-task-setup.py
+
 # %include-run-task
 
 RUN pip3 install redo==2.0.4 --break-system-packages

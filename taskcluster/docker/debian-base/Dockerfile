@@ -63,6 +63,9 @@ COPY --chown=worker topsrcdir/taskcluster/docker/recipes/dot-config /builds/work
 # %include taskcluster/scripts/run-task
 COPY topsrcdir/taskcluster/scripts/run-task /builds/worker/bin/run-task-hg
 
+# %include taskcluster/scripts/run-task-setup.py
+COPY topsrcdir/taskcluster/scripts/run-task-setup.py /builds/worker/bin/run-task-setup.py
+
 # Setup upstream `run-task` and `fetch-content`
 # %include-run-task
 
