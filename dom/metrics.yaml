@@ -1085,6 +1085,27 @@ dom:
       - tihuang@mozilla.com
     expires: never
 
+  register_protocol_handler_frame:
+    type: labeled_counter
+    description: >
+      Counts navigator.registerProtocolHandler calls that passed the scheme and
+      URL checks, by whether they came from the top-level document, an iframe
+      same-origin with it, or an iframe cross-origin to it. The site permission
+      gating the prompt is keyed on the top-level origin. Used to judge the web
+      compatibility impact of no longer prompting for calls from cross-origin
+      iframes.
+    labels:
+      - top_level
+      - same_origin_iframe
+      - cross_origin_iframe
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=668577
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=668577
+    notification_emails:
+      - emz@mozilla.com
+    expires: 165
+
   slow_script_notice_count:
     type: counter
     description: >
