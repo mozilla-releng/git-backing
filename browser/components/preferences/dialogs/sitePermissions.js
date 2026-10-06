@@ -47,6 +47,13 @@ const sitePermissionsL10n = {
     disableLabel: "permissions-site-xr-disable-label",
     disableDescription: "permissions-site-xr-disable-desc",
   },
+  "register-protocol-handler": {
+    window: "permissions-site-register-protocol-handler-window",
+    description: "permissions-site-register-protocol-handler-desc",
+    disableLabel: "permissions-site-register-protocol-handler-disable-label",
+    disableDescription:
+      "permissions-site-register-protocol-handler-disable-desc",
+  },
   camera: {
     window: "permissions-site-camera-window2",
     description: "permissions-site-camera-desc",

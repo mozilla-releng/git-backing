@@ -180,6 +180,16 @@ permissions-site-xr-disable-label =
     .label = Block new requests asking to access your virtual reality devices
 permissions-site-xr-disable-desc = This will prevent any websites not listed above from requesting permission to access your virtual reality devices. Blocking access to your virtual reality devices may break some website features.
 
+## Site Permissions - Application Handlers
+
+permissions-site-register-protocol-handler-window =
+    .title = Settings - Application Handler Permissions
+    .style = { permissions-window2.style }
+permissions-site-register-protocol-handler-desc = The following websites have been blocked from asking to register as an application handler (for example, to open mailto: links). You can allow a website to ask again by removing it from the list. You can also block new requests asking to register as an application handler.
+permissions-site-register-protocol-handler-disable-label =
+    .label = Block new requests asking to register as an application handler
+permissions-site-register-protocol-handler-disable-desc = This will prevent all websites from asking to register as an application handler.
+
 ## Site Permissions - Camera
 
 permissions-site-camera-window2 =

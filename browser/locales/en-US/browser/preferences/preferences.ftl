@@ -2061,6 +2061,9 @@ permissions-local-network2 =
 permissions-xr2 =
     .label = Virtual reality
 
+permissions-register-protocol-handler =
+    .label = Application handlers
+
 permissions-camera2 =
     .label = Camera
 

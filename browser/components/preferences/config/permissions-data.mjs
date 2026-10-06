@@ -196,6 +196,15 @@ Preferences.addSetting({
   id: "xrSettingsButton",
   onUserClick: () => showPermissionExceptions({ permissionType: "xr" }),
 });
+/**
+ * Displays the application-handler exceptions dialog, where sites that have
+ * been blocked from asking to register a protocol handler can be managed.
+ */
+Preferences.addSetting({
+  id: "registerProtocolHandlerSettingsButton",
+  onUserClick: () =>
+    showPermissionExceptions({ permissionType: "register-protocol-handler" }),
+});
 Preferences.addSetting({
   id: "popupPolicy",
   pref: "dom.disable_open_during_load",
@@ -605,6 +614,16 @@ SettingGroupManager.registerGroups({
               ".iconSrc": "chrome://browser/skin/notification-icons/xr.svg",
               "search-l10n-ids":
                 "permissions-remove.label,permissions-remove-all.label,permissions-site-xr-window2.title,permissions-site-xr-desc,permissions-site-xr-disable-label,permissions-site-xr-disable-desc,",
+            },
+          },
+          {
+            id: "registerProtocolHandlerSettingsButton",
+            control: "moz-box-button",
+            l10nId: "permissions-register-protocol-handler",
+            controlAttrs: {
+              ".iconSrc": "chrome://global/skin/icons/open-in-new.svg",
+              "search-l10n-ids":
+                "permissions-remove.label,permissions-remove-all.label,permissions-site-register-protocol-handler-window.title,permissions-site-register-protocol-handler-desc,permissions-site-register-protocol-handler-disable-label,permissions-site-register-protocol-handler-disable-desc,",
             },
           },
         ],
