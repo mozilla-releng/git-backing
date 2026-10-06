@@ -23,9 +23,7 @@
 #endif
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-namespace sandbox {
-class BrokerServices;
-}
+#  include "mozilla/sandboxing/SandboxBrokerData.h"
 #endif
 
 namespace mozilla {
@@ -34,8 +32,8 @@ struct StaticXREAppData;
 
 struct BootstrapConfig {
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-  /* Chromium sandbox BrokerServices. */
-  sandbox::BrokerServices* sandboxBrokerServices;
+  /* Data used to initialize SandboxBroker. */
+  mozilla::sandboxing::SandboxBrokerData sandboxBrokerData;
 #endif
   /* Pointer to static XRE AppData from application.ini.h */
   const StaticXREAppData* appData;

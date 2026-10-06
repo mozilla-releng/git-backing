@@ -5,8 +5,9 @@
 #ifndef mozilla_sandboxing_SandboxInitialization_h
 #define mozilla_sandboxing_SandboxInitialization_h
 
+#include "mozilla/sandboxing/SandboxBrokerData.h"
+
 namespace sandbox {
-class BrokerServices;
 class TargetServices;
 }  // namespace sandbox
 
@@ -33,11 +34,13 @@ sandbox::TargetServices* GetInitializedTargetServices();
 void LowerSandbox();
 
 /**
- * Initializes (if required) and returns the Chromium sandbox BrokerServices.
+ * Initializes (if required) the Chromium sandbox BrokerServices and returns
+ * the data needed to initialize SandboxBroker in xul.
  *
- * @return the BrokerServices or null if the creation or initialization failed.
+ * @return the SandboxBrokerData, with null brokerServices if the creation or
+ *         initialization failed.
  */
-sandbox::BrokerServices* GetInitializedBrokerServices();
+SandboxBrokerData GetInitializedSandboxBrokerData();
 
 /**
  * Apply mitigations for parent processes.

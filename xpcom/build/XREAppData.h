@@ -13,9 +13,7 @@
 #include "nsStringFwd.h"
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-namespace sandbox {
-class BrokerServices;
-}
+#  include "mozilla/sandboxing/SandboxBrokerData.h"
 #endif
 
 namespace mozilla {
@@ -183,9 +181,9 @@ class XREAppData {
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   /**
-   * Chromium sandbox BrokerServices.
+   * Data used to initialize SandboxBroker.
    */
-  sandbox::BrokerServices* sandboxBrokerServices = nullptr;
+  mozilla::sandboxing::SandboxBrokerData sandboxBrokerData;
 #endif
 
   // Returns a name suitable for DBUS services. In particular, it ensures that

@@ -63,6 +63,8 @@ constexpr wchar_t kLpacFirefoxInstallFiles[] = L"lpacFirefoxInstallFiles";
 
 sandbox::BrokerServices* sBrokerService = nullptr;
 
+static sandboxing::SetBrokerGeckoServicesCb sSetBrokerGeckoServices = nullptr;
+
 // This is set to true in Initialize when our exe file name has a drive type of
 // DRIVE_REMOTE, so that we can tailor the sandbox policy as some settings break
 // fundamental things when running from a network drive. We default to false in
@@ -131,9 +133,10 @@ static void CacheAndStandardizeDir(const nsAString& aDir,
 }
 
 /* static */
-void SandboxBroker::Initialize(sandbox::BrokerServices* aBrokerServices,
+void SandboxBroker::Initialize(const sandboxing::SandboxBrokerData& aBrokerData,
                                const nsAString& aBinDir) {
-  sBrokerService = aBrokerServices;
+  sBrokerService = aBrokerData.brokerServices;
+  sSetBrokerGeckoServices = aBrokerData.setBrokerGeckoServices;
 
   sRunningFromNetworkDrive = widget::WinUtils::RunningFromANetworkDrive();
 
@@ -283,6 +286,12 @@ static void AddCachedWindowsDirRule(
 /* static */
 void SandboxBroker::GeckoDependentInitialize() {
   MOZ_ASSERT(NS_IsMainThread());
+
+  if (sSetBrokerGeckoServices) {
+    sandboxing::BrokerGeckoServices services;
+    sSetBrokerGeckoServices(services);
+    sSetBrokerGeckoServices = nullptr;
+  }
 
   // Cache directory paths for use in policy rules, because the directory
   // service must be called on the main thread.
@@ -539,6 +548,9 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
   if (!mozilla::IsPackagedBuild()) {
     AddDeveloperRepoDirToConfig(config);
   }
+
+  MOZ_ASSERT(!sSetBrokerGeckoServices,
+             "BrokerGeckoServices must be set before SpawnTarget.");
 
   // Create the sandboxed process
   PROCESS_INFORMATION targetInfo = {0};

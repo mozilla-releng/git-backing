@@ -12,6 +12,7 @@
 #include "mozilla/ipc/EnvironmentMap.h"
 #include "mozilla/ipc/LaunchError.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
+#include "mozilla/sandboxing/SandboxBrokerData.h"
 #include "nsCOMPtr.h"
 #include "nsISupportsImpl.h"
 #include "nsXULAppAPI.h"
@@ -29,7 +30,7 @@ class SandboxBroker {
  public:
   SandboxBroker();
 
-  static void Initialize(sandbox::BrokerServices* aBrokerServices,
+  static void Initialize(const sandboxing::SandboxBrokerData& aBrokerData,
                          const nsAString& aBinDir);
 
   static void EnsureLpacPermsissionsOnDir(const nsString& aDir);

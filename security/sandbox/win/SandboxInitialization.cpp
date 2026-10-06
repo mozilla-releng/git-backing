@@ -218,11 +218,11 @@ static sandbox::BrokerServices* InitializeBrokerServices() {
   return brokerServices;
 }
 
-sandbox::BrokerServices* GetInitializedBrokerServices() {
+SandboxBrokerData GetInitializedSandboxBrokerData() {
   static sandbox::BrokerServices* sInitializedBrokerServices =
       InitializeBrokerServices();
 
-  return sInitializedBrokerServices;
+  return {sInitializedBrokerServices, SetBrokerGeckoServices};
 }
 
 void ApplyParentProcessMitigations() {
