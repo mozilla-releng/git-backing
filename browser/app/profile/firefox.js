@@ -1072,6 +1072,7 @@ pref("permissions.default.local-network", 0);
 pref("permissions.default.xr", 0);
 pref("permissions.default.desktop-notification", 0);
 pref("permissions.default.shortcuts", 0);
+pref("permissions.default.register-protocol-handler", 0);
 
 pref("permissions.desktop-notification.postPrompt.enabled", true);
 
