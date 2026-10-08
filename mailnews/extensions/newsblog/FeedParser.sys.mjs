@@ -1454,7 +1454,7 @@ FeedParser.prototype = {
   },
 
   stripTags(someHTML) {
-    return someHTML ? someHTML.replace(/<[^>]+>/g, "") : someHTML;
+    return someHTML ? someHTML.replace(/<[^<>]+>/g, "") : someHTML;
   },
 
   xmlUnescape(s) {
