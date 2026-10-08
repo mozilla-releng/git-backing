@@ -239,6 +239,10 @@ make_sphinx_js_skip_missing_objects()
 
 
 def setup(app):
+    sphinx_js = app.extensions["sphinx_js"]
+    sphinx_js.parallel_read_safe = True
+    sphinx_js.parallel_write_safe = True
+
     app.add_css_file("custom_theme.css")
     app.add_js_file("scrollable_regions.js")
     app.connect("html-page-context", install_sphinx_design)
