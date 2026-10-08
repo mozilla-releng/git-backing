@@ -52,6 +52,7 @@ extensions = [
     "staging_paths",
     "dark_mode",
     "mermaid_wrapped_option",
+    "parallel_gc",
 ]
 
 myst_enable_extensions = [
