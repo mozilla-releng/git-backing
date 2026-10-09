@@ -360,8 +360,9 @@ void LIRGeneratorARM::lowerMulI(MMul* mul, MDefinition* lhs, MDefinition* rhs) {
 void LIRGeneratorARM::lowerModI(MMod* mod) {
   if (mod->rhs()->isConstant()) {
     int32_t rhs = mod->rhs()->toConstant()->toInt32();
-    int32_t shift = FloorLog2(uint32_t(rhs));
-    if (rhs > 0 && 1 << shift == rhs) {
+
+    if (std::has_single_bit(mozilla::Abs(rhs))) {
+      int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
       LModPowTwoI* lir =
           new (alloc()) LModPowTwoI(useRegister(mod->lhs()), shift);
       if (mod->fallible()) {
@@ -370,6 +371,8 @@ void LIRGeneratorARM::lowerModI(MMod* mod) {
       define(lir, mod);
       return;
     }
+
+    int32_t shift = FloorLog2(uint32_t(rhs));
     if (shift < 31 && (1 << (shift + 1)) - 1 == rhs) {
       MOZ_ASSERT(rhs);
       LModMaskI* lir = new (alloc())
@@ -590,6 +593,21 @@ void LIRGeneratorARM::lowerUDiv(MDiv* div) {
 }
 
 void LIRGeneratorARM::lowerUMod(MMod* mod) {
+  if (mod->rhs()->isConstant()) {
+    // NOTE: the result of toInt32 is coerced to uint32_t.
+    uint32_t rhs = mod->rhs()->toConstant()->toInt32();
+
+    if (std::has_single_bit(rhs)) {
+      int32_t shift = mozilla::FloorLog2(rhs);
+      auto* lir = new (alloc()) LModPowTwoI(useRegister(mod->lhs()), shift);
+      if (mod->fallible()) {
+        assignSnapshot(lir, mod->bailoutKind());
+      }
+      define(lir, mod);
+      return;
+    }
+  }
+
   MDefinition* lhs = mod->getOperand(0);
   MDefinition* rhs = mod->getOperand(1);
 

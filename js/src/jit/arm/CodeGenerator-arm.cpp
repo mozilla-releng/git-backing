@@ -820,15 +820,24 @@ void CodeGenerator::visitModPowTwoI(LModPowTwoI* ins) {
   // bug 739870, jbramley has a different sequence that may help with speed
   // here.
 
+  bool canBeNegative = !mir->isUnsigned() && mir->canBeNegativeDividend();
+
+  if (mir->isUnsigned()) {
+    // An unsigned numerator needs no sign-fixup.
+    ScratchRegisterScope scratch(masm);
+    masm.ma_and(Imm32(uint32_t((1U << ins->shift()) - 1)), in, out, scratch);
+    return;
+  }
+
   masm.ma_mov(in, out, SetCC);
   masm.ma_b(&fin, Assembler::Zero);
   masm.as_rsb(out, out, Imm8(0), LeaveCC, Assembler::Signed);
   {
     ScratchRegisterScope scratch(masm);
-    masm.ma_and(Imm32((1 << ins->shift()) - 1), out, scratch);
+    masm.ma_and(Imm32(uint32_t((1U << ins->shift()) - 1)), out, scratch);
   }
   masm.as_rsb(out, out, Imm8(0), SetCC, Assembler::Signed);
-  if (mir->canBeNegativeDividend()) {
+  if (canBeNegative) {
     if (!mir->isTruncated()) {
       MOZ_ASSERT(mir->fallible());
       bailoutIf(Assembler::Zero, ins->snapshot());
