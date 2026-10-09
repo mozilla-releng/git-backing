@@ -588,6 +588,14 @@ void LIRGeneratorARM::lowerUDiv(MDiv* div) {
       define(lir, div);
       return;
     }
+
+    auto* lir =
+        new (alloc()) LUDivConstant(useRegister(div->lhs()), temp(), rhs);
+    if (div->fallible()) {
+      assignSnapshot(lir, div->bailoutKind());
+    }
+    define(lir, div);
+    return;
   }
 
   MDefinition* lhs = div->getOperand(0);
@@ -626,6 +634,14 @@ void LIRGeneratorARM::lowerUMod(MMod* mod) {
       define(lir, mod);
       return;
     }
+
+    auto* lir =
+        new (alloc()) LUModConstant(useRegister(mod->lhs()), temp(), rhs);
+    if (mod->fallible()) {
+      assignSnapshot(lir, mod->bailoutKind());
+    }
+    define(lir, mod);
+    return;
   }
 
   MDefinition* lhs = mod->getOperand(0);

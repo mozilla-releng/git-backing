@@ -4048,6 +4048,24 @@
   num_temps: 1
   mir_op: Mod
 
+- name: UDivConstant
+  result_type: WordSized
+  operands:
+    numerator: WordSized
+  arguments:
+    denominator: uint32_t
+  num_temps: 1
+  mir_op: Div
+
+- name: UModConstant
+  result_type: WordSized
+  operands:
+    numerator: WordSized
+  arguments:
+    denominator: uint32_t
+  num_temps: 1
+  mir_op: Mod
+
 - name: ModMaskI
   result_type: WordSized
   operands:
