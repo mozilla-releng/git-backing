@@ -374,7 +374,7 @@ void LIRGeneratorARM::lowerModI(MMod* mod) {
     if (std::has_single_bit(mozilla::Abs(rhs))) {
       int32_t shift = mozilla::FloorLog2(mozilla::Abs(rhs));
       LModPowTwoI* lir =
-          new (alloc()) LModPowTwoI(useRegister(mod->lhs()), shift);
+          new (alloc()) LModPowTwoI(useRegisterAtStart(mod->lhs()), shift);
       if (mod->fallible()) {
         assignSnapshot(lir, mod->bailoutKind());
       }
@@ -615,7 +615,8 @@ void LIRGeneratorARM::lowerUMod(MMod* mod) {
 
     if (std::has_single_bit(rhs)) {
       int32_t shift = mozilla::FloorLog2(rhs);
-      auto* lir = new (alloc()) LModPowTwoI(useRegister(mod->lhs()), shift);
+      auto* lir =
+          new (alloc()) LModPowTwoI(useRegisterAtStart(mod->lhs()), shift);
       if (mod->fallible()) {
         assignSnapshot(lir, mod->bailoutKind());
       }
