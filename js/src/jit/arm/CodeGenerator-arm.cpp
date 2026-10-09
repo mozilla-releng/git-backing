@@ -1101,28 +1101,6 @@ void CodeGenerator::visitUModConstant(LUModConstant* ins) {
   }
 }
 
-void CodeGenerator::visitModMaskI(LModMaskI* ins) {
-  Register src = ToRegister(ins->input());
-  Register dest = ToRegister(ins->output());
-  Register tmp1 = ToRegister(ins->temp0());
-  Register tmp2 = ToRegister(ins->temp1());
-  MMod* mir = ins->mir();
-
-  ScratchRegisterScope scratch(masm);
-  SecondScratchRegisterScope scratch2(masm);
-
-  masm.ma_mod_mask(src, dest, tmp1, tmp2, scratch, scratch2, ins->shift());
-
-  if (mir->canBeNegativeDividend()) {
-    if (!mir->isTruncated()) {
-      MOZ_ASSERT(mir->fallible());
-      bailoutIf(Assembler::Zero, ins->snapshot());
-    } else {
-      // -0|0 == 0
-    }
-  }
-}
-
 void CodeGeneratorARM::emitBigIntPtrDiv(LBigIntPtrDiv* ins, Register dividend,
                                         Register divisor, Register output) {
   // Callers handle division by zero and integer overflow.

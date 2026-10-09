@@ -382,18 +382,6 @@ void LIRGeneratorARM::lowerModI(MMod* mod) {
       return;
     }
 
-    int32_t shift = FloorLog2(uint32_t(rhs));
-    if (shift < 31 && (1 << (shift + 1)) - 1 == rhs) {
-      MOZ_ASSERT(rhs);
-      LModMaskI* lir = new (alloc())
-          LModMaskI(useRegister(mod->lhs()), temp(), temp(), shift + 1);
-      if (mod->fallible()) {
-        assignSnapshot(lir, mod->bailoutKind());
-      }
-      define(lir, mod);
-      return;
-    }
-
     // Modulus by other constants can be optimized by a reciprocal
     // multiplication technique.
     auto lhs = useRegister(mod->lhs());
