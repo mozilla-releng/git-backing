@@ -5,43 +5,48 @@
 // lane and the ones reading from the vector being replaced into.
 
 const extracts = [
-  ["i8x16.extract_lane_s", 1, true],
-  ["i8x16.extract_lane_u", 1, false],
-  ["i16x8.extract_lane_s", 2, true],
-  ["i16x8.extract_lane_u", 2, false],
-  ["i32x4.extract_lane", 4, true],
+  ["i8x16.extract_lane_s", 1, true, "i32"],
+  ["i8x16.extract_lane_u", 1, false, "i32"],
+  ["i16x8.extract_lane_s", 2, true, "i32"],
+  ["i16x8.extract_lane_u", 2, false, "i32"],
+  ["i32x4.extract_lane", 4, true, "i32"],
+  ["i64x2.extract_lane", 8, true, "i64"],
 ];
 const replaces = [
-  ["i8x16.replace_lane", 1],
-  ["i16x8.replace_lane", 2],
-  ["i32x4.replace_lane", 4],
+  ["i8x16.replace_lane", 1, "i32"],
+  ["i16x8.replace_lane", 2, "i32"],
+  ["i32x4.replace_lane", 4, "i32"],
+  ["i64x2.replace_lane", 8, "i64"],
 ];
 
 const src = iota(16).map(i => (0x80 + i * 17) & 0xff);
 const dst = iota(16).map(i => (0x40 + i * 29) & 0xff);
 
 function readLane(bytes, size, lane, signed) {
-  let v = 0;
+  let v = 0n;
   for (let i = size - 1; i >= 0; i--) {
-    v = v * 256 + bytes[lane * size + i];
+    v = (v << 8n) | BigInt(bytes[lane * size + i]);
   }
-  if (signed && v >= 2 ** (8 * size - 1)) {
-    v -= 2 ** (8 * size);
+  if (signed && v >= 1n << BigInt(8 * size - 1)) {
+    v -= 1n << BigInt(8 * size);
   }
   return v;
 }
 
 function expected(base, dstSize, dstLane, value) {
   const out = base.slice();
-  const low = BigInt.asUintN(8 * dstSize, BigInt(value));
+  const low = BigInt.asUintN(8 * dstSize, value);
   for (let i = 0; i < dstSize; i++) {
     out[dstLane * dstSize + i] = Number((low >> BigInt(8 * i)) & 0xffn);
   }
   return out;
 }
 
-for (const [extract, srcSize, signed] of extracts) {
-  for (const [replace, dstSize] of replaces) {
+for (const [extract, srcSize, signed, produced] of extracts) {
+  for (const [replace, dstSize, consumed] of replaces) {
+    if (produced !== consumed) {
+      continue;
+    }
     const funcs = [];
     const cases = [];
     for (let s = 0; s < 16 / srcSize; s++) {

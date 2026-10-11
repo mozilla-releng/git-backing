@@ -9,6 +9,8 @@ for (const [replace, extract, expected] of [
   ["i8x16.replace_lane 7",  "i8x16.extract_lane_u 9", "vextrins\\.b \\$vr0, \\$vr1, 0x79"],
   ["i16x8.replace_lane 1",  "i32x4.extract_lane 2",   "vextrins\\.h \\$vr0, \\$vr1, 0x14"],
   ["i32x4.replace_lane 0",  "i32x4.extract_lane 3",   "vextrins\\.w \\$vr0, \\$vr1, 0x3" ],
+  ["i64x2.replace_lane 1",  "i64x2.extract_lane 0",   "vextrins\\.d \\$vr0, \\$vr1, 0x10"],
+  ["i64x2.replace_lane 0",  "i64x2.extract_lane 1",   "vextrins\\.d \\$vr0, \\$vr1, 0x1" ],
 ]) {
   codegenTestLOONG64_adhoc(
     `(module

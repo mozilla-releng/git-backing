@@ -1027,8 +1027,8 @@ bool LIRGeneratorLOONG64::canEmitWasmReduceSimd128AtUses(
   if (!ins->canEmitAtUses()) {
     return false;
   }
-  // Only specific ops generating int32.
-  if (ins->type() != MIRType::Int32) {
+  // Only specific ops generating int32 or int64.
+  if (ins->type() != MIRType::Int32 && ins->type() != MIRType::Int64) {
     return false;
   }
   // If never used then defer (it will be removed).
@@ -1349,15 +1349,14 @@ void LIRGenerator::visitWasmReplaceLaneSimd128(MWasmReplaceLaneSimd128* ins) {
   // Optimal code generation reuses the lhs register because the rhs scalar is
   // merged into a vector lhs.
   LAllocation lhs = useRegisterAtStart(ins->lhs());
-  if (ins->rhs()->type() == MIRType::Int64) {
-    auto* lir = new (alloc())
-        LWasmReplaceInt64LaneSimd128(lhs, useInt64Register(ins->rhs()));
-    defineReuseInput(lir, ins, 0);
-  } else if (ins->rhs()->isWasmReduceSimd128() &&
-             ins->rhs()->isEmittedAtUses()) {
+  if (ins->rhs()->isWasmReduceSimd128() && ins->rhs()->isEmittedAtUses()) {
     // The rhs is an extract_lane; read its vector input directly.
     MDefinition* src = ins->rhs()->toWasmReduceSimd128()->input();
     auto* lir = new (alloc()) LWasmReplaceLaneSimd128(lhs, useRegister(src));
+    defineReuseInput(lir, ins, 0);
+  } else if (ins->rhs()->type() == MIRType::Int64) {
+    auto* lir = new (alloc())
+        LWasmReplaceInt64LaneSimd128(lhs, useInt64Register(ins->rhs()));
     defineReuseInput(lir, ins, 0);
   } else {
     LAllocation rhsAlloc = useRegisterOrZero(ins->rhs());

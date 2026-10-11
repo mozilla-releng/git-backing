@@ -736,6 +736,10 @@ static bool IntegerLaneSizeLog2(wasm::SimdOp op, uint32_t* sizeLog2) {
     case wasm::SimdOp::I32x4ReplaceLane:
       *sizeLog2 = 2;
       return true;
+    case wasm::SimdOp::I64x2ExtractLane:
+    case wasm::SimdOp::I64x2ReplaceLane:
+      *sizeLog2 = 3;
+      return true;
     default:
       return false;
   }
