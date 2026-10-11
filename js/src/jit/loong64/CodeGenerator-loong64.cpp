@@ -3687,8 +3687,40 @@ void CodeGenerator::visitWasmReplaceLaneSimd128(LWasmReplaceLaneSimd128* ins) {
   const LAllocation* rhs = ins->rhs();
   const uint32_t laneIndex = ins->mir()->laneIndex();
 
+  if (ins->mir()->rhs()->isWasmReduceSimd128() &&
+      ins->mir()->rhs()->isEmittedAtUses()) {
+    uint32_t sizeLog2;
+    uint32_t srcIndex;
+    MOZ_ALWAYS_TRUE(
+        ins->mir()->replacesFromExtractedLane(&sizeLog2, &srcIndex));
+    FloatRegister src = ToFloatRegister(rhs);
+    // High ui4: dest lane selection. Low ui4: src lane selection.
+    // <https://jia.je/unofficial-loongarch-intrinsics-guide/lsx/misc/#__m128i-__lsx_vextrins_d-__m128i-a-__m128i-b-imm0_255-imm>
+    const uint32_t imm = (laneIndex << 4) | srcIndex;
+    switch (sizeLog2) {
+      case 0:
+        masm.as_vextrins_b(lhsDest, src, imm);
+        break;
+      case 1:
+        masm.as_vextrins_h(lhsDest, src, imm);
+        break;
+      case 2:
+        masm.as_vextrins_w(lhsDest, src, imm);
+        break;
+      case 3:
+        masm.as_vextrins_d(lhsDest, src, imm);
+        break;
+      default:
+        MOZ_CRASH("Unexpected sizeLog2");
+    }
+    return;
+  }
+
+  // From here on, we don't care about I64x2 anymore, since it uses
+  // LWasmReplaceInt64LaneSimd128.
+
   if (rhs->isBogus()) {
-    // Lowering only produces i32.const 0 here (I64x2 uses useRegister).
+    // Eliminate the need to materializing 0.
     switch (ins->mir()->simdOp()) {
       case wasm::SimdOp::I8x16ReplaceLane:
         masm.replaceLaneInt8x16(laneIndex, zero, lhsDest);
