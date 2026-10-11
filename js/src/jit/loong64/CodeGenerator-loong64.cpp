@@ -3766,8 +3766,13 @@ void CodeGenerator::visitWasmReplaceInt64LaneSimd128(
 #ifdef ENABLE_JIT_SIMD
   MOZ_RELEASE_ASSERT(ins->mir()->simdOp() == wasm::SimdOp::I64x2ReplaceLane);
   MOZ_ASSERT(ToFloatRegister(ins->lhs()) == ToFloatRegister(ins->output()));
-  masm.replaceLaneInt64x2(ins->mir()->laneIndex(), ToRegister64(ins->rhs()),
-                          ToFloatRegister(ins->lhs()));
+  const uint32_t lane = ins->mir()->laneIndex();
+  const FloatRegister lhsDest = ToFloatRegister(ins->lhs());
+  if (ins->rhs().value().isBogus()) {
+    masm.replaceLaneInt64x2(lane, Register64(zero), lhsDest);
+  } else {
+    masm.replaceLaneInt64x2(lane, ToRegister64(ins->rhs()), lhsDest);
+  }
 #else
   MOZ_CRASH("No SIMD");
 #endif
