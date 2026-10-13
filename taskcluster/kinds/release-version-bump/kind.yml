@@ -22,7 +22,7 @@ task-defaults:
     shipping-phase: ship
     task-context:
         from-parameters:
-            head_rev: head_rev
+            head_rev: build_head_rev
         substitution-fields:
             - worker.actions
     worker-type: lando
