@@ -91,6 +91,7 @@ class GeckoParametersSchema(Schema, kw_only=True, rename=None):
     head_git_repository: Optional[str] = None
     head_git_rev: Optional[str] = None
     pull_request_number: Optional[int] = None
+    build_head_rev: Optional[str] = None
 
 
 def get_contents(path):

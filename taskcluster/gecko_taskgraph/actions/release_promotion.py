@@ -315,6 +315,16 @@ def release_promotion_action(
 
     # Download parameters from the first decision task
     parameters = get_artifact(previous_graph_ids[0], "public/parameters.yml")
+    # Some tasks (eg: tagging) need to know the revision that the release was
+    # built from. Store this in `build_head_rev`. `setdefault` is used so that
+    # it will be set the first time a release promotion task runs for a release
+    # (eg: when `promote` is run), and then inherited by future phases regardless
+    # of the order they appear in `previous_graph_ids`. eg: if the on-push graph
+    # is first, this will take the `head_rev` default. if an earlier phase is
+    # first, the existing `build_head_rev` will be used. If `head_rev` were to be
+    # always taken, an action that contained an earlier phase as the first
+    # previous graph id could end up setting `build_head_rev` to a newer revision.
+    parameters.setdefault("build_head_rev", parameters["head_rev"])
     # Override `head_rev` - this should always be the revision that this action
     # task was fired from. If the first `previous_graph_id` given was from an
     # earlier revision, it will end up being wrong. This will cause any created

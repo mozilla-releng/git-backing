@@ -50,6 +50,10 @@ topic.
 
 : The revision to check out; this can be a short revision string
 
+`build_head_rev`
+
+: TODO
+
 `head_git_repository`
 
 : Optionally, the git repository containing `head_git_rev` when it's in a Mercurial
