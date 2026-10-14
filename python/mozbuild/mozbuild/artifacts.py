@@ -78,6 +78,9 @@ NUM_PUSHHEADS_TO_QUERY_PER_PARENT = 50
 # we'll find a build in the last 50 pushes, assuming each push contains 10 changesets.
 NUM_REVISIONS_TO_QUERY = 500
 
+# Taskcluster GitHub app used to mint tokens for querying the GitHub API.
+GITHUB_TOKEN_APP_NAME = "action"
+
 MAX_CACHED_TASKS = 400  # Number of pushheads to cache Task Cluster task data for.
 
 # Downloaded artifacts are cached, and a subset of their contents extracted for
@@ -1566,7 +1569,62 @@ class Artifacts:
 
         return candidate_pushheads
 
+    @property
+    @functools.cache
+    def _is_shallow_automation_clone(self):
+        if not os.environ.get("MOZ_AUTOMATION") or not os.environ.get(
+            "MOZ_SOURCE_GIT_REPO"
+        ):
+            return False
+        return (
+            self.check_git_output(
+                ["rev-parse", "--is-shallow-repository"], cwd=self._topsrcdir
+            ).strip()
+            == "true"
+        )
+
+    def _get_revisions_from_github(self, rev):
+        owner, repo = (
+            urlparse(os.environ["MOZ_SOURCE_GIT_REPO"])
+            .path.strip("/")
+            .removesuffix(".git")
+            .split("/")
+        )
+        sha = self.check_git_output(["rev-parse", rev], cwd=self._topsrcdir).strip()
+
+        auth = get_taskcluster_client("auth")
+        token = auth.githubRepoToken(
+            GITHUB_TOKEN_APP_NAME,
+            owner,
+            {"permissions": {"contents": "read"}, "repositories": [repo]},
+        )["token"]
+
+        session = requests.Session()
+        session.headers.update({
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+        })
+
+        hashes = []
+        page = 1
+        while len(hashes) < NUM_REVISIONS_TO_QUERY:
+            resp = session.get(
+                f"https://api.github.com/repos/{owner}/{repo}/commits",
+                params={"sha": sha, "per_page": 100, "page": page},
+            )
+            resp.raise_for_status()
+            commits = resp.json()
+            if not commits:
+                break
+            hashes.extend(c["sha"] for c in commits)
+            page += 1
+        return hashes[:NUM_REVISIONS_TO_QUERY]
+
     def _get_revisions_from_git(self, rev="HEAD"):
+        if self._is_shallow_automation_clone:
+            with build_marker("ArtifactVcs", "GitHub commit history", log=self.log):
+                return self._get_revisions_from_github(rev)
+
         rev_list = self.check_git_output(
             [
                 "rev-list",
@@ -1682,11 +1740,20 @@ https://firefox-source-docs.mozilla.org/contributing/vcs/mercurial_bundles.html
         working parent.
         """
 
-        with build_marker("ArtifactVcs", "recent public revisions", log=self.log):
-            last_revs = self._get_recent_public_revisions()
         count = 0
         # (tree, revision) pairs that were already yielded.
         yielded = set()
+
+        # Set in automation to the base revision of the push, which avoids
+        # walking history when it has artifacts.
+        if base_rev := os.environ.get("MOZ_ARTIFACT_BASE_REV"):
+            trees = self._artifact_job.candidate_trees
+            count += 1
+            yielded.update((tree, base_rev) for tree in trees)
+            yield trees, base_rev
+
+        with build_marker("ArtifactVcs", "recent public revisions", log=self.log):
+            last_revs = self._get_recent_public_revisions()
         candidate_pushheads = {}
         if self._git and not self._is_git_cinnabar:
             candidate_pushheads = {

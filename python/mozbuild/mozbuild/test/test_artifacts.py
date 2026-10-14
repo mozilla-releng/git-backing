@@ -5,6 +5,7 @@
 import os
 import tempfile
 import zipfile
+from contextlib import ExitStack
 from unittest import TestCase, mock
 
 import buildconfig
@@ -257,7 +258,9 @@ class TestFindPushheads(TestCase):
         artifacts._jj = None
         artifacts._artifact_job = mock.Mock(candidate_trees=self.TREES)
         artifacts._pushhead_cache = FakePushheadCache(pushes)
-        artifacts._get_recent_public_revisions = lambda: revs
+        artifacts._get_recent_public_revisions = (
+            revs if callable(revs) else lambda: revs
+        )
         return artifacts._find_pushheads(), artifacts._pushhead_cache
 
     def test_first_revision_is_pushhead(self):
@@ -304,6 +307,116 @@ class TestFindPushheads(TestCase):
                 (["mozilla-central"], "c"),
             ],
         )
+
+    def test_base_rev_is_tried_first(self):
+        pushes = {
+            "mozilla-central": {100: ("c", {"a", "b", "c"})},
+            "integration/autoland": {},
+        }
+        revs = mock.Mock(return_value=["c"])
+        with mock.patch.dict(os.environ, {"MOZ_ARTIFACT_BASE_REV": "base"}):
+            pushheads, cache = self.find_pushheads(pushes, revs)
+
+            self.assertEqual(next(pushheads), (self.TREES, "base"))
+            revs.assert_not_called()
+
+            self.assertEqual(list(pushheads), [(["mozilla-central"], "c")])
+            revs.assert_called_once()
+
+
+class TestGitHubRevisions(TestCase):
+    def make_artifacts(self, shallow):
+        artifacts = Artifacts.__new__(Artifacts)
+        artifacts._log = None
+        artifacts._git = "git"
+        artifacts._jj = None
+        artifacts._topsrcdir = "/src"
+
+        def check_git_output(cmd, **kwargs):
+            if cmd == ["rev-parse", "--is-shallow-repository"]:
+                return "true\n" if shallow else "false\n"
+            if cmd == ["rev-parse", "HEAD"]:
+                return "head\n"
+            if cmd[0] == "rev-list":
+                return "local1\nlocal2\n"
+            raise AssertionError(cmd)
+
+        artifacts.check_git_output = check_git_output
+        return artifacts
+
+    def get_revisions(self, shallow, env, pages):
+        artifacts = self.make_artifacts(shallow)
+        auth = mock.Mock()
+        auth.githubRepoToken.return_value = {"token": "tok"}
+        session = mock.Mock()
+        session.get.side_effect = [
+            mock.Mock(json=mock.Mock(return_value=[{"sha": sha} for sha in page]))
+            for page in pages
+        ]
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, env, clear=True))
+            stack.enter_context(
+                mock.patch(
+                    "mozbuild.artifacts.get_taskcluster_client", return_value=auth
+                )
+            )
+            stack.enter_context(
+                mock.patch("mozbuild.artifacts.requests.Session", return_value=session)
+            )
+            cinnabar = stack.enter_context(
+                mock.patch.object(
+                    Artifacts, "_is_git_cinnabar", new_callable=mock.PropertyMock
+                )
+            )
+            kind = stack.enter_context(
+                mock.patch.object(
+                    Artifacts, "_git_repo_kind", new_callable=mock.PropertyMock
+                )
+            )
+            cinnabar.return_value = False
+            kind.return_value = "firefox"
+            revs = artifacts._get_revisions_from_git()
+        return revs, auth, session
+
+    def test_shallow_automation_clone_uses_github(self):
+        env = {
+            "MOZ_AUTOMATION": "1",
+            "MOZ_SOURCE_GIT_REPO": "https://github.com/mozilla-releng/git-backing",
+        }
+        revs, auth, session = self.get_revisions(True, env, [["a", "b"], []])
+
+        self.assertEqual(revs, ["a", "b"])
+        auth.githubRepoToken.assert_called_once_with(
+            "action",
+            "mozilla-releng",
+            {"permissions": {"contents": "read"}, "repositories": ["git-backing"]},
+        )
+        self.assertEqual(
+            session.headers.update.call_args[0][0]["Authorization"], "Bearer tok"
+        )
+        self.assertEqual(
+            session.get.call_args_list[0],
+            mock.call(
+                "https://api.github.com/repos/mozilla-releng/git-backing/commits",
+                params={"sha": "head", "per_page": 100, "page": 1},
+            ),
+        )
+
+    def test_full_clone_uses_rev_list(self):
+        env = {
+            "MOZ_AUTOMATION": "1",
+            "MOZ_SOURCE_GIT_REPO": "https://github.com/mozilla-releng/git-backing",
+        }
+        revs, auth, session = self.get_revisions(False, env, [])
+
+        self.assertEqual(revs, ["local1", "local2"])
+        auth.githubRepoToken.assert_not_called()
+
+    def test_shallow_local_clone_uses_rev_list(self):
+        revs, auth, session = self.get_revisions(True, {}, [])
+
+        self.assertEqual(revs, ["local1", "local2"])
+        auth.githubRepoToken.assert_not_called()
 
 
 if __name__ == "__main__":
