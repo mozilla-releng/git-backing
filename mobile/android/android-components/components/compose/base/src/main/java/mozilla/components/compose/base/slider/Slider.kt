@@ -27,8 +27,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import mozilla.components.compose.base.theme.AcornShapes
 import mozilla.components.compose.base.theme.AcornTheme
 
@@ -52,19 +55,21 @@ fun Slider(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val isDragInProgress by interactionSource.collectIsDraggedAsState()
+    val thumbWidth by
+    animateDpAsState(if (isDragInProgress) AcornTheme.layout.size.static400 else AcornTheme.layout.size.static200)
     Slider(
         value = value,
         onValueChange = { newInput ->
             onValueChange(newInput)
         },
         valueRange = start..end,
-        modifier = modifier,
+        modifier = modifier.extendTrackToEdges(thumbWidth),
         enabled = isEnabled,
         onValueChangeFinished = {
             onValueChangeFinished()
         },
         interactionSource = interactionSource,
-        thumb = { Thumb(isEnabled = isEnabled, isDragInProgress = isDragInProgress) },
+        thumb = { Thumb(isEnabled = isEnabled, isDragInProgress = isDragInProgress, width=thumbWidth) },
         track = { _ ->
             // Calculate fraction of the slider that is active
             // remembering this doesn't save anything since it has to be recalculated on any value update
@@ -74,21 +79,32 @@ fun Slider(
     )
 }
 
+
+/**
+ * Widens a slider by [thumbWidth] and places it in the center.
+ * By default, M3 insets the track by half a thumb on each side so that the thumb at rest is in line with the edge of
+ * the component. This causes the track to line up with the edge of the space exactly instead of leaving a gap, and the
+ * thumb to overhang the edge.
+ */
+private fun Modifier.extendTrackToEdges(thumbWidth: Dp): Modifier = layout { measurable, constraints ->
+    val extra = thumbWidth.roundToPx()
+    val placeable = measurable.measure(constraints.offset(horizontal = extra))
+    layout((placeable.width - extra).coerceAtLeast(0), placeable.height) { placeable.placeRelative(-extra / 2, 0) }
+}
+
 /** How much of the track between [start] and [end] is filled at [value], kept within 0 to 1. */
 internal fun activeTrackFraction(value: Float, start: Float, end: Float): Float =
     if (end > start) ((value - start) / (end - start)).coerceIn(0f, 1f) else 0f
 
 /** Thumb is the draggable handle of the slider that user moves to change the value. */
 @Composable
-private fun Thumb(isEnabled: Boolean, isDragInProgress: Boolean) {
+private fun Thumb(isEnabled: Boolean, isDragInProgress: Boolean, width: Dp) {
     val color =
         if (isEnabled) {
             MaterialTheme.colorScheme.primary
         } else {
             MaterialTheme.colorScheme.surfaceContainerHighest
         }
-    val width by
-        animateDpAsState(if (isDragInProgress) AcornTheme.layout.size.static400 else AcornTheme.layout.size.static200)
     val height by
         animateDpAsState(if (isDragInProgress) AcornTheme.layout.size.static300 else AcornTheme.layout.size.static150)
     Box(
