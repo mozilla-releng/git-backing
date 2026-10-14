@@ -119,5 +119,20 @@ def test_use_artifact_toolchains(run_transform, use_artifact):
         assert job == linux_build()
 
 
+@pytest.mark.parametrize(
+    "base_rev,expected",
+    (("abc", "abc"), ("0" * 40, None), (None, None)),
+)
+def test_use_artifact_base_rev(run_transform, base_rev, expected):
+    params = FakeParameters({
+        "try_task_config": {"use-artifact-builds": True},
+        "base_rev": base_rev,
+    })
+    [job] = run_transform(
+        use_artifact_transform, [linux_build()], kind="build", params=params
+    )
+    assert job["worker"]["env"].get("MOZ_ARTIFACT_BASE_REV") == expected
+
+
 if __name__ == "__main__":
     main()

@@ -214,6 +214,9 @@ def use_artifact(config, jobs):
             job["attributes"]["artifact-build"] = True
             # Artifact builds don't compile anything.
             job["use-sccache"] = False
+            base_rev = config.params.get("base_rev")
+            if base_rev and base_rev != "0" * 40:
+                job["worker"]["env"]["MOZ_ARTIFACT_BASE_REV"] = base_rev
             toolchains = job.get("fetches", {}).get("toolchain")
             if toolchains:
                 job["fetches"]["toolchain"] = [
