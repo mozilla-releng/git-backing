@@ -12,6 +12,9 @@
 #include "vm/BytecodeUtil.h"
 #include "wasm/WasmBuiltins.h"
 
+using js::wasm::FaultingCodeRange;
+using js::wasm::FaultingCodeRangePair;
+
 namespace js {
 namespace jit {
 
