@@ -5,7 +5,6 @@
 task-defaults:
     tags:
         android-stuff: "true"
-    run:
 
 android-geckoview-docs/opt:
     description: "Android GeckoView docs"
