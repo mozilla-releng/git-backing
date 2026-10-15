@@ -1152,7 +1152,7 @@ bool MWasmBinarySimd128::canPmaddubsw() { return false; }
 
 bool MWasmBinarySimd128::canTestBits() { return false; }
 
-bool MWasmReplaceLaneSimd128::canMoveLane() { return false; }
+bool MWasmReplaceLaneSimd128::canMoveLane() { return true; }
 #endif
 
 bool MWasmBinarySimd128::specializeForConstantRhs() {
@@ -1361,7 +1361,13 @@ void LIRGenerator::visitWasmReplaceLaneSimd128(MWasmReplaceLaneSimd128* ins) {
 }
 
 void LIRGenerator::visitWasmMoveLaneSimd128(MWasmMoveLaneSimd128* ins) {
-  MOZ_CRASH("move-lane SIMD NYI");
+#ifdef ENABLE_JIT_SIMD
+  auto* lir = new (alloc()) LWasmMoveLaneSimd128(useRegisterAtStart(ins->lhs()),
+                                                 useRegister(ins->rhs()));
+  defineReuseInput(lir, ins, 0);
+#else
+  MOZ_CRASH("No SIMD");
+#endif
 }
 
 void LIRGenerator::visitWasmScalarToSimd128(MWasmScalarToSimd128* ins) {
