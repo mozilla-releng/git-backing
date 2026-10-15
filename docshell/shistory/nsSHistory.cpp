@@ -31,6 +31,7 @@
 #include "prsystem.h"
 
 #include "mozilla/Attributes.h"
+#include "mozilla/BounceTrackingState.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
@@ -1354,6 +1355,23 @@ static void FinishRestore(CanonicalBrowsingContext* aBrowsingContext,
         aFrameLoader->GetMaybePendingBrowsingContext()->Canonical();
     RefPtr<nsFrameLoader> currentFrameLoader =
         frameLoaderOwner->GetFrameLoader();
+
+    // Top level navigations otherwise reach bounce tracking protection from
+    // DocumentLoadListener, which a restore does not create. This has to run
+    // before the swap, while the page being left is still current.
+    RefPtr<BounceTrackingState> bounceTrackingState =
+        aBrowsingContext->IsTopContent()
+            ? aBrowsingContext->GetBounceTrackingState()
+            : nullptr;
+    if (bounceTrackingState) {
+      DebugOnly<nsresult> rv = bounceTrackingState->OnStartNavigation(
+          aLoadState->TriggeringPrincipal(),
+          aLoadState->HasValidUserGestureActivation(),
+          aLoadState->GetLoadIdentifier());
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "BounceTrackingState::OnStartNavigation failed");
+    }
+
     // The current page can be bfcached, store the
     // nsFrameLoader in the current SessionHistoryEntry.
     RefPtr<SessionHistoryEntry> currentSHEntry =
@@ -1413,6 +1431,12 @@ static void FinishRestore(CanonicalBrowsingContext* aBrowsingContext,
     }
 
     loadingBC->ReactivateDocuments(aEntry, currentSHEntry);
+
+    if (bounceTrackingState) {
+      DebugOnly<nsresult> rv = bounceTrackingState->OnBFCacheRestored();
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "BounceTrackingState::OnBFCacheRestored failed");
+    }
 
     if (layersChanged) {
       frameLoaderOwner->DispatchLayerTreeEvent();
