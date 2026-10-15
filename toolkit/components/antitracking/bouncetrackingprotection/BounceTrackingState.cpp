@@ -601,6 +601,14 @@ BounceTrackingState::OnStateChange(nsIWebProgress* aWebProgress,
       "BTP: committed document OriginAttributes (userContextId/PBM) diverged "
       "from the cached BounceTrackingState OriginAttributes (Bug 2054941).");
 
+  // A bfcache restore never went through OnStartNavigation, so it must not
+  // overwrite the final host of the live record. That host still names the
+  // destination of the extended navigation which the pending client bounce
+  // detection timer will finalize.
+  if (aStateFlags & nsIWebProgressListener::STATE_RESTORING) {
+    return NS_OK;
+  }
+
   return OnDocumentLoaded(documentPrincipal);
 }
 
