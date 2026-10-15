@@ -733,6 +733,9 @@ static uint32_t IntegerLaneBytes(wasm::SimdOp op) {
     case wasm::SimdOp::I32x4ExtractLane:
     case wasm::SimdOp::I32x4ReplaceLane:
       return 4;
+    case wasm::SimdOp::I64x2ExtractLane:
+    case wasm::SimdOp::I64x2ReplaceLane:
+      return 8;
     default:
       return 0;
   }

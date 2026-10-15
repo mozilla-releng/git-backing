@@ -3751,6 +3751,9 @@ void CodeGenerator::visitWasmMoveLaneSimd128(LWasmMoveLaneSimd128* ins) {
     case wasm::SimdOp::I32x4ReplaceLane:
       masm.as_vextrins_w(lhsDest, src, imm);
       break;
+    case wasm::SimdOp::I64x2ReplaceLane:
+      masm.as_vextrins_d(lhsDest, src, imm);
+      break;
     default:
       MOZ_CRASH("MoveLane SimdOp not implemented");
   }
