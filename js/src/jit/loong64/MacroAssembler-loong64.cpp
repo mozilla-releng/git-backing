@@ -1694,7 +1694,6 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_load(Register dest,
         }
         break;
       case SizeDouble:
-        MOZ_ASSERT(extension == ZeroExtend);
         as_ldx_d(dest, src.base, src.index);
         break;
       default:
@@ -5799,39 +5798,12 @@ FaultingCodeRange MacroAssemblerLOONG64Compat::load16SignExtend(
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::load32(const Address& address,
                                                       Register dest) {
-  return ma_ld_w(dest, address);
+  return ma_load(dest, address, SizeWord, SignExtend);
 }
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::load32(const BaseIndex& address,
                                                       Register dest) {
-  Register base = address.base;
-  Register index = address.index;
-  int32_t offset = address.offset;
-  uint32_t shift = Imm32::ShiftOf(address.scale).value;
-  js::wasm::FaultingCodeRange fcr;
-
-  UseScratchRegisterScope temps(asMasm());
-  if (offset != 0) {
-    Register scratch = temps.Acquire();
-    ma_li(scratch, Imm32(offset));
-    if (shift != 0) {
-      MOZ_ASSERT(shift <= 4);
-      as_alsl_d(scratch, index, scratch, shift - 1);
-    } else {
-      as_add_d(scratch, index, scratch);
-    }
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_w(dest, base, scratch);
-  } else if (shift != 0) {
-    Register scratch = temps.Acquire();
-    as_slli_d(scratch, index, shift);
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_w(dest, base, scratch);
-  } else {
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_w(dest, base, index);
-  }
-  return fcr;
+  return ma_load(dest, address, SizeWord, SignExtend);
 }
 
 void MacroAssemblerLOONG64Compat::load32(AbsoluteAddress address,
@@ -5852,39 +5824,12 @@ void MacroAssemblerLOONG64Compat::load32(wasm::SymbolicAddress address,
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::loadPtr(const Address& address,
                                                        Register dest) {
-  return ma_ld_d(dest, address);
+  return ma_load(dest, address, SizeDouble);
 }
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::loadPtr(const BaseIndex& src,
                                                        Register dest) {
-  Register base = src.base;
-  Register index = src.index;
-  int32_t offset = src.offset;
-  uint32_t shift = Imm32::ShiftOf(src.scale).value;
-  js::wasm::FaultingCodeRange fcr;
-
-  UseScratchRegisterScope temps(asMasm());
-  if (offset != 0) {
-    Register scratch = temps.Acquire();
-    ma_li(scratch, Imm32(offset));
-    if (shift != 0) {
-      MOZ_ASSERT(shift <= 4);
-      as_alsl_d(scratch, index, scratch, shift - 1);
-    } else {
-      as_add_d(scratch, index, scratch);
-    }
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_d(dest, base, scratch);
-  } else if (shift != 0) {
-    Register scratch = temps.Acquire();
-    as_slli_d(scratch, index, shift);
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_d(dest, base, scratch);
-  } else {
-    fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_ldx_d(dest, base, index);
-  }
-  return fcr;
+  return ma_load(dest, src, SizeDouble);
 }
 
 void MacroAssemblerLOONG64Compat::loadPtr(AbsoluteAddress address,
@@ -6037,42 +5982,12 @@ template void MacroAssemblerLOONG64Compat::storePtr<BaseIndex>(
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::storePtr(
     Register src, const Address& address) {
-  return ma_st_d(src, address);
+  return ma_store(src, address, SizeDouble);
 }
 
 FaultingCodeRange MacroAssemblerLOONG64Compat::storePtr(
     Register src, const BaseIndex& address) {
-  Register base = address.base;
-  Register index = address.index;
-  int32_t offset = address.offset;
-  int32_t shift = Imm32::ShiftOf(address.scale).value;
-  FaultingCodeRange fcr;
-
-  UseScratchRegisterScope temps(asMasm());
-  if ((offset == 0) && (shift == 0)) {
-    fcr = FaultingCodeRange(currentOffset());
-    as_stx_d(src, base, index);
-  } else if (is_intN(offset, 12)) {
-    Register scratch = temps.Acquire();
-    if (shift == 0) {
-      as_add_d(scratch, base, index);
-    } else {
-      as_alsl_d(scratch, index, base, shift - 1);
-    }
-    fcr = FaultingCodeRange(currentOffset());
-    as_st_d(src, scratch, offset);
-  } else {
-    Register scratch = temps.Acquire();
-    ma_li(scratch, Imm32(offset));
-    if (shift == 0) {
-      as_add_d(scratch, scratch, index);
-    } else {
-      as_alsl_d(scratch, index, scratch, shift - 1);
-    }
-    fcr = FaultingCodeRange(currentOffset());
-    as_stx_d(src, base, scratch);
-  }
-  return fcr;
+  return ma_store(src, address, SizeDouble);
 }
 
 void MacroAssemblerLOONG64Compat::storePtr(Register src, AbsoluteAddress dest) {
