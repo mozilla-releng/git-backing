@@ -766,15 +766,15 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_load(Register dest, Address address,
         fcr = FaultingCodeRange(currentOffset());
         if (size == SizeByte) {
           if (extension == ZeroExtend) {
-            as_ldx_bu(dest, address.base, scratch);
+            as_ldx_bu(dest, scratch, address.base);
           } else {
-            as_ldx_b(dest, address.base, scratch);
+            as_ldx_b(dest, scratch, address.base);
           }
         } else {
           if (extension == ZeroExtend) {
-            as_ldx_hu(dest, address.base, scratch);
+            as_ldx_hu(dest, scratch, address.base);
           } else {
-            as_ldx_h(dest, address.base, scratch);
+            as_ldx_h(dest, scratch, address.base);
           }
         }
       }
@@ -828,12 +828,12 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_load(Register dest, Address address,
         fcr = FaultingCodeRange(currentOffset());
         if (size == SizeWord) {
           if (extension == ZeroExtend) {
-            as_ldx_wu(dest, address.base, scratch);
+            as_ldx_wu(dest, scratch, address.base);
           } else {
-            as_ldx_w(dest, address.base, scratch);
+            as_ldx_w(dest, scratch, address.base);
           }
         } else {
-          as_ldx_d(dest, address.base, scratch);
+          as_ldx_d(dest, scratch, address.base);
         }
       }
       break;
@@ -878,9 +878,9 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_store(
 
         fcr = FaultingCodeRange(currentOffset());
         if (size == SizeByte) {
-          as_stx_b(data, address.base, scratch);
+          as_stx_b(data, scratch, address.base);
         } else {
-          as_stx_h(data, address.base, scratch);
+          as_stx_h(data, scratch, address.base);
         }
       }
       break;
@@ -922,9 +922,9 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_store(
 
         fcr = FaultingCodeRange(currentOffset());
         if (size == SizeWord) {
-          as_stx_w(data, address.base, scratch);
+          as_stx_w(data, scratch, address.base);
         } else {
-          as_stx_d(data, address.base, scratch);
+          as_stx_d(data, scratch, address.base);
         }
       }
       break;
@@ -1315,7 +1315,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_fld_s(FloatRegister dest,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_fldx_s(dest, base, scratch);
+    as_fldx_s(dest, scratch, base);
   }
   return fcr;
 }
@@ -1335,7 +1335,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_fld_d(FloatRegister dest,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_fldx_d(dest, base, scratch);
+    as_fldx_d(dest, scratch, base);
   }
   return fcr;
 }
@@ -1355,7 +1355,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_fst_s(FloatRegister src,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_fstx_s(src, base, scratch);
+    as_fstx_s(src, scratch, base);
   }
   return fcr;
 }
@@ -1375,7 +1375,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_fst_d(FloatRegister src,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_fstx_d(src, base, scratch);
+    as_fstx_d(src, scratch, base);
   }
   return fcr;
 }
@@ -1395,7 +1395,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_vld(FloatRegister vd,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_vldx(vd, base, scratch);
+    as_vldx(vd, scratch, base);
   }
   return fcr;
 }
@@ -1415,7 +1415,7 @@ FaultingCodeRange MacroAssemblerLOONG64::ma_vst(FloatRegister vd,
     MOZ_ASSERT(base != scratch);
     ma_li(scratch, Imm32(offset));
     fcr = js::wasm::FaultingCodeRange(currentOffset());
-    as_vstx(vd, base, scratch);
+    as_vstx(vd, scratch, base);
   }
   return fcr;
 }
@@ -2458,7 +2458,7 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
   FaultingCodeRange fcr(currentOffset());
   switch (access.type()) {
     case Scalar::Int8:
-      as_ldx_b(output.gpr(), memoryBase, ptr);
+      as_ldx_b(output.gpr(), ptr, memoryBase);
       break;
     case Scalar::Uint8:
       if (access.isSplatSimd128Load()) {
@@ -2468,11 +2468,11 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
         fcr = FaultingCodeRange(currentOffset());
         as_vldrepl_b(output.fpu(), scratch, 0);
       } else {
-        as_ldx_bu(output.gpr(), memoryBase, ptr);
+        as_ldx_bu(output.gpr(), ptr, memoryBase);
       }
       break;
     case Scalar::Int16:
-      as_ldx_h(output.gpr(), memoryBase, ptr);
+      as_ldx_h(output.gpr(), ptr, memoryBase);
       break;
     case Scalar::Uint16:
       if (access.isSplatSimd128Load()) {
@@ -2482,17 +2482,17 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
         fcr = FaultingCodeRange(currentOffset());
         as_vldrepl_h(output.fpu(), scratch, 0);
       } else {
-        as_ldx_hu(output.gpr(), memoryBase, ptr);
+        as_ldx_hu(output.gpr(), ptr, memoryBase);
       }
       break;
     case Scalar::Int32:
-      as_ldx_w(output.gpr(), memoryBase, ptr);
+      as_ldx_w(output.gpr(), ptr, memoryBase);
       break;
     case Scalar::Uint32:
-      as_ldx_wu(output.gpr(), memoryBase, ptr);
+      as_ldx_wu(output.gpr(), ptr, memoryBase);
       break;
     case Scalar::Int64:
-      as_ldx_d(output.gpr(), memoryBase, ptr);
+      as_ldx_d(output.gpr(), ptr, memoryBase);
       break;
     case Scalar::Float32:
       if (access.isSplatSimd128Load()) {
@@ -2506,10 +2506,10 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
         const Register scratch = temps.Acquire();
         as_vldi(output.fpu(), 0);
         fcr = FaultingCodeRange(currentOffset());
-        as_ldx_wu(scratch, memoryBase, ptr);
+        as_ldx_wu(scratch, ptr, memoryBase);
         as_vinsgr2vr_w(output.fpu(), scratch, 0);
       } else {
-        as_fldx_s(output.fpu(), memoryBase, ptr);
+        as_fldx_s(output.fpu(), ptr, memoryBase);
       }
       break;
     case Scalar::Float64:
@@ -2520,7 +2520,7 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
         fcr = FaultingCodeRange(currentOffset());
         as_vldrepl_d(output.fpu(), scratch, 0);
       } else if (access.isWidenSimd128Load()) {
-        as_fldx_d(output.fpu(), memoryBase, ptr);
+        as_fldx_d(output.fpu(), ptr, memoryBase);
         switch (access.widenSimdOp()) {
           case wasm::SimdOp::V128Load8x8S:
             asMasm().widenLowInt8x16(output.fpu(), output.fpu());
@@ -2548,14 +2548,14 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmLoadImpl(
         const Register scratch = temps.Acquire();
         as_vldi(output.fpu(), 0);
         fcr = FaultingCodeRange(currentOffset());
-        as_ldx_d(scratch, memoryBase, ptr);
+        as_ldx_d(scratch, ptr, memoryBase);
         as_vinsgr2vr_d(output.fpu(), scratch, 0);
       } else {
-        as_fldx_d(output.fpu(), memoryBase, ptr);
+        as_fldx_d(output.fpu(), ptr, memoryBase);
       }
       break;
     case Scalar::Simd128:
-      as_vldx(output.fpu(), memoryBase, ptr);
+      as_vldx(output.fpu(), ptr, memoryBase);
       break;
     default:
       MOZ_CRASH("unexpected array type");
@@ -2761,27 +2761,27 @@ FaultingCodeRange MacroAssemblerLOONG64::wasmStoreImpl(
   switch (access.type()) {
     case Scalar::Int8:
     case Scalar::Uint8:
-      as_stx_b(value.gpr(), memoryBase, ptr);
+      as_stx_b(value.gpr(), ptr, memoryBase);
       break;
     case Scalar::Int16:
     case Scalar::Uint16:
-      as_stx_h(value.gpr(), memoryBase, ptr);
+      as_stx_h(value.gpr(), ptr, memoryBase);
       break;
     case Scalar::Int32:
     case Scalar::Uint32:
-      as_stx_w(value.gpr(), memoryBase, ptr);
+      as_stx_w(value.gpr(), ptr, memoryBase);
       break;
     case Scalar::Int64:
-      as_stx_d(value.gpr(), memoryBase, ptr);
+      as_stx_d(value.gpr(), ptr, memoryBase);
       break;
     case Scalar::Float64:
-      as_fstx_d(value.fpu(), memoryBase, ptr);
+      as_fstx_d(value.fpu(), ptr, memoryBase);
       break;
     case Scalar::Float32:
-      as_fstx_s(value.fpu(), memoryBase, ptr);
+      as_fstx_s(value.fpu(), ptr, memoryBase);
       break;
     case Scalar::Simd128:
-      as_vstx(value.fpu(), memoryBase, ptr);
+      as_vstx(value.fpu(), ptr, memoryBase);
       break;
     default:
       MOZ_CRASH("unexpected array type");

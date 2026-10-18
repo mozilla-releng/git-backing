@@ -22,7 +22,7 @@ for (const [op, insn] of [
          (then (i32.const 1)) (else (i32.const 2)))))`,
     "f",
     `bstrpick\\.d    \\$t6, \\$a0, 0x1f, 0x0
-     vldx            \\$vr0, \\$s7, \\$t6
+     vldx            \\$vr0, \\$t6, \\$s7
      ${insn}         \\$fcc0, \\$vr0
      bceqz           \\$fcc0, \\d+ -> ${HEX}+
      bge             \\$zero, \\$zero, \\d+ -> ${HEX}+
