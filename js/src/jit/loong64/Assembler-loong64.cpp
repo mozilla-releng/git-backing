@@ -4014,6 +4014,49 @@ template std::optional<int64_t>
 AssemblerLOONG64::EncodeSimdCompareImmediate<int64_t>(const SimdConstant& rhs,
                                                       Condition cond);
 
+template <uint32_t Scale>
+/* static */ std::optional<int32_t> AssemblerLOONG64::EncodeVldreplImmediate(
+    int64_t offset) {
+  static_assert(Scale <= 3);
+  constexpr int64_t kUnit = INT64_C(1) << Scale;
+  if (offset % kUnit != 0) {
+    return std::nullopt;
+  }
+  const int64_t value = offset / kUnit;
+  return is_intN(value, 12 - Scale)
+             ? std::make_optional(static_cast<int32_t>(value))
+             : std::nullopt;
+}
+template std::optional<int32_t> AssemblerLOONG64::EncodeVldreplImmediate<0>(
+    int64_t offset);
+template std::optional<int32_t> AssemblerLOONG64::EncodeVldreplImmediate<1>(
+    int64_t offset);
+template std::optional<int32_t> AssemblerLOONG64::EncodeVldreplImmediate<2>(
+    int64_t offset);
+template std::optional<int32_t> AssemblerLOONG64::EncodeVldreplImmediate<3>(
+    int64_t offset);
+
+template <uint32_t Scale>
+/* static */ std::optional<int32_t>
+AssemblerLOONG64::EncodeVstelmOffsetImmediate(int64_t offset) {
+  static_assert(Scale <= 3);
+  constexpr int64_t kUnit = INT64_C(1) << Scale;
+  if (offset % kUnit != 0) {
+    return std::nullopt;
+  }
+  const int64_t value = offset / kUnit;
+  return is_intN(value, 8) ? std::make_optional(static_cast<int32_t>(value))
+                           : std::nullopt;
+}
+template std::optional<int32_t>
+AssemblerLOONG64::EncodeVstelmOffsetImmediate<0>(int64_t offset);
+template std::optional<int32_t>
+AssemblerLOONG64::EncodeVstelmOffsetImmediate<1>(int64_t offset);
+template std::optional<int32_t>
+AssemblerLOONG64::EncodeVstelmOffsetImmediate<2>(int64_t offset);
+template std::optional<int32_t>
+AssemblerLOONG64::EncodeVstelmOffsetImmediate<3>(int64_t offset);
+
 /* ========================================================================= */
 
 void AssemblerLOONG64::bind(Label* label, BufferOffset boff) {
