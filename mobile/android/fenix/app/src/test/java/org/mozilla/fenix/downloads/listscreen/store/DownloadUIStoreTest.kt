@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.downloads.listscreen.store
 
+import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -15,7 +16,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -35,12 +35,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadDeleteMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIMapperMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.DownloadUIRenameMiddleware
 import org.mozilla.fenix.downloads.listscreen.middleware.FakeFileItemDescriptionProvider
 import org.mozilla.fenix.utils.Settings.DeleteDownloadBehavior
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class DownloadUIStoreTest {
 
     @Rule @JvmField val folder = TemporaryFolder()
@@ -53,7 +56,8 @@ class DownloadUIStoreTest {
     private val older = LocalDate.of(2025, 4, 20)
     private val fakeDateTimeProvider = FakeDateTimeProvider(today)
     private val zoneId = fakeDateTimeProvider.currentZoneId()
-    private var publicSuffixList: PublicSuffixList = mockk()
+    private val publicSuffixList =
+        PublicSuffixList(ApplicationProvider.getApplicationContext(), dispatcher = testDispatcher)
 
     private val testDelay = 100L
 
@@ -356,8 +360,6 @@ class DownloadUIStoreTest {
     @Test
     fun deleteOneElement() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
-
             val store =
                 provideDownloadUIStore(
                     initialState = BrowserState(downloads = mapOf("1" to downloadState1)),
@@ -443,8 +445,6 @@ class DownloadUIStoreTest {
     @Test
     fun deleteOneElementAndCancelBeforeDelayExpires() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
-
             val store =
                 provideDownloadUIStore(
                     initialState = BrowserState(downloads = mapOf("1" to downloadState1)),
@@ -488,8 +488,6 @@ class DownloadUIStoreTest {
     @Test
     fun deleteOneElementAndCancelAfterDelayExpired() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
-
             val store =
                 provideDownloadUIStore(
                     initialState = BrowserState(downloads = mapOf("1" to downloadState1)),
@@ -535,8 +533,6 @@ class DownloadUIStoreTest {
     @Test
     fun deleteTwoElementsAndCancelTwice() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
-
             val store =
                 provideDownloadUIStore(
                     initialState = BrowserState(downloads = mapOf("1" to downloadState1, "2" to downloadState2)),
@@ -598,8 +594,6 @@ class DownloadUIStoreTest {
     @Test
     fun `WHEN downloads store is initialised THEN downloads state is updated to be sorted by created time`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
-
             val fakeDateTimeProvider = FakeDateTimeProvider(LocalDate.of(2025, 5, 31))
             val zoneId = fakeDateTimeProvider.currentZoneId()
 
@@ -779,8 +773,6 @@ class DownloadUIStoreTest {
     @Test
     fun `GIVEN a download was cancelled WHEN downloading the same file THEN only the downloading download item is displayed`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
-
             val downloads =
                 mapOf(
                     "1" to
@@ -848,8 +840,6 @@ class DownloadUIStoreTest {
     @Test
     fun `GIVEN two downloads with identical file name and identical download status WHEN getting itemsState THEN only one download item is displayed`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
-
             val downloads =
                 mapOf(
                     "1" to
@@ -916,7 +906,6 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with identical file name and different directory path WHEN getting itemsState THEN both download items should be displayed`() {
-        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
 
         val downloads =
             mapOf(
@@ -996,7 +985,6 @@ class DownloadUIStoreTest {
 
     @Test
     fun `GIVEN two downloads with the same file name ,directory path and status WHEN getting itemsState THEN the newest download item is displayed`() {
-        every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
 
         val downloads =
             mapOf(
@@ -1065,8 +1053,6 @@ class DownloadUIStoreTest {
     @Test
     fun `GIVEN two downloads with identical file name and different download status WHEN getting itemsState THEN both download items are displayed`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("google.com")
-
             val downloads =
                 mapOf(
                     "1" to
@@ -1356,7 +1342,6 @@ class DownloadUIStoreTest {
     @Test
     fun `WHEN the RequestDelete action is dispatched on an complete download THEN download is deleted`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
             val removeDownloadUseCases: DownloadsUseCases.RemoveDownloadUseCase = mockk()
             coEvery { removeDownloadUseCases(any(), any()) } returns Unit
 
@@ -1502,8 +1487,6 @@ class DownloadUIStoreTest {
     @Test
     fun `GIVEN any state WHEN RenameFileConfirmed THEN DownloadUIState is updated with the new file state`() =
         runTest(testDispatcher) {
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred("mozilla.com")
-
             val fileName = "1.pdf"
             val filePath = folder.newFile(fileName).path
 
@@ -2164,6 +2147,24 @@ class DownloadUIStoreTest {
 
         assertTrue(hasCancelAction, "Expected CancelDownload action to be dispatched")
     }
+
+    @Test
+    fun `GIVEN a data URL download with appended trusted domain WHEN mapped THEN short url shows the data origin`() =
+        runTest(testDispatcher) {
+            val download =
+                DownloadState(
+                    id = "1",
+                    url =
+                        "data:application/octet-stream;base-64,ZXN0dGVzdGVzdHRlc3Q=#www.mozilla.org/.https://www.mozilla.org/downloads/test.pdf",
+                    status = DownloadState.Status.COMPLETED,
+                    fileName = "test.pdf",
+                )
+            val store = provideDownloadUIStore(initialState = BrowserState(downloads = mapOf("1" to download)))
+
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("data:", store.state.items.single().displayedShortUrl)
+        }
 
     private fun provideDownloadUIStore(
         initialState: BrowserState = BrowserState(),
