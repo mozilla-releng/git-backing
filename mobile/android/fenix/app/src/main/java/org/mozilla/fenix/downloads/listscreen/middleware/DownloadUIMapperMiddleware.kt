@@ -23,7 +23,7 @@ import org.mozilla.fenix.downloads.listscreen.store.DownloadUIAction
 import org.mozilla.fenix.downloads.listscreen.store.DownloadUIState
 import org.mozilla.fenix.downloads.listscreen.store.FileItem
 import org.mozilla.fenix.downloads.listscreen.store.TimeCategory
-import org.mozilla.fenix.ext.getBaseDomainUrl
+import org.mozilla.fenix.ext.toDownloadDisplayUrl
 
 /**
  * Middleware for loading and mapping download items from the browser store.
@@ -88,7 +88,7 @@ class DownloadUIMapperMiddleware(
             fileName = fileName,
             filePath = filePath,
             directoryPath = directoryPath,
-            displayedShortUrl = url.getBaseDomainUrl(publicSuffixList),
+            displayedShortUrl = url.toDownloadDisplayUrl(publicSuffixList),
             contentType = contentType,
             status = status.toFileItemStatus(progress = progress),
             timeCategory =

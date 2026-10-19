@@ -6,11 +6,12 @@ package org.mozilla.fenix.ext
 
 import android.text.Editable
 import androidx.compose.runtime.Composable
+import androidx.core.net.toUri
 import mozilla.components.compose.base.utils.inComposePreview
 import mozilla.components.lib.publicsuffixlist.PublicSuffixList
 import mozilla.components.support.base.utils.MAX_URI_LENGTH
+import mozilla.components.support.ktx.android.net.isHttpOrHttps
 import mozilla.components.support.ktx.kotlin.toShortUrl
-import mozilla.components.support.ktx.kotlin.tryGetHostFromUrl
 import org.mozilla.fenix.components.components
 
 /**
@@ -61,15 +62,31 @@ fun String?.replaceConsecutiveZeros(): String? = this?.replaceFirst(":0", ":")?.
  * it extracts the base domain from the URL embedded within the blob URL.
  *
  * @param publicSuffixList The [PublicSuffixList] used to resolve the registrable domain.
- * @return The registrable domain (e.g., "mozilla.org") or the host if a registrable domain cannot be determined.
+ * @return The registrable domain (e.g., "mozilla.org"), the host if a registrable domain cannot be determined, or null
+ *   if the String is not a real host.
  */
-internal suspend fun String.getBaseDomainUrl(publicSuffixList: PublicSuffixList): String {
-    val host =
-        when {
-            this.startsWith("blob:") -> this.substringAfter("blob:").tryGetHostFromUrl()
-            else -> this.tryGetHostFromUrl()
-        }
-    val registrableDomain = publicSuffixList.getPublicSuffixPlusOne(host).await()
-
-    return registrableDomain ?: host
+internal suspend fun String.getBaseDomainUrl(publicSuffixList: PublicSuffixList): String? {
+    val uri = removePrefix("blob:").toUri()
+    val host = uri.host?.takeIf { uri.isHttpOrHttps && it.isNotEmpty() } ?: return null
+    if (host.isIpLiteral()) {
+        return host
+    }
+    return publicSuffixList.getPublicSuffixPlusOne(host).await() ?: host
 }
+
+// Structural check only: must never resolve the host
+private fun String.isIpLiteral() = startsWith("[") || all { it.isDigit() || it == '.' }
+
+/**
+ * Returns a label identifying where a download came from, for display in the downloads list.
+ *
+ * For http(s) URLs (including blob: URLs wrapping them) this is the registrable domain or IP address, e.g.
+ * "https://www.mozilla.org/a/b" returns "mozilla.org". data: and blob: URLs without a trustworthy host return "data:"
+ * or "blob:". Anything else returns an empty string.
+ *
+ * @param publicSuffixList The [PublicSuffixList] used to resolve the registrable domain.
+ * @return A url formatted for display for downloads.
+ */
+internal suspend fun String.toDownloadDisplayUrl(publicSuffixList: PublicSuffixList): String =
+    this.getBaseDomainUrl(publicSuffixList)
+        ?: toUri().scheme?.lowercase()?.takeIf { it == "data" || it == "blob" }?.let { "$it:" }.orEmpty()
