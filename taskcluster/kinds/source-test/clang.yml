@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
 task-defaults:
-    run-on-repo-type: [hg]
     run-on-projects: ["trunk"]
     platform: linux64/debug
     worker-type: t-linux-docker-amd
@@ -16,7 +15,6 @@ task-defaults:
         kind: other
         tier: 2
     run:
-        clone-with: hg
         using: run-task
         tooltool-downloads: public
     fetches:
@@ -95,7 +93,6 @@ external:
             - type: file
               name: public/profile_resource-usage.json
               path: /builds/worker/profile_resource-usage.json
-
 
 unittest:
     description: Ensure static analysis works correctly

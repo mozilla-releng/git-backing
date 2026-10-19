@@ -53,7 +53,6 @@ firefox-ci:
     run:
         # Keep cloning from hg until bug 2080077: the ci subsuite hits the
         # worker memory limit when run from a git checkout.
-        clone-with: hg
         using: python-test
         subsuite: ci
     when:
@@ -164,7 +163,6 @@ mochitest-harness:
             - 'testing/mozharness/mozharness/mozilla/structuredlog.py'
             - 'testing/mozharness/mozharness/mozilla/testing/errors.py'
             - 'testing/profiles/**'
-
 
 mozbase:
     description: testing/mozbase unit tests
