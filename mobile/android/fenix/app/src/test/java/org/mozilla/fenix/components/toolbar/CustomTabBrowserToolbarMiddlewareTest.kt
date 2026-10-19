@@ -7,8 +7,6 @@
 package org.mozilla.fenix.components.toolbar
 
 import android.graphics.Bitmap
-import android.net.InetAddresses
-import android.util.Patterns
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
@@ -82,6 +80,7 @@ import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Co
 import org.mozilla.fenix.components.toolbar.CustomTabBrowserToolbarMiddleware.Companion.StartPageActions.SiteInfoClicked
 import org.mozilla.fenix.customtabs.ExternalAppBrowserFragmentDirections
 import org.mozilla.fenix.helpers.FenixGleanTestRule
+import org.mozilla.fenix.helpers.ShadowInetAddresses
 import org.mozilla.fenix.telemetry.ACTION_CLOSE_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_MENU_CLICKED
 import org.mozilla.fenix.telemetry.ACTION_SECURITY_INDICATOR_CLICKED
@@ -92,8 +91,6 @@ import org.mozilla.fenix.telemetry.SURFACE_CUSTOM_TAB
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.Implementation
-import org.robolectric.annotation.Implements
 
 @RunWith(RobolectricTestRunner::class)
 @Config(shadows = [ShadowInetAddresses::class])
@@ -1272,23 +1269,5 @@ class CustomTabBrowserToolbarMiddlewareTest {
         assertEquals(expected.title, actual.title)
         assertEquals(expected.url.toString(), actual.url.toString())
         // Cannot check the onClick and onLongClick anonymous object
-    }
-}
-
-/**
- * Robolectric default implementation of [InetAddresses] returns false for any address. This shadow is used to override
- * that behavior and return true for any IP address.
- */
-@Implements(InetAddresses::class)
-// Robolectric instantiates shadows, so this has to stay a class.
-@Suppress("UtilityClassWithPublicConstructor")
-private class ShadowInetAddresses {
-    companion object {
-        @Implementation
-        @JvmStatic
-        @Suppress("DEPRECATION")
-        fun isNumericAddress(address: String): Boolean {
-            return Patterns.IP_ADDRESS.matcher(address).matches() || address.contains(":")
-        }
     }
 }
