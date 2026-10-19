@@ -1,0 +1,140 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* The eyedropper shown by EyeDropper.sys.mjs, in the anonymous content of the
+   browser window's document. EyeDropper.sys.mjs sets:
+   - --eyedropper-page-left, --eyedropper-page-top, --eyedropper-page-width and
+     --eyedropper-page-height on .eyedropper-viewport, where the page is.
+   - --eyedropper-x and --eyedropper-y on .eyedropper, where the cursor is in
+     the page.
+   - --eyedropper-color on .eyedropper, the color under the cursor.
+   - The label-above, label-left and label-right attributes on .eyedropper,
+     where the label goes when there is not enough room for it below the
+     magnifier. */
+
+@import url("chrome://global/skin/design-system/tokens-platform.css");
+
+/* Covers the page and clips the eyedropper to it, so that it is not drawn over
+   the browser UI. */
+.eyedropper-viewport {
+  position: fixed;
+  /* The position and size of the <browser>, which do not depend on the
+     direction. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  inset: var(--eyedropper-page-top) auto auto var(--eyedropper-page-left);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: var(--eyedropper-page-width);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  height: var(--eyedropper-page-height);
+  overflow: clip;
+  pointer-events: none;
+}
+
+.eyedropper {
+  /* The ring around the magnifier, showing the color being picked. */
+  --magnifier-ring-width: 6px;
+
+  /* Like the DevTools eyedropper, a neutral gray that stands out on both
+     light and dark pages, whatever the theme. */
+  --neutral-background-color: #e0e0e0;
+  --neutral-text-color: #333;
+
+  position: absolute;
+  /* The magnifier follows the cursor, whose position does not depend on the
+     direction. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  top: var(--eyedropper-y);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  left: var(--eyedropper-x);
+  /* Center the magnifier on the cursor. The label is out of the flow, so this
+     is only as big as the magnifier. */
+  translate: -50% -50%;
+  /* Prevent interacting with the page when hovering and clicking. */
+  pointer-events: auto;
+  /* The # of the color value must stay on the left. */
+  direction: ltr;
+  user-select: none;
+}
+
+.eyedropper-canvas {
+  display: block;
+  /* EyeDropper.sys.mjs reads the size of the magnifier from here. */
+  width: var(--size-image-xxlarge);
+  height: var(--size-image-xxlarge);
+  border-radius: var(--border-radius-circle);
+  /* The ring around the magnifier shows the color being picked, with an edge
+     to tell it apart from a page of a similar color. It has no box-shadow
+     token. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  box-shadow:
+    0 0 0 var(--magnifier-ring-width) var(--eyedropper-color),
+    0 0 0 calc(var(--magnifier-ring-width) + var(--border-width)) var(--neutral-background-color),
+    var(--box-shadow-level-2);
+  image-rendering: crisp-edges;
+  cursor: none;
+  forced-color-adjust: none;
+}
+
+.eyedropper-label {
+  /* Keeps the label clear of the ring and its edge. */
+  --label-gap: calc(var(--magnifier-ring-width) + var(--border-width) + var(--space-xsmall));
+
+  position: absolute;
+  /* Below the magnifier, horizontally centered. */
+  top: calc(100% + var(--label-gap));
+  left: 50%;
+  translate: -50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xsmall);
+  box-sizing: border-box;
+  /* The label is as wide as the longest color value. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  width: 90px;
+  height: var(--size-item-medium);
+  padding-inline: var(--space-xsmall);
+  border-radius: var(--border-radius-xsmall);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  background-color: var(--neutral-background-color);
+  box-shadow: var(--box-shadow-level-2);
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  color: var(--neutral-text-color);
+
+  /* Not enough room below the magnifier. */
+  .eyedropper[label-above] > & {
+    top: auto;
+    bottom: calc(100% + var(--label-gap));
+  }
+
+  /* Not enough room to the right of the magnifier. */
+  .eyedropper[label-left] > & {
+    left: auto;
+    right: 50%;
+    translate: none;
+  }
+
+  /* Not enough room to the left of the magnifier. */
+  .eyedropper[label-right] > & {
+    translate: none;
+  }
+}
+
+.eyedropper-color-preview {
+  flex: none;
+  width: var(--size-item-small);
+  height: var(--size-item-small);
+  box-sizing: border-box;
+  border: var(--border-width) solid var(--border-color);
+  /* The color being picked. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
+  background-color: var(--eyedropper-color);
+  forced-color-adjust: none;
+}
+
+.eyedropper-color-value {
+  flex: 1;
+  font-family: monospace;
+  font-size: var(--font-size-small);
+  text-align: center;
+}
