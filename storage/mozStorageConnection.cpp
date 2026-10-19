@@ -1646,15 +1646,18 @@ nsresult Connection::ensureOperationSupported(
 }
 
 bool Connection::isConnectionReadyOnThisThread() {
+  // The async thread may get here while holding sharedDBMutex, so it must not
+  // take sharedAsyncExecutionMutex, as Statement::internalFinalize takes the
+  // two in the opposite order.
+  if (mAsyncExecutionThread && mAsyncExecutionThread->IsOnCurrentThread()) {
+    return true;
+  }
 #ifdef DEBUG
   {
     MutexAutoLock lockedScope(sharedAsyncExecutionMutex);
     MOZ_ASSERT_IF(connectionReady(), !mConnectionClosed);
   }
 #endif
-  if (mAsyncExecutionThread && mAsyncExecutionThread->IsOnCurrentThread()) {
-    return true;
-  }
   return connectionReady();
 }
 
