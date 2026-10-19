@@ -9,6 +9,14 @@ function debug(aStr) {
   }
 }
 
+/**
+ * @typedef {object} InputPickerCallbacks
+ * @property {(detail: object) => void} onValueChanged Called when the user
+ *           changes the value in the picker
+ * @property {() => void} onValueCleared Called when the user clears the value
+ * @property {() => void} onClosed Called when the picker closes by itself
+ */
+
 /*
  * InputPickerParentCommon receives message from content side (input box) and
  * is reposible for opening, closing and updating the picker. Similarly,
@@ -17,6 +25,8 @@ function debug(aStr) {
  */
 export class InputPickerParentCommon extends JSWindowActorParent {
   #namespace;
+  /** @type {boolean} */
+  #createXULPanel;
   #picker;
   /** @type {Element | undefined} */
   #oldFocus;
@@ -24,12 +34,15 @@ export class InputPickerParentCommon extends JSWindowActorParent {
   #abortController;
 
   /**
-   * @param {string} namespace Affects the input panel id, mostly to prevent
-   *                           accidental mis-pairing of wrong panel and actor.
+   * @param {string} aNamespace Affects the input panel id, mostly to prevent
+   *                            accidental mis-pairing of wrong panel and actor.
+   * @param {boolean} aCreateXULPanel Whether to create a XUL panel for the
+   *                                  picker.
    */
-  constructor(namespace) {
+  constructor(aNamespace, aCreateXULPanel = true) {
     super();
-    this.#namespace = namespace;
+    this.#namespace = aNamespace;
+    this.#createXULPanel = aCreateXULPanel;
   }
 
   receiveMessage(aMessage) {
@@ -51,32 +64,14 @@ export class InputPickerParentCommon extends JSWindowActorParent {
     }
   }
 
-  handleEvent(aEvent) {
-    debug("handleEvent: " + aEvent.type);
-    switch (aEvent.type) {
-      case "InputPickerValueCleared": {
-        this.sendAsyncMessage("InputPicker:ValueChanged", null);
-        break;
-      }
-      case "InputPickerValueChanged": {
-        this.sendAsyncMessage("InputPicker:ValueChanged", aEvent.detail);
-        break;
-      }
-      case "popuphidden": {
-        this.sendAsyncMessage(`InputPicker:Closed`, {});
-        this.close();
-        break;
-      }
-      default:
-        break;
-    }
-  }
-
   /**
-   * A panel creator function called when showing a picker
+   * A picker creator function called when showing a picker
    *
-   * @param {XULElement} _panel A panel element
-   * @returns A panel object that manages the element
+   * @param {XULElement | undefined} _panel A panel element, unless the actor was
+   *        created without one
+   * @returns A picker object, with `openPicker(type, rect, detail,
+   *          isDarkBackground, callbacks)` and `closePicker()` methods, which
+   *          reports through the given {@link InputPickerCallbacks}
    */
   createPickerImpl(_panel) {
     throw new Error("Not implemented");
@@ -97,29 +92,57 @@ export class InputPickerParentCommon extends JSWindowActorParent {
     this.#cleanupPicker();
     let window = this.browsingContext.top.topChromeWindow;
     let doc = window.document;
-    const id = `${this.#namespace}Panel`;
-    let panel = doc.getElementById(id);
-    if (!panel) {
-      panel = doc.createXULElement("panel");
-      panel.id = id;
-      panel.setAttribute("type", "arrow");
-      panel.setAttribute("orient", "vertical");
-      panel.setAttribute("ignorekeys", "true");
-      panel.setAttribute("noautofocus", "true");
-      // This ensures that clicks on the anchored input box are never consumed.
-      panel.setAttribute("consumeoutsideclicks", "never");
-      panel.setAttribute("level", "parent");
-      panel.setAttribute("tabspecific", "true");
-      let container =
-        doc.getElementById("mainPopupSet") ||
-        doc.querySelector("popupset") ||
-        doc.documentElement.appendChild(doc.createXULElement("popupset"));
-      container.appendChild(panel);
+    let panel;
+    if (this.#createXULPanel) {
+      const id = `${this.#namespace}Panel`;
+      panel = doc.getElementById(id);
+      if (!panel) {
+        panel = doc.createXULElement("panel");
+        panel.id = id;
+        panel.setAttribute("type", "arrow");
+        panel.setAttribute("orient", "vertical");
+        panel.setAttribute("ignorekeys", "true");
+        panel.setAttribute("noautofocus", "true");
+        // This ensures that clicks on the anchored input box are never consumed.
+        panel.setAttribute("consumeoutsideclicks", "never");
+        panel.setAttribute("level", "parent");
+        panel.setAttribute("tabspecific", "true");
+        let container =
+          doc.getElementById("mainPopupSet") ||
+          doc.querySelector("popupset") ||
+          doc.documentElement.appendChild(doc.createXULElement("popupset"));
+        container.appendChild(panel);
+      }
     }
+
     this.#oldFocus = doc.activeElement;
-    this.#picker = this.createPickerImpl(panel);
-    this.#picker.openPicker(type, rect, detail, aData.isDarkBackground);
-    this.addPickerListeners(panel);
+    const picker = this.createPickerImpl(panel);
+    this.#picker = picker;
+    picker.openPicker(type, rect, detail, aData.isDarkBackground, {
+      onValueChanged: value => this.#pickerValueChanged(picker, value),
+      onValueCleared: () => this.#pickerValueChanged(picker, null),
+      onClosed: () => this.#pickerClosed(picker),
+    });
+    if (panel) {
+      this.#abortController = new AbortController();
+      panel.addEventListener("popuphidden", () => {
+        this.#pickerClosed(picker);
+      }, { signal: this.#abortController.signal });
+    }
+  }
+
+  // Reports from a picker that has since been replaced or closed are ignored.
+  #pickerValueChanged(picker, value) {
+    if (picker === this.#picker) {
+      this.sendAsyncMessage("InputPicker:ValueChanged", value);
+    }
+  }
+
+  #pickerClosed(picker) {
+    if (picker === this.#picker) {
+      this.sendAsyncMessage(`InputPicker:Closed`, {});
+      this.close();
+    }
   }
 
   #cleanupPicker() {
@@ -127,7 +150,10 @@ export class InputPickerParentCommon extends JSWindowActorParent {
       return;
     }
     this.#picker.closePicker();
-    this.#abortController.abort();
+    if (this.#abortController) {
+      this.#abortController.abort();
+      this.#abortController = null;
+    }
     this.#picker = null;
   }
 
@@ -137,21 +163,5 @@ export class InputPickerParentCommon extends JSWindowActorParent {
     // Restore focus to where it was before the picker opened.
     this.#oldFocus?.focus();
     this.#oldFocus = null;
-  }
-
-  // Listen to picker's event.
-  addPickerListeners(panel) {
-    if (!this.#picker) {
-      return;
-    }
-    this.#abortController = new AbortController();
-    const { signal } = this.#abortController;
-    panel.addEventListener("popuphidden", this, { signal });
-    panel.addEventListener("InputPickerValueChanged", this, {
-      signal,
-    });
-    panel.addEventListener("InputPickerValueCleared", this, {
-      signal,
-    });
   }
 }
