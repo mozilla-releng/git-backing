@@ -101,12 +101,7 @@ fun WebCompatReporter(store: WebCompatReporterStore) {
     val appComponents = components
 
     LaunchedEffect(state.enteredUrl) {
-        baseDomain =
-            if (state.enteredUrl.isNotEmpty()) {
-                state.enteredUrl.getBaseDomainUrl(publicSuffixList = appComponents.publicSuffixList)
-            } else {
-                ""
-            }
+        baseDomain = state.enteredUrl.getBaseDomainUrl(publicSuffixList = appComponents.publicSuffixList).orEmpty()
     }
 
     Scaffold(
