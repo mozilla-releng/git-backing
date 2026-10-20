@@ -163,11 +163,6 @@ static MOZ_FORMAT_PRINTF(1, 2) void Output(const char* fmt, ...) {
   va_end(ap);
 }
 
-/**
- * Return true if |arg| is a flag with the given string.
- *
- * A flag starts with one or two `-` characters, or a `/` character on windows.
- */
 static bool IsFlag(const char* arg, const char* s) {
   if (*arg == '-') {
     if (*++arg == '-') ++arg;
