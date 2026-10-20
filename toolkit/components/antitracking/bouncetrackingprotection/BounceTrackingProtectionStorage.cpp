@@ -14,7 +14,7 @@
 #include "mozIStorageStatement.h"
 #include "mozStorageCID.h"
 #include "mozilla/Components.h"
-#include "mozilla/Monitor.h"
+#include "mozilla/Mutex.h"
 #include "mozilla/Services.h"
 #include "nsCOMPtr.h"
 #include "nsDirectoryServiceUtils.h"
@@ -38,7 +38,7 @@ NS_IMPL_ISUPPORTS(BounceTrackingProtectionStorage, nsIAsyncShutdownBlocker,
                   nsIObserver);
 
 BounceTrackingProtectionStorage::BounceTrackingProtectionStorage()
-    : mMonitor("mozilla::BounceTrackingProtectionStorage::mMonitor"),
+    : mMutex("mozilla::BounceTrackingProtectionStorage::mMutex"),
       mPendingWrites(0) {};
 
 RefPtr<BounceTrackingStateGlobal>
@@ -184,7 +184,7 @@ nsresult BounceTrackingProtectionStorage::UpdateDBEntry(
                  nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID,
              "Must not write private browsing data to disk.");
 
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (MOZ_LOG_TEST(gBounceTrackingProtectionLog, LogLevel::Debug)) {
@@ -276,7 +276,7 @@ nsresult BounceTrackingProtectionStorage::UpsertDataBulk(
     mozIStorageConnection* aDatabaseConnection,
     const nsTArray<PendingUpdate>& aUpdates) {
   MOZ_ASSERT(!NS_IsMainThread());
-  MOZ_ASSERT(aDatabaseConnection);
+  NS_ENSURE_TRUE(aDatabaseConnection, NS_ERROR_NOT_AVAILABLE);
   MOZ_ASSERT(!aUpdates.IsEmpty());
 
   // Start a transaction for better performance
@@ -351,7 +351,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntries(
                      nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID,
              "Must not write private browsing data to the table.");
 
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Flush pending updates to disk before deleting data since pending updates
@@ -403,7 +403,7 @@ nsresult BounceTrackingProtectionStorage::Clear() {
   mPendingUpdates.Clear();
 
   // Clear on disk data.
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   IncrementPendingWrites();
@@ -420,6 +420,24 @@ nsresult BounceTrackingProtectionStorage::Clear() {
   return NS_OK;
 }
 
+RefPtr<GenericPromise> BounceTrackingProtectionStorage::TestFlush() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsresult rv = CheckDBAvailable();
+  if (NS_FAILED(rv)) {
+    return GenericPromise::CreateAndReject(rv, __func__);
+  }
+
+  rv = FlushPendingUpdates();
+  if (NS_FAILED(rv)) {
+    return GenericPromise::CreateAndReject(rv, __func__);
+  }
+
+  return InvokeAsync(mBackgroundThread, __func__, []() {
+    return GenericPromise::CreateAndResolve(true, __func__);
+  });
+}
+
 nsresult BounceTrackingProtectionStorage::DeleteDBEntriesInTimeRange(
     OriginAttributes* aOriginAttributes, PRTime aFrom, Maybe<PRTime> aTo,
     Maybe<BounceTrackingProtectionStorage::EntryType> aEntryType) {
@@ -427,7 +445,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntriesInTimeRange(
   NS_ENSURE_ARG_MIN(aFrom, 0);
   NS_ENSURE_TRUE(aTo.isNothing() || aTo.value() > aFrom, NS_ERROR_INVALID_ARG);
 
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Flush pending updates to disk before deleting data since pending updates
@@ -464,7 +482,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntriesByType(
     BounceTrackingProtectionStorage::EntryType aEntryType) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Flush pending updates to disk before deleting data since pending updates
@@ -506,7 +524,7 @@ BounceTrackingProtectionStorage::DeleteDBEntriesByOriginAttributesPattern(
     MOZ_ASSERT(!aSiteHost->IsEmpty(), "aSiteHost must not be empty.");
   }
 
-  nsresult rv = WaitForInitialization();
+  nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Flush pending updates to disk before deleting data since pending updates
@@ -537,7 +555,7 @@ BounceTrackingProtectionStorage::DeleteDBEntriesByOriginAttributesPattern(
 NS_IMETHODIMP BounceTrackingProtectionStorage::BlockShutdown(
     nsIAsyncShutdownClient* aClient) {
   MOZ_ASSERT(NS_IsMainThread());
-  DebugOnly<nsresult> rv = WaitForInitialization();
+  DebugOnly<nsresult> rv = CheckDBAvailable();
   // If init failed log a warning. This isn't an early return since we still
   // need to try to tear down, including removing the shutdown blocker. A
   // failure state shouldn't cause a shutdown hang.
@@ -549,7 +567,7 @@ NS_IMETHODIMP BounceTrackingProtectionStorage::BlockShutdown(
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "BlockShutdown: FlushPendingUpdates failed");
 
-  MonitorAutoLock lock(mMonitor);
+  MutexAutoLock lock(mMutex);
   mShuttingDown.Flip();
 
   RefPtr<BounceTrackingProtectionStorage> self = this;
@@ -557,7 +575,7 @@ NS_IMETHODIMP BounceTrackingProtectionStorage::BlockShutdown(
       NS_NewRunnableFunction(
           "BounceTrackingProtectionStorage::BlockShutdown",
           [self]() {
-            MonitorAutoLock lock(self->mMonitor);
+            MutexAutoLock lock(self->mMutex);
 
             MOZ_ASSERT(self->mPendingWrites == 0);
 
@@ -579,13 +597,9 @@ NS_IMETHODIMP BounceTrackingProtectionStorage::BlockShutdown(
   return NS_OK;
 }
 
-nsresult BounceTrackingProtectionStorage::WaitForInitialization() {
-  MOZ_ASSERT(NS_IsMainThread(),
-             "Must only wait for initialization in the main thread.");
-  MonitorAutoLock lock(mMonitor);
-  while (!mInitialized && !mErrored && !mShuttingDown) {
-    mMonitor.Wait();
-  }
+nsresult BounceTrackingProtectionStorage::CheckDBAvailable() {
+  MOZ_ASSERT(NS_IsMainThread());
+  MutexAutoLock lock(mMutex);
   if (mErrored) {
     return NS_ERROR_FAILURE;
   }
@@ -658,9 +672,8 @@ NS_IMETHODIMP BounceTrackingProtectionStorage::GetName(nsAString& aName) {
 nsresult BounceTrackingProtectionStorage::Init() {
   nsresult rv = InitInternal();
   if (NS_FAILED(rv)) {
-    MonitorAutoLock lock(mMonitor);
+    MutexAutoLock lock(mMutex);
     mErrored.Flip();
-    mMonitor.NotifyAll();
   }
   return rv;
 }
@@ -714,26 +727,23 @@ nsresult BounceTrackingProtectionStorage::InitInternal() {
 
   RefPtr<BounceTrackingProtectionStorage> self = this;
 
+  // Database operations dispatched to mBackgroundThread after this run once
+  // initialization has finished. They are skipped if it failed.
   return mBackgroundThread->Dispatch(
       NS_NewRunnableFunction("BounceTrackingProtectionStorage::Init",
                              [self]() {
-                               MonitorAutoLock lock(self->mMonitor);
                                nsresult rv = self->CreateDatabaseConnection();
-                               if (NS_WARN_IF(NS_FAILED(rv))) {
-                                 self->mErrored.Flip();
-                                 self->mMonitor.NotifyAll();
-                                 return;
+                               if (NS_SUCCEEDED(rv)) {
+                                 rv = self->LoadMemoryStateFromDisk();
                                }
-
-                               rv = self->LoadMemoryStateFromDisk();
                                if (NS_WARN_IF(NS_FAILED(rv))) {
+                                 if (self->mDatabaseConnection) {
+                                   (void)self->mDatabaseConnection->Close();
+                                   self->mDatabaseConnection = nullptr;
+                                 }
+                                 MutexAutoLock lock(self->mMutex);
                                  self->mErrored.Flip();
-                                 self->mMonitor.NotifyAll();
-                                 return;
                                }
-
-                               self->mInitialized.Flip();
-                               self->mMonitor.NotifyAll();
                              }),
       NS_DISPATCH_EVENT_MAY_BLOCK);
 }
@@ -889,13 +899,13 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
 }
 
 void BounceTrackingProtectionStorage::IncrementPendingWrites() {
-  MonitorAutoLock lock(mMonitor);
+  MutexAutoLock lock(mMutex);
   MOZ_ASSERT(mPendingWrites < std::numeric_limits<uint32_t>::max());
   mPendingWrites++;
 }
 
 void BounceTrackingProtectionStorage::DecrementPendingWrites() {
-  MonitorAutoLock lock(mMonitor);
+  MutexAutoLock lock(mMutex);
   MOZ_ASSERT(mPendingWrites > 0);
   mPendingWrites--;
 }
@@ -906,7 +916,7 @@ nsresult BounceTrackingProtectionStorage::DeleteData(
     Maybe<OriginAttributes> aOriginAttributes, const nsACString& aSiteHost) {
   MOZ_ASSERT(!NS_IsMainThread(),
              "Must not write to the table from the main thread.");
-  MOZ_ASSERT(aDatabaseConnection);
+  NS_ENSURE_TRUE(aDatabaseConnection, NS_ERROR_NOT_AVAILABLE);
   MOZ_ASSERT(!aSiteHost.IsEmpty());
   MOZ_ASSERT(aOriginAttributes.isNothing() ||
              aOriginAttributes->mPrivateBrowsingId ==
@@ -945,7 +955,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDataInTimeRange(
     Maybe<BounceTrackingProtectionStorage::EntryType> aEntryType) {
   MOZ_ASSERT(!NS_IsMainThread(),
              "Must not write to the table from the main thread.");
-  MOZ_ASSERT(aDatabaseConnection);
+  NS_ENSURE_TRUE(aDatabaseConnection, NS_ERROR_NOT_AVAILABLE);
   MOZ_ASSERT(aOriginAttributes.isNothing() ||
              aOriginAttributes->mPrivateBrowsingId ==
                  nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID);
@@ -1007,7 +1017,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDataByType(
     BounceTrackingProtectionStorage::EntryType aEntryType) {
   MOZ_ASSERT(!NS_IsMainThread(),
              "Must not write to the table from the main thread.");
-  MOZ_ASSERT(aDatabaseConnection);
+  NS_ENSURE_TRUE(aDatabaseConnection, NS_ERROR_NOT_AVAILABLE);
   MOZ_ASSERT(aOriginAttributes.isNothing() ||
              aOriginAttributes->mPrivateBrowsingId ==
                  nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID);
@@ -1049,7 +1059,7 @@ nsresult BounceTrackingProtectionStorage::DeleteDataByOriginAttributesPattern(
     const Maybe<nsCString>& aSiteHost) {
   MOZ_ASSERT(!NS_IsMainThread(),
              "Must not write to the table from the main thread.");
-  MOZ_ASSERT(aDatabaseConnection);
+  NS_ENSURE_TRUE(aDatabaseConnection, NS_ERROR_NOT_AVAILABLE);
   if (aSiteHost.isSome()) {
     MOZ_ASSERT(!aSiteHost->IsEmpty(), "aSiteHost must not be empty.");
   }

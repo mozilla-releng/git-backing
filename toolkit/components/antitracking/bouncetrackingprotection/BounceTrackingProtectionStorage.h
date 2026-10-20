@@ -6,7 +6,8 @@
 
 #include "mozIStorageFunction.h"
 #include "mozilla/Logging.h"
-#include "mozilla/Monitor.h"
+#include "mozilla/MozPromise.h"
+#include "mozilla/Mutex.h"
 #include "mozilla/ThreadSafety.h"
 #include "mozilla/WeakPtr.h"
 #include "mozilla/dom/FlippedOnce.h"
@@ -98,6 +99,11 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
   // Clear all state.
   [[nodiscard]] nsresult Clear();
 
+  // Flushes pending updates. Resolves once all queued database operations,
+  // including initialization and loading the on-disk state into memory, have
+  // completed.
+  RefPtr<GenericPromise> TestFlush();
+
  private:
   [[nodiscard]] nsresult InitInternal();
 
@@ -111,9 +117,10 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
   // initialized and not-yet finalized
   RefPtr<mozIStorageConnection> mDatabaseConnection;  // Worker thread only
 
-  // Wait (non-blocking) until the service is fully initialized. We may be
-  // waiting for that async work started by Init().
-  [[nodiscard]] nsresult WaitForInitialization();
+  // Returns an error if initialization failed or shutdown has started. Does not
+  // wait for initialization: database operations dispatched to
+  // mBackgroundThread before it has finished run after it.
+  [[nodiscard]] nsresult CheckDBAvailable();
 
   // Called to indicate to the async shutdown service that we are all wrapped
   // up. This also spins down the worker thread, since it is called after all
@@ -189,15 +196,12 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
       mozIStorageConnection* aDatabaseConnection,
       const nsTArray<PendingUpdate>& aUpdates);
 
-  // Service state management. We protect these variables with a monitor. This
-  // monitor is also used to signal the completion of initialization and
-  // finalization performed in the worker thread.
-  Monitor mMonitor;
+  // Service state management. We protect these variables with a mutex.
+  Mutex mMutex;
 
-  FlippedOnce<false> mInitialized MOZ_GUARDED_BY(mMonitor);
-  FlippedOnce<false> mErrored MOZ_GUARDED_BY(mMonitor);
-  FlippedOnce<false> mShuttingDown MOZ_GUARDED_BY(mMonitor);
-  uint32_t mPendingWrites MOZ_GUARDED_BY(mMonitor);
+  FlippedOnce<false> mErrored MOZ_GUARDED_BY(mMutex);
+  FlippedOnce<false> mShuttingDown MOZ_GUARDED_BY(mMutex);
+  uint32_t mPendingWrites MOZ_GUARDED_BY(mMutex);
 
   // The pending updates to be flushed to the database in bulk.
   // Only holds changes that go through UpdateDBEntry.
