@@ -433,8 +433,6 @@ nsWindowsShellService::CheckCurrentProcessAUMIDForTesting(
   HRESULT hr = GetCurrentProcessExplicitAppUserModelID(&id);
 
   if (FAILED(hr)) {
-    // Process AUMID may not be set on MSIX builds,
-    // if so we should return a dummy value
     if (widget::WinUtils::HasPackageIdentity()) {
       aRetAumid.Assign(u"MSIXAumidTestValue"_ns);
       return NS_OK;
