@@ -413,8 +413,10 @@ Phabricator revision.
 ## code-review-build-test
 
 If a task set this boolean attribute to `true`, it will be processed by the code
-review bot build & test analysis, and the task will run for every new Phabricator
-diff. Any supported and detected issue will be automatically reported on the
+review bot build & test analysis, and the task will be considered for every new
+Phabricator diff. Selected tasks are still subject to their normal optimization
+(e.g. `skip-unless-schedules` for builds), so only those affected by the diff
+will run. Any supported and detected issue will be automatically reported on the
 Phabricator revision.
 
 ## retrigger

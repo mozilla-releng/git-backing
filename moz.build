@@ -100,6 +100,10 @@ with Files("*gradle*"):
     BUG_COMPONENT = ("GeckoView", "General")
     SCHEDULES.exclusive = ["android"]
 
+with Files("try_task_config.json"):
+    BUG_COMPONENT = ("Developer Infrastructure", "Try")
+    SCHEDULES.exclusive = []
+
 with Files(".mcp.json"):
     BUG_COMPONENT = ("Developer Infrastructure", "AI for Development")
 
