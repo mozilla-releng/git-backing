@@ -4,6 +4,8 @@
 #ifndef mozilla_BounceTrackingProtectionStorage_h_
 #define mozilla_BounceTrackingProtectionStorage_h_
 
+#include <functional>
+
 #include "mozIStorageFunction.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MozPromise.h"
@@ -16,6 +18,7 @@
 #include "nsIObserver.h"
 #include "nsISupports.h"
 #include "nsTHashMap.h"
+#include "nsTHashSet.h"
 #include "mozIStorageConnection.h"
 #include "mozilla/OriginAttributesHashKey.h"
 
@@ -217,6 +220,31 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
   // bounce tracking state per OA, e.g. to separate private browsing from normal
   // browsing.
   StateGlobalMap mStateGlobal;
+
+  // Whether the on-disk state has been loaded into mStateGlobal. Main thread
+  // only.
+  bool mMemoryStateLoaded = false;
+
+  // Database operations issued before the on-disk state was loaded into memory.
+  // Main thread only.
+  // Loaded entries matching a deletion are skipped.
+  nsTArray<std::function<bool(const ImportEntry&)>> mDeletionsBeforeLoad;
+  // Loaded entries for these sites are merged into the in-memory state and the
+  // merged result is written back, since the database row now holds the value
+  // written before load.
+  nsTHashMap<OriginAttributesHashKey, nsTHashSet<nsCString>>
+      mSitesWrittenBeforeLoad;
+
+  void NoteSiteWrittenBeforeLoad(const OriginAttributes& aOriginAttributes,
+                                 const nsACString& aSiteHost);
+  void NoteDeletionBeforeLoad(
+      std::function<bool(const ImportEntry&)>&& aMatches);
+  bool IsDeletedBeforeLoad(const ImportEntry& aEntry) const;
+  bool IsSiteWrittenBeforeLoad(const ImportEntry& aEntry);
+
+  // Writes the in-memory state of a site to the database.
+  [[nodiscard]] nsresult PersistMemoryState(
+      BounceTrackingStateGlobal* aStateGlobal, const nsACString& aSiteHost);
 
   // Helpers used to sync updates to BounceTrackingStateGlobal with the
   // database.
