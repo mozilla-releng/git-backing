@@ -17,7 +17,6 @@ kind-dependencies:
     - signing-apk
 
 task-defaults:
-    run-on-repo-type: [hg]
     attributes:
         build_platform: android
         build-type: debug
@@ -59,7 +58,6 @@ task-defaults:
                 focus: focus-android-all/opt
                 default: ''
     run:
-        clone-with: hg
         using: run-commands
         dummy-secrets:
             - content: "faketoken"
