@@ -4,6 +4,8 @@
 #ifndef mozilla_BounceTrackingProtectionStorage_h_
 #define mozilla_BounceTrackingProtectionStorage_h_
 
+#include <functional>
+
 #include "mozIStorageFunction.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MozPromise.h"
@@ -16,6 +18,7 @@
 #include "nsIObserver.h"
 #include "nsISupports.h"
 #include "nsTHashMap.h"
+#include "nsTHashSet.h"
 #include "mozIStorageConnection.h"
 #include "mozilla/OriginAttributesHashKey.h"
 
@@ -217,6 +220,23 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
   // bounce tracking state per OA, e.g. to separate private browsing from normal
   // browsing.
   StateGlobalMap mStateGlobal;
+
+  // Whether the on-disk state has been loaded into mStateGlobal. Main thread
+  // only.
+  bool mMemoryStateLoaded = false;
+
+  // Database writes issued before the on-disk state was loaded into memory.
+  // Loaded entries which these writes have overwritten or deleted are skipped
+  // so the in-memory state matches the database. Main thread only.
+  nsTHashMap<OriginAttributesHashKey, nsTHashSet<nsCString>>
+      mSitesWrittenBeforeLoad;
+  nsTArray<std::function<bool(const ImportEntry&)>> mDeletionsBeforeLoad;
+
+  void NoteSiteWrittenBeforeLoad(const OriginAttributes& aOriginAttributes,
+                                 const nsACString& aSiteHost);
+  void NoteDeletionBeforeLoad(
+      std::function<bool(const ImportEntry&)>&& aMatches);
+  bool IsSupersededByWriteBeforeLoad(const ImportEntry& aEntry);
 
   // Helpers used to sync updates to BounceTrackingStateGlobal with the
   // database.

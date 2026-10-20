@@ -197,6 +197,7 @@ nsresult BounceTrackingProtectionStorage::UpdateDBEntry(
                 aTimeStamp);
   }
 
+  NoteSiteWrittenBeforeLoad(aOriginAttributes, aSiteHost);
   mPendingUpdates.AppendElement(PendingUpdate{
       aOriginAttributes, nsCString(aSiteHost), aEntryType, aTimeStamp});
 
@@ -375,6 +376,11 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntries(
   Maybe<OriginAttributes> originAttributes;
   if (aOriginAttributes) {
     originAttributes.emplace(*aOriginAttributes);
+    NoteSiteWrittenBeforeLoad(*aOriginAttributes, siteHost);
+  } else {
+    NoteDeletionBeforeLoad([siteHost](const ImportEntry& aEntry) {
+      return aEntry.mSiteHost == siteHost;
+    });
   }
 
   IncrementPendingWrites();
@@ -405,6 +411,8 @@ nsresult BounceTrackingProtectionStorage::Clear() {
   // Clear on disk data.
   nsresult rv = CheckDBAvailable();
   NS_ENSURE_SUCCESS(rv, rv);
+
+  NoteDeletionBeforeLoad([](const ImportEntry&) { return true; });
 
   IncrementPendingWrites();
   RefPtr<BounceTrackingProtectionStorage> self = this;
@@ -461,6 +469,15 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntriesInTimeRange(
     originAttributes.emplace(*aOriginAttributes);
   }
 
+  NoteDeletionBeforeLoad(
+      [originAttributes, aFrom, aTo, aEntryType](const ImportEntry& aEntry) {
+        return (originAttributes.isNothing() ||
+                aEntry.mOriginAttributes == *originAttributes) &&
+               aEntry.mTimeStamp >= aFrom &&
+               (aTo.isNothing() || aEntry.mTimeStamp <= *aTo) &&
+               (aEntryType.isNothing() || aEntry.mEntryType == *aEntryType);
+      });
+
   IncrementPendingWrites();
   mBackgroundThread->Dispatch(
       NS_NewRunnableFunction(
@@ -497,6 +514,13 @@ nsresult BounceTrackingProtectionStorage::DeleteDBEntriesByType(
     originAttributes.emplace(*aOriginAttributes);
   }
 
+  NoteDeletionBeforeLoad(
+      [originAttributes, aEntryType](const ImportEntry& aEntry) {
+        return (originAttributes.isNothing() ||
+                aEntry.mOriginAttributes == *originAttributes) &&
+               aEntry.mEntryType == aEntryType;
+      });
+
   IncrementPendingWrites();
   mBackgroundThread->Dispatch(
       NS_NewRunnableFunction(
@@ -532,6 +556,12 @@ BounceTrackingProtectionStorage::DeleteDBEntriesByOriginAttributesPattern(
   rv = FlushPendingUpdates();
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "DeleteDataInTimeRange: FlushPendingUpdates failed");
+
+  NoteDeletionBeforeLoad(
+      [aOriginAttributesPattern, aSiteHost](const ImportEntry& aEntry) {
+        return aOriginAttributesPattern.Matches(aEntry.mOriginAttributes) &&
+               (aSiteHost.isNothing() || aEntry.mSiteHost == *aSiteHost);
+      });
 
   IncrementPendingWrites();
   RefPtr<BounceTrackingProtectionStorage> self = this;
@@ -869,6 +899,10 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
         // For each entry get or create BounceTrackingStateGlobal and insert it
         // into global state map.
         for (const ImportEntry& entry : importEntries) {
+          if (self->IsSupersededByWriteBeforeLoad(entry)) {
+            continue;
+          }
+
           RefPtr<BounceTrackingStateGlobal> stateGlobal =
               self->GetOrCreateStateGlobal(entry.mOriginAttributes);
           MOZ_ASSERT(stateGlobal);
@@ -895,7 +929,42 @@ nsresult BounceTrackingProtectionStorage::LoadMemoryStateFromDisk() {
                         entry.mEntryType, entry.mTimeStamp);
           }
         }
+
+        self->mMemoryStateLoaded = true;
+        self->mSitesWrittenBeforeLoad.Clear();
+        self->mDeletionsBeforeLoad.Clear();
       }));
+}
+
+void BounceTrackingProtectionStorage::NoteSiteWrittenBeforeLoad(
+    const OriginAttributes& aOriginAttributes, const nsACString& aSiteHost) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mMemoryStateLoaded) {
+    mSitesWrittenBeforeLoad.LookupOrInsert(aOriginAttributes).Insert(aSiteHost);
+  }
+}
+
+void BounceTrackingProtectionStorage::NoteDeletionBeforeLoad(
+    std::function<bool(const ImportEntry&)>&& aMatches) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mMemoryStateLoaded) {
+    mDeletionsBeforeLoad.AppendElement(std::move(aMatches));
+  }
+}
+
+bool BounceTrackingProtectionStorage::IsSupersededByWriteBeforeLoad(
+    const ImportEntry& aEntry) {
+  MOZ_ASSERT(NS_IsMainThread());
+  auto sites = mSitesWrittenBeforeLoad.Lookup(aEntry.mOriginAttributes);
+  if (sites && sites->Contains(aEntry.mSiteHost)) {
+    return true;
+  }
+  for (const auto& matches : mDeletionsBeforeLoad) {
+    if (matches(aEntry)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void BounceTrackingProtectionStorage::IncrementPendingWrites() {
