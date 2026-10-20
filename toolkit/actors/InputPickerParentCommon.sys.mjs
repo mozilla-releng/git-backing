@@ -13,7 +13,7 @@ function debug(aStr) {
  * @typedef {object} InputPickerCallbacks
  * @property {(detail: object) => void} onValueChanged Called when the user
  *           changes the value in the picker
- * @property {() => void} onValueCleared Called when the user reverts the value
+ * @property {() => void} onValueCleared Called when the user clears the value
  * @property {() => void} onClosed Called when the picker closes by itself
  */
 
@@ -25,10 +25,13 @@ function debug(aStr) {
  */
 export class InputPickerParentCommon extends JSWindowActorParent {
   #namespace;
+  /** @type {boolean} */
   #createXULPanel;
   #picker;
   /** @type {Element | undefined} */
   #oldFocus;
+  /** @type {AbortController} */
+  #abortController;
 
   /**
    * @param {string} aNamespace Affects the input panel id, mostly to prevent
@@ -61,14 +64,10 @@ export class InputPickerParentCommon extends JSWindowActorParent {
     }
   }
 
-  didDestroy() {
-    this.#cleanupPicker();
-  }
-
   /**
    * A picker creator function called when showing a picker
    *
-   * @param {XULElement|undefined} _panel A panel element, unless the actor was
+   * @param {XULElement | undefined} _panel A panel element, unless the actor was
    *        created without one
    * @returns A picker object, with `openPicker(type, rect, detail,
    *          isDarkBackground, callbacks)` and `closePicker()` methods, which
@@ -87,8 +86,6 @@ export class InputPickerParentCommon extends JSWindowActorParent {
     debug("Opening picker with details: " + JSON.stringify(detail));
     if (!this.browsingContext.canOpenModalPicker) {
       debug("Not allowed to open picker");
-      // Let the input know that it can open a picker again.
-      this.sendAsyncMessage(`InputPicker:Closed`, {});
       return;
     }
 
@@ -126,6 +123,12 @@ export class InputPickerParentCommon extends JSWindowActorParent {
       onValueCleared: () => this.#pickerValueChanged(picker, null),
       onClosed: () => this.#pickerClosed(picker),
     });
+    if (panel) {
+      this.#abortController = new AbortController();
+      panel.addEventListener("popuphidden", () => {
+        this.#pickerClosed(picker);
+      }, { signal: this.#abortController.signal });
+    }
   }
 
   // Reports from a picker that has since been replaced or closed are ignored.
@@ -143,12 +146,15 @@ export class InputPickerParentCommon extends JSWindowActorParent {
   }
 
   #cleanupPicker() {
-    const picker = this.#picker;
-    if (!picker) {
+    if (!this.#picker) {
       return;
     }
+    this.#picker.closePicker();
+    if (this.#abortController) {
+      this.#abortController.abort();
+      this.#abortController = null;
+    }
     this.#picker = null;
-    picker.closePicker();
   }
 
   // Close the picker and do some cleanup.

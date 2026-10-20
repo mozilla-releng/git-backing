@@ -62,11 +62,6 @@ export class InputPickerPanelCommon {
       capture: true,
       signal: this.#abortController.signal,
     });
-    // Not tied to the abort controller, which closePicker() aborts before
-    // hiding the panel.
-    this.#element.addEventListener("popuphidden", () => callbacks.onClosed(), {
-      once: true,
-    });
     this.#popupFrame.setAttribute("src", this.#filename);
     this.#popupFrame.style.width = impl.width;
     this.#popupFrame.style.height = impl.height;
