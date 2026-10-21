@@ -8,6 +8,9 @@
 ---
 task-defaults:
     worker-type: b-linux-docker-amd
+    fetches:
+        toolchain:
+            - terser
 
 linux64-base-toolchains/opt:
     description: "Linux64 base toolchains Opt"

@@ -26,6 +26,7 @@ task-defaults:
     use-sccache: true
     fetches:
         toolchain:
+            - terser
             - linux64-cctools-port
             - linux64-clang
             - linux64-dump_syms

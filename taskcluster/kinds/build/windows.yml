@@ -9,6 +9,8 @@ task-defaults:
     fetches:
         fetch:
             - windows-rs
+        toolchain:
+            - terser
 
 win32/debug:
     description: "Win32 Debug"

@@ -52,6 +52,7 @@ task-defaults:
         tooltool-downloads: internal
     fetches:
         toolchain:
+            - terser
             - android-ndk-linux
             - android-sdk-linux
             - linux64-jdk

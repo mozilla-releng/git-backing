@@ -24,6 +24,7 @@ task-defaults:
     run-on-projects: ['integration']
     fetches:
         toolchain:
+            - terser
             - android-ndk-linux
             - android-sdk-linux
             - linux64-embedded-uniffi-bindgen
