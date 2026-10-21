@@ -12,6 +12,7 @@
 
 #include <string>
 
+#include "ChildConsoleRelay.h"
 #include "ConfigHelpers.h"
 #include "GfxDriverInfo.h"
 #include "WinUtils.h"
@@ -284,6 +285,8 @@ static void AddCachedWindowsDirRule(
 void SandboxBroker::GeckoDependentInitialize() {
   MOZ_ASSERT(NS_IsMainThread());
 
+  ChildConsoleRelay::Initialize();
+
   // Cache directory paths for use in policy rules, because the directory
   // service must be called on the main thread.
   nsresult rv;
@@ -454,9 +457,9 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
     return Err(mozilla::ipc::LaunchError("SB::LA::mPolicy"));
   }
 
-  // Set stdout and stderr, to allow inheritance for logging.
-  mPolicy->SetStdoutHandle(::GetStdHandle(STD_OUTPUT_HANDLE));
-  mPolicy->SetStderrHandle(::GetStdHandle(STD_ERROR_HANDLE));
+  // Set stdout and stderr to allow inheritance for logging, relaying any
+  // console handles through a pipe as they can't be inherited.
+  ChildConsoleRelay consoleRelay(*mPolicy);
 
   auto* config = mPolicy->GetConfig();
 
@@ -546,6 +549,7 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
   sandbox::ResultCode result =
       sBrokerService->SpawnTarget(aPath, aArguments, aEnvironment,
                                   std::move(mPolicy), &last_error, &targetInfo);
+  consoleRelay.ReleaseInheritableHandle();
   if (sandbox::SBOX_ALL_OK != result) {
     nsAutoCString key;
     key.AppendASCII(XRE_GeckoProcessTypeToString(aProcessType));
