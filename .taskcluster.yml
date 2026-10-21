@@ -149,6 +149,8 @@ tasks:
                                 then:
                                     - "index.${trustDomain}.v2.${repository.project}.revision.${push.revision}.taskgraph.actions.${ownTaskId}"
                                     - "index.${trustDomain}.v2.${repository.project}.pushlog-id.${push.pushlog_id}.actions.${ownTaskId}"
+                                    - $if: 'action.name == "release-promotion"'
+                                      then: "index.${trustDomain}.v2.${repository.project}.latest.taskgraph.actions.release-promotion.${input.release_promotion_flavor}"
                                 else:  # cron
                                     - "index.${trustDomain}.v2.${repository.project}.latest.taskgraph.decision-${cron.job_name}"
                                     - "index.${trustDomain}.v2.${repository.project}.revision.${push.revision}.taskgraph.decision-${cron.job_name}"
@@ -488,6 +490,8 @@ tasks:
                                             'tasks_for == "action"':
                                                 - "tc-treeherder.v2.${project}.${headRev}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.actions.${ownTaskId}"
+                                                - $if: 'action.name == "release-promotion"'
+                                                  then: "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.actions.release-promotion.${input.release_promotion_flavor}"
                                             'eventType == "cron"':
                                                 - "index.${trustDomain}.v2.${project}.branch.${shortRef}.latest.taskgraph.decision-${cron.job_name}"
                                                 - "index.${trustDomain}.v2.${project}.revision.${headRev}.taskgraph.decision-${cron.job_name}"

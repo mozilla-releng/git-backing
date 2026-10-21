@@ -100,8 +100,8 @@ class TestTaskclusterYml(unittest.TestCase):
             rendered["tasks"][0]["metadata"]["name"], "Decision Task for cron job test"
         )
 
-    def test_action(self):
-        context = {
+    def action_context(self, input=None, **action):
+        return {
             "tasks_for": "action",
             "repository": {
                 "url": "https://hg.mozilla.org/mozilla-central",
@@ -123,8 +123,9 @@ class TestTaskclusterYml(unittest.TestCase):
                 "symbol": "t",
                 "repo_scope": "assume:repo:hg.mozilla.org/try:action:generic",
                 "cb_name": "test_action",
+                **action,
             },
-            "input": {},
+            "input": input or {},
             "parameters": {
                 "repository_type": "hg",
             },
@@ -133,11 +134,33 @@ class TestTaskclusterYml(unittest.TestCase):
             "ownTaskId": slugid.nice(),
             "clientId": "testing/testing/testing",
         }
-        rendered = jsone.render(self.taskcluster_yml, context)
+
+    def test_action(self):
+        rendered = jsone.render(self.taskcluster_yml, self.action_context())
         pprint.pprint(rendered)
         self.assertEqual(
             rendered["tasks"][0]["metadata"]["name"], "Action: Test Action"
         )
+        self.assertFalse(
+            any(
+                ".latest.taskgraph.actions." in route
+                for route in rendered["tasks"][0]["routes"]
+            )
+        )
+
+    def test_action_release_promotion(self):
+        for flavor in ["ship_firefox", "promote_firefox_partner_repack"]:
+            with self.subTest(flavor=flavor):
+                context = self.action_context(
+                    name="release-promotion",
+                    title="Release Promotion",
+                    input={"release_promotion_flavor": flavor},
+                )
+                rendered = jsone.render(self.taskcluster_yml, context)
+                self.assertIn(
+                    f"index.gecko.v2.mozilla-central.latest.taskgraph.actions.release-promotion.{flavor}",
+                    rendered["tasks"][0]["routes"],
+                )
 
     def test_unknown(self):
         context = {"tasks_for": "bitkeeper-push"}
