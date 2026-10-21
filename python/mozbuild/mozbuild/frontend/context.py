@@ -2730,6 +2730,7 @@ VARIABLES = {
             "non_unified_sources": StrictOrderingOnAppendList,
             "action_overrides": dict,
             "install_static_libs": list,
+            "root_targets": list,
         }),
         list,
         """Defines a list of object directories handled by gyp configurations.
@@ -2760,6 +2761,11 @@ VARIABLES = {
           to setting `BUILD_STATIC_LIB_ARCHIVE = True` and
           `DIST_INSTALL = True` on those targets, but selective rather
           than affecting every target in the gyp directory.
+        - root_targets, a list of gyp target names. When set, only these
+          targets and their dependencies are processed, instead of the
+          targets of the input file and their dependencies. The names are
+          looked up in the gyp files the input file loads, and a name
+          defined in several of them selects each one.
 
         Typical use looks like:
 
