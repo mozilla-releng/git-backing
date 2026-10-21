@@ -4,29 +4,30 @@
 
 package org.mozilla.fenix.ext
 
-import io.mockk.every
-import io.mockk.mockk
-import kotlinx.coroutines.CompletableDeferred
+import androidx.test.core.app.ApplicationProvider
+import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
 import mozilla.components.lib.publicsuffixlist.PublicSuffixList
-import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class StringTest {
-    private var publicSuffixList: PublicSuffixList = mockk()
+    private val publicSuffixList: PublicSuffixList = PublicSuffixList(ApplicationProvider.getApplicationContext())
 
     @Test
     fun `Simplified Url`() {
         val urlTest = "https://www.amazon.com"
         val new = urlTest.simplifiedUrl()
-        assertEquals(new, "amazon.com")
+        assertEquals(expected = new, actual = "amazon.com")
     }
 
     @Test
     fun testReplaceConsecutiveZeros() {
         assertEquals(
-            "2001:db8::ff00:42:8329",
-            "2001:db8:0:0:0:ff00:42:8329".replaceConsecutiveZeros(),
+            expected = "2001:db8::ff00:42:8329",
+            actual = "2001:db8:0:0:0:ff00:42:8329".replaceConsecutiveZeros(),
         )
     }
 
@@ -42,9 +43,8 @@ class StringTest {
                 "https://en.m.wikipedia.org/wiki/Main_Page" to "wikipedia.org",
             )
 
-        testCases.forEach { (raw, escaped) ->
-            every { publicSuffixList.getPublicSuffixPlusOne(any()) } returns CompletableDeferred(escaped)
-            assertEquals(escaped, raw.getBaseDomainUrl(publicSuffixList))
+        testCases.forEach { (raw, expected) ->
+            assertEquals(expected = expected, actual = raw.getBaseDomainUrl(publicSuffixList))
         }
     }
 }

@@ -2151,6 +2151,24 @@ class DownloadUIStoreTest {
         assertTrue(hasCancelAction, "Expected CancelDownload action to be dispatched")
     }
 
+    @Test
+    fun `GIVEN a data URL download with appended trusted domain WHEN mapped THEN short url shows the data origin`() =
+        runTest(testDispatcher) {
+            val download =
+                DownloadState(
+                    id = "1",
+                    url =
+                        "data:application/octet-stream;base-64,ZXN0dGVzdGVzdHRlc3Q=#www.mozilla.org/.https://www.mozilla.org/downloads/test.pdf",
+                    status = DownloadState.Status.COMPLETED,
+                    fileName = "test.pdf",
+                )
+            val store = provideDownloadUIStore(initialState = BrowserState(downloads = mapOf("1" to download)))
+
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("data:", store.state.items.single().displayedShortUrl)
+        }
+
     private fun provideDownloadUIStore(
         initialState: BrowserState = BrowserState(),
         browserStore: BrowserStore = BrowserStore(initialState = initialState),
