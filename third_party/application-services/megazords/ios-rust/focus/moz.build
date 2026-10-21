@@ -9,3 +9,23 @@ RustLibrary(
 )
 
 USE_LIBS += ["nss_rustlib"]
+
+megazord_profile = "dev-megazord" if CONFIG["MOZ_DEBUG_RUST"] else "release-megazord"
+megazord_archive = (
+    f"!/{CONFIG['RUST_TARGET']}/{megazord_profile}"
+    f"/{CONFIG['LIB_PREFIX']}megazord_focus.{CONFIG['LIB_SUFFIX']}"
+)
+package_inputs = [
+    megazord_archive,
+    f"!/dist/lib/{CONFIG['LIB_PREFIX']}nss_rustlib.{CONFIG['LIB_SUFFIX']}",
+]
+if not CONFIG["IPHONEOS_IS_SIMULATOR"]:
+    package_inputs += [
+        f"!/dist/host/bin/uniffi-bindgen-library-mode{CONFIG['HOST_BIN_SUFFIX']}"
+    ]
+
+GeneratedFile(
+    "FocusRustComponents.zip",
+    script="/python/mozbuild/mozbuild/action/package_appservices_ios.py",
+    inputs=package_inputs,
+)
