@@ -1,0 +1,25 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+megazord_dir = (
+    f"!/{CONFIG['RUST_TARGET']}/{CONFIG['MOZ_CARGO_PROFILE_PREFIX']}-megazord"
+)
+package_inputs = [
+    f"!/dist/lib/{CONFIG['LIB_PREFIX']}nss_rustlib.{CONFIG['LIB_SUFFIX']}",
+]
+if not CONFIG["IPHONEOS_IS_SIMULATOR"]:
+    package_inputs += [
+        f"!/dist/host/bin/uniffi-bindgen-library-mode{CONFIG['HOST_BIN_SUFFIX']}"
+    ]
+
+for package, crate in (
+    ("FocusRustComponents", "megazord_focus"),
+    ("MozillaRustComponents", "megazord_ios"),
+):
+    GeneratedFile(
+        f"{package}.zip",
+        script="/python/mozbuild/mozbuild/action/package_appservices_ios.py",
+        inputs=[f"{megazord_dir}/{CONFIG['LIB_PREFIX']}{crate}.{CONFIG['LIB_SUFFIX']}"]
+        + package_inputs,
+    )
