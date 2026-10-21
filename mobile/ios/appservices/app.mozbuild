@@ -11,3 +11,5 @@ DIRS += [
 
 if not CONFIG["IPHONEOS_IS_SIMULATOR"]:
     DIRS += ["/third_party/application-services/tools/uniffi-bindgen-library-mode"]
+
+DIRS += ["/mobile/ios/appservices"]
