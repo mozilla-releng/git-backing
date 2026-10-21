@@ -12,6 +12,7 @@
 
 #include <string>
 
+#include "ChildOutputManager.h"
 #include "ConfigHelpers.h"
 #include "GfxDriverInfo.h"
 #include "WinUtils.h"
@@ -284,6 +285,8 @@ static void AddCachedWindowsDirRule(
 void SandboxBroker::GeckoDependentInitialize() {
   MOZ_ASSERT(NS_IsMainThread());
 
+  ChildOutputManager::Initialize();
+
   // Cache directory paths for use in policy rules, because the directory
   // service must be called on the main thread.
   nsresult rv;
@@ -454,9 +457,9 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
     return Err(mozilla::ipc::LaunchError("SB::LA::mPolicy"));
   }
 
-  // Set stdout and stderr, to allow inheritance for logging.
-  mPolicy->SetStdoutHandle(::GetStdHandle(STD_OUTPUT_HANDLE));
-  mPolicy->SetStderrHandle(::GetStdHandle(STD_ERROR_HANDLE));
+  // Set stdout and stderr to allow inheritance for logging, relaying any
+  // console handles through a pipe as they can't be inherited.
+  ChildOutputManager::SetChildStdHandles(*mPolicy);
 
   auto* config = mPolicy->GetConfig();
 

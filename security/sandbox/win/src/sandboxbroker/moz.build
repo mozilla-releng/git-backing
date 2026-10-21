@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 SOURCES += [
+    "ChildOutputManager.cpp",
     "ConfigHelpers.cpp",
     "sandboxBroker.cpp",
 ]
@@ -26,5 +27,6 @@ LOCAL_INCLUDES += ["/third_party/abseil-cpp"]
 FINAL_LIBRARY = "xul"
 
 SOURCE_HEADERS += [
+    "ChildOutputManager.h",
     "ConfigHelpers.h",
 ]
