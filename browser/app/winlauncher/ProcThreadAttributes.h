@@ -37,9 +37,19 @@ class MOZ_RAII ProcThreadAttributes final {
 
   void AddMitigationPolicy(DWORD64 aPolicy) { mMitigationPolicies |= aPolicy; }
 
+  /**
+   * Console handles are not passed on, so that the browser process only uses
+   * the console when it is asked to attach to it with --attach-console.
+   */
   bool AddInheritableHandle(HANDLE aHandle) {
+    if (!aHandle || aHandle == INVALID_HANDLE_VALUE) {
+      return false;
+    }
+
     DWORD type = ::GetFileType(aHandle);
-    if (type != FILE_TYPE_DISK && type != FILE_TYPE_PIPE) {
+    DWORD mode;
+    if (type != FILE_TYPE_DISK && type != FILE_TYPE_PIPE &&
+        (type != FILE_TYPE_CHAR || ::GetConsoleMode(aHandle, &mode))) {
       return false;
     }
 
@@ -51,11 +61,17 @@ class MOZ_RAII ProcThreadAttributes final {
     return mInheritableHandles.append(aHandle);
   }
 
+  /**
+   * Any handles that can't be inherited are set to null in aHandles.
+   */
   template <size_t N>
   bool AddInheritableHandles(HANDLE (&aHandles)[N]) {
     bool ok = true;
-    for (auto handle : aHandles) {
-      ok &= AddInheritableHandle(handle);
+    for (auto& handle : aHandles) {
+      if (!AddInheritableHandle(handle)) {
+        handle = nullptr;
+        ok = false;
+      }
     }
 
     return ok;
