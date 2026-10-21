@@ -30,6 +30,7 @@ task-defaults:
         fetch:
             - windows-rs
         toolchain:
+            - terser
             - mingw32-rust
             - linux64-7zz
             - linux64-upx
