@@ -1,0 +1,3 @@
+. "$topsrcdir/mobile/ios/appservices/config/mozconfigs/common"
+
+ac_add_options --target=aarch64-apple-ios
