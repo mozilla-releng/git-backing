@@ -205,6 +205,7 @@ linux64-rust-ios-1.95:
             '--target', 'x86_64-unknown-linux-gnu',
             '--target', 'aarch64-apple-ios',
             '--target', 'aarch64-apple-ios-sim',
+            '--target', 'x86_64-apple-ios',
         ]
         toolchain-alias:
             by-project:
@@ -541,6 +542,7 @@ linux64-rust-ios-nightly:
             '--target', 'x86_64-unknown-linux-gnu',
             '--target', 'aarch64-apple-ios',
             '--target', 'aarch64-apple-ios-sim',
+            '--target', 'x86_64-apple-ios',
         ]
         toolchain-alias:
             by-project:
