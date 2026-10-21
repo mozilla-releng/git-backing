@@ -5,6 +5,7 @@
 Library("sandboxtest")
 
 UNIFIED_SOURCES = [
+    "TestChildOutputManager.cpp",
     "TestConfigHelpers.cpp",
 ]
 
