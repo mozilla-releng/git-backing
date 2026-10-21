@@ -128,7 +128,9 @@ DIRS += [
     "/tools/profiler",
     "/extensions/spellcheck",
     "/security/certverifier",
+    "/security/lockstore",
     "/security/manager",
+    "/security/mls",
     "/toolkit",
 ]
 
