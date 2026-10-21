@@ -276,9 +276,10 @@ object ToolbarSelectors : SelectorContainer {
             groups = setOf(Group.HOME_SCREEN_TOOLBAR),
         )
 
+    // Substring so it also matches the "Reader view, read or listen to page" label shown with Listen to Page on.
     val READER_VIEW_BUTTON =
         Selector(
-            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION,
+            strategy = SelectorStrategy.COMPOSE_BY_CONTENT_DESCRIPTION_SUBSTRING,
             value = getStringResource(R.string.browser_menu_read),
             description = "Reader view toolbar button",
         )
