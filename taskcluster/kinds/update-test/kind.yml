@@ -20,7 +20,6 @@ transforms:
     - gecko_taskgraph.transforms.task:transforms
 
 task-defaults:
-    run-on-repo-type: [hg]
     shipping-product: firefox
     run-on-releases: [release, beta, esr153]
     treeherder:
@@ -43,7 +42,6 @@ task-defaults:
     index:
         product: firefox
     run:
-        clone-with: hg
         using: run-task
         command: >-
             ./mach update-test
