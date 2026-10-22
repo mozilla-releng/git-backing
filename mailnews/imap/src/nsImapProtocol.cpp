@@ -9792,8 +9792,9 @@ bool nsImapMockChannel::ReadFromLocalCache() {
     return false;
   }
   nsCOMPtr<nsIMsgDBHdr> hdr;
-  rv = folder->GetMessageHeader(msgKey, getter_AddRefs(hdr));
+  rv = folder->GetMsgHdr(msgKey, getter_AddRefs(hdr));
   NS_ENSURE_SUCCESS(rv, false);
+  NS_ENSURE_TRUE(hdr, false);
 
   // Attempt to open the local message and pump it out asynchronously.
   // If any of this fails we assume the local message is damaged.

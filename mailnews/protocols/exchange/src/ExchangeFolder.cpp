@@ -1575,7 +1575,7 @@ nsresult ExchangeFolder::PerformFiltering() {
   for (auto it = mFilterQueue.modIter(); !it.done(); it.next()) {
     nsMsgKey msgKey = it.get().key();
     nsCOMPtr<nsIMsgDBHdr> msg;
-    GetMessageHeader(msgKey, getter_AddRefs(msg));
+    GetMsgHdr(msgKey, getter_AddRefs(msg));
     if (!msg) {
       // The message could have have been manually deleted or something.
       it.remove();
@@ -1806,7 +1806,7 @@ NS_IMETHODIMP ExchangeFolder::OnMessageClassified(
         GetProcessingFlags(msgKey, &processingFlags);
         if (folder && !(processingFlags & nsMsgProcessingFlags::FilterToMove)) {
           nsCOMPtr<nsIMsgDBHdr> mailHdr;
-          rv = GetMessageHeader(msgKey, getter_AddRefs(mailHdr));
+          rv = GetMsgHdr(msgKey, getter_AddRefs(mailHdr));
           if (NS_SUCCEEDED(rv) && mailHdr) messages.AppendElement(mailHdr);
         } else {
           // We don't need the processing flag any more.
@@ -1853,8 +1853,9 @@ NS_IMETHODIMP ExchangeFolder::HandleViewCommand(
     headers.SetCapacity(messageKeys.Length());
     for (auto&& messageKey : messageKeys) {
       nsCOMPtr<nsIMsgDBHdr> header;
-      rv = GetMessageHeader(messageKey, getter_AddRefs(header));
+      rv = GetMsgHdr(messageKey, getter_AddRefs(header));
       NS_ENSURE_SUCCESS(rv, rv);
+      NS_ENSURE_TRUE(header, NS_MSG_MESSAGE_NOT_FOUND);
       headers.AppendElement(header);
     }
 
@@ -1975,8 +1976,9 @@ NS_IMETHODIMP ExchangeFolder::FetchMsgPreviewText(
   nsresult rv = NS_OK;
   for (auto&& key : aKeysToFetch) {
     nsCOMPtr<nsIMsgDBHdr> header;
-    rv = GetMessageHeader(key, getter_AddRefs(header));
+    rv = GetMsgHdr(key, getter_AddRefs(header));
     NS_ENSURE_SUCCESS(rv, rv);
+    NS_ENSURE_TRUE(header, NS_MSG_MESSAGE_NOT_FOUND);
 
     // Check to see if there's already a preview.
     nsCString previewText;

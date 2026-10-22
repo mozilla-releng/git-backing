@@ -993,10 +993,7 @@ export var MailUtils = {
         return;
       }
 
-      let msgHdr = null;
-      try {
-        msgHdr = folder.GetMessageHeader(articleNumber);
-      } catch (e) {}
+      let msgHdr = folder.getMsgHdr(articleNumber);
       if (msgHdr) {
         this.displayMessage(msgHdr);
         return;

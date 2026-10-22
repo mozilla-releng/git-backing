@@ -2856,7 +2856,7 @@ NS_IMETHODIMP nsImapMailFolder::ParseMsgHdrs(
           do_CreateInstance("@mozilla.org/io/string-input-stream;1", &rv);
       NS_ENSURE_SUCCESS(rv, rv);
       inputStream->ShareData(msgHdrs.get(), msgHdrs.Length());
-      GetMessageHeader(msgKey, getter_AddRefs(msgHdr));
+      GetMsgHdr(msgKey, getter_AddRefs(msgHdr));
       if (msgHdr) {
         GetMsgPreviewTextFromStream(msgHdr, inputStream);
       }
@@ -3337,7 +3337,7 @@ NS_IMETHODIMP nsImapMailFolder::ApplyFilterHit(nsIMsgFilter* filter,
 
   nsCOMPtr<nsIMsgDBHdr> msgHdr;
   if (m_filterListRequiresBody)
-    GetMessageHeader(m_curMsgUid, getter_AddRefs(msgHdr));
+    GetMsgHdr(m_curMsgUid, getter_AddRefs(msgHdr));
   else if (m_msgParser)
     m_msgParser->GetNewMsgHdr(getter_AddRefs(msgHdr));
   NS_ENSURE_TRUE(msgHdr,
@@ -4512,7 +4512,7 @@ nsImapMailFolder::NormalEndMsgWriteStream(ImapUid uidOfMessage, bool markRead,
   if (updatedMessageSize != -1) {
     // retrieve the message header to update size, if we don't already have it
     nsCOMPtr<nsIMsgDBHdr> msgHeader = m_offlineHeader;
-    if (!msgHeader) GetMessageHeader(uidOfMessage, getter_AddRefs(msgHeader));
+    if (!msgHeader) GetMsgHdr(uidOfMessage, getter_AddRefs(msgHeader));
     if (msgHeader) {
       uint32_t msgSize;
       msgHeader->GetMessageSize(&msgSize);
@@ -4537,7 +4537,7 @@ nsImapMailFolder::NormalEndMsgWriteStream(ImapUid uidOfMessage, bool markRead,
   if (m_filterListRequiresBody) {
     if (m_filterList) {
       nsCOMPtr<nsIMsgDBHdr> newMsgHdr;
-      GetMessageHeader(uidOfMessage, getter_AddRefs(newMsgHdr));
+      GetMsgHdr(uidOfMessage, getter_AddRefs(newMsgHdr));
       GetMoveCoalescer();
       nsCOMPtr<nsIMsgWindow> msgWindow;
       if (imapUrl) {
@@ -8740,8 +8740,9 @@ NS_IMETHODIMP nsImapMailFolder::FetchMsgPreviewText(
   for (uint32_t i = 0; i < aKeysToFetch.Length(); i++) {
     nsCOMPtr<nsIMsgDBHdr> msgHdr;
     nsCString prevBody;
-    rv = GetMessageHeader(aKeysToFetch[i], getter_AddRefs(msgHdr));
+    rv = GetMsgHdr(aKeysToFetch[i], getter_AddRefs(msgHdr));
     NS_ENSURE_SUCCESS(rv, rv);
+    NS_ENSURE_TRUE(msgHdr, NS_MSG_MESSAGE_NOT_FOUND);
     // ignore messages that already have a preview body.
     msgHdr->GetStringProperty("preview", prevBody);
     if (!prevBody.IsEmpty()) continue;
@@ -9168,7 +9169,7 @@ NS_IMETHODIMP nsImapMailFolder::HandleViewCommand(
       uint32_t msgFlags = 0;
       if (!messageKeys.IsEmpty()) {
         nsCOMPtr<nsIMsgDBHdr> msgHdr;
-        MOZ_TRY(GetMessageHeader(messageKeys[0], getter_AddRefs(msgHdr)));
+        MOZ_TRY(GetMsgHdr(messageKeys[0], getter_AddRefs(msgHdr)));
         if (msgHdr) {
           msgHdr->GetFlags(&msgFlags);
         }
