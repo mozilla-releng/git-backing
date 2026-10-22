@@ -64,6 +64,7 @@ nsImapServerResponseParser::nsImapServerResponseParser(
   fCurrentCommandIsSingleMessageFetch = false;
   fSavedFlagInfo = false;
   fCurrentResponseUID = 0;
+  fAppendUID = 0;
   fHighestRecordedUID = 0;
   fNumberOfTaggedResponsesExpected = 0;
   fMsgID = 0;
@@ -139,6 +140,7 @@ void nsImapServerResponseParser::InitializeState() {
   fNumberOfRecentMessages = 0;
   fReceivedHeaderOrSizeForUID = 0;
   fUntaggedResponse = false;
+  fAppendUID = 0;
 }
 
 // RFC3501:  response = *(continue-req / response-data) response-done
@@ -1681,7 +1683,7 @@ void nsImapServerResponseParser::resp_text_code() {
         // fHighestRecordedUID = 0; ??? this should be wrong
         AdvanceToNextToken();
         if (ContinueParse()) {
-          fCurrentResponseUID = strtoul(fNextToken, nullptr, 10);
+          fAppendUID = strtoul(fNextToken, nullptr, 10);
           AdvanceToNextToken();
         }
       }
@@ -2539,6 +2541,8 @@ ImapUid nsImapServerResponseParser::FolderUIDValidity() {
 ImapUid nsImapServerResponseParser::CurrentResponseUID() {
   return fCurrentResponseUID;
 }
+
+ImapUid nsImapServerResponseParser::AppendUID() { return fAppendUID; }
 
 ImapUid nsImapServerResponseParser::HighestRecordedUID() {
   return fHighestRecordedUID;
