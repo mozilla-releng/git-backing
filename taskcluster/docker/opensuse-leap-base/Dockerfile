@@ -28,7 +28,12 @@ RUN zypper refresh && zypper install -y \
       mercurial \
       python3 \
       python3-psutil \
+      python311 \
     && zypper clean --all
+
+# Leap's default python3 is 3.6; run-task (the Git checkout path) needs 3.8+
+# and is started through `/usr/bin/env python3`.
+RUN ln -s /usr/bin/python3.11 /usr/local/bin/python3
 
 # %include taskcluster/scripts/robustcheckout.py
 COPY topsrcdir/taskcluster/scripts/robustcheckout.py /usr/local/mercurial/robustcheckout.py
