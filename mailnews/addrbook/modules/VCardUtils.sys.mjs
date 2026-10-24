@@ -79,7 +79,7 @@ export var VCardUtils = {
       if (!vPropMap.has(name)) {
         vPropMap.set(name, []);
       }
-      vPropMap.get(name).push({ index, pref, value });
+      vPropMap.get(name).push({ index, pref, value, params });
     }
 
     // If no URL with type is specified assume its the Work Web Page (WebPage 1).
@@ -172,6 +172,29 @@ export var VCardUtils = {
     }
 
     return abCard;
+  },
+  /**
+   * Parse the value of a BDAY or ANNIVERSARY entry.
+   *
+   * vCard 3.0 can't express a date without a year (RFC 2426, section 3.1.5),
+   * so Apple (and others copying it) use a placeholder year and name it in an
+   * X-APPLE-OMIT-YEAR parameter, e.g. BDAY;X-APPLE-OMIT-YEAR=1604:1604-04-15.
+   * The year of such a date is null, as for "--04-15" in vCard 4.0.
+   *
+   * @param {string} value
+   * @param {object} [params] - The parameters of the entry.
+   * @returns {ICAL.VCardTime}
+   */
+  parseDate(value, params = {}) {
+    const date = ICAL.VCardTime.fromDateAndOrTimeString(
+      value,
+      "date-and-or-time"
+    );
+    const omitYear = params["x-apple-omit-year"];
+    if (omitYear && date.year === +omitYear) {
+      date.year = null;
+    }
+    return date;
   },
   /**
    * Create a PHOTO entry for an image given as a data: URL. vCard 4.0 stores
@@ -435,9 +458,9 @@ function dateProperty(abCardPrefix, vPropName) {
 
       yield [vPropName, {}, "date", dateValue.toString()];
     },
-    *toAbCard(value) {
+    *toAbCard(value, params) {
       try {
-        const dateValue = ICAL.VCardTime.fromDateAndOrTimeString(value);
+        const dateValue = VCardUtils.parseDate(value, params);
         yield [`${abCardPrefix}Year`, String(dateValue.year ?? "")];
         yield [`${abCardPrefix}Month`, String(dateValue.month ?? "")];
         yield [`${abCardPrefix}Day`, String(dateValue.day ?? "")];
@@ -1000,7 +1023,8 @@ export class VCardProperties {
     for (const [name, props] of vPropMap) {
       // Store the value(s) on the abCard.
       for (const [abPropName, abPropValue] of typeMap[name].toAbCard(
-        props[0].value
+        props[0].value,
+        props[0].params
       )) {
         if (abPropValue) {
           propertyMap.set(abPropName, abPropValue);

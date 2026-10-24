@@ -7,6 +7,7 @@ import { vCardIdGen } from "./id-gen.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   VCardPropertyEntry: "resource:///modules/VCardUtils.sys.mjs",
+  VCardUtils: "resource:///modules/VCardUtils.sys.mjs",
 });
 
 const { default: ICAL } = ChromeUtils.importESModule(
@@ -138,9 +139,9 @@ export class VCardSpecialDateComponent extends HTMLElement {
     // Default value is date-and-or-time.
     let dateValue;
     try {
-      dateValue = ICAL.VCardTime.fromDateAndOrTimeString(
+      dateValue = lazy.VCardUtils.parseDate(
         this.vCardPropertyEntry.value || "",
-        "date-and-or-time"
+        this.vCardPropertyEntry.params
       );
     } catch (ex) {
       console.error(ex);
@@ -164,6 +165,22 @@ export class VCardSpecialDateComponent extends HTMLElement {
     dateValue.year = this.year.value ? Number(this.year.value) : null;
     dateValue.month = this.month.value ? Number(this.month.value) : null;
     dateValue.day = this.day.value ? Number(this.day.value) : null;
+
+    // Keep a placeholder year for a date without one, so that the clients
+    // using it still see that there's no year. See VCardUtils.parseDate.
+    const params = this.vCardPropertyEntry.params;
+    const omitYear = +params["x-apple-omit-year"];
+    if (
+      Number.isInteger(omitYear) &&
+      omitYear > 0 &&
+      dateValue.year === null &&
+      dateValue.month !== null &&
+      dateValue.day !== null
+    ) {
+      dateValue.year = omitYear;
+    } else {
+      delete params["x-apple-omit-year"];
+    }
     this.vCardPropertyEntry.value = dateValue.toString();
   }
 
