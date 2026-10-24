@@ -146,6 +146,10 @@ add_task(function testVCardToPropertyMap() {
     BirthMonth: "4",
     BirthYear: "1983",
   });
+  check("BDAY;VALUE=DATE,X-APPLE-OMIT-YEAR=1604:1604-04-15", {
+    BirthDay: "15",
+    BirthMonth: "4",
+  });
   check("BDAY:1604-04-15", {
     BirthDay: "15",
     BirthMonth: "4",
