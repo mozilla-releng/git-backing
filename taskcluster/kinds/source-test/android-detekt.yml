@@ -57,7 +57,7 @@ detekt-focus:
               path: /builds/worker/checkouts/gecko/mobile/android/focus-android/build/reports
               type: directory
 
-detekt-fenix:
+detekt-fenix: &detekt-fenix
     when:
         files-changed:
             - "mobile/android/fenix/**"
@@ -72,3 +72,27 @@ detekt-fenix:
             - name: public/reports
               path: /builds/worker/checkouts/gecko/mobile/android/fenix/build/reports
               type: directory
+
+detekt-fenix-16c:
+    <<: *detekt-fenix
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: detekt(fenix16)
+
+detekt-fenix-b16c:
+    <<: *detekt-fenix
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: detekt(fenixB16)
+
+detekt-fenix-b30c:
+    <<: *detekt-fenix
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: detekt(fenixB30)
+
+detekt-fenix-b60c:
+    <<: *detekt-fenix
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: detekt(fenixB60)

@@ -192,6 +192,7 @@ bool nsINode::IsInclusiveFlatTreeDescendantOf(const nsINode* aNode) const {
   return false;
 }
 
+
 bool nsINode::IsShadowIncludingDescendantOf(const nsINode* aNode) const {
   MOZ_ASSERT(aNode, "The node is nullptr.");
 

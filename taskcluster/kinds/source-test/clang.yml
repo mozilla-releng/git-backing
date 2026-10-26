@@ -33,7 +33,7 @@ task-defaults:
             - '**/*.mm'
             - 'tools/clang-tidy/**'
 
-tidy:
+tidy: &tidy
     description: Run static-analysis (clang-tidy) on C/C++ patches
     treeherder:
         symbol: cpp(clang-tidy)
@@ -58,7 +58,7 @@ tidy:
               name: public/profile_resource-usage.json
               path: /builds/worker/profile_resource-usage.json
 
-external:
+external: &external
     description: Run static-analysis (clang-tidy) on C/C++ patches with external checks
     treeherder:
         symbol: cpp(clang-tidy-external)
@@ -94,6 +94,54 @@ external:
             - type: file
               name: public/profile_resource-usage.json
               path: /builds/worker/profile_resource-usage.json
+
+tidy-16c:
+    <<: *tidy
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: cpp(clang-tidy16)
+
+tidy-b16c:
+    <<: *tidy
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: cpp(clang-tidyB16)
+
+tidy-b30c:
+    <<: *tidy
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: cpp(clang-tidyB30)
+
+tidy-b60c:
+    <<: *tidy
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: cpp(clang-tidyB60)
+
+external-16c:
+    <<: *external
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: cpp(clang-tidy-external16)
+
+external-b16c:
+    <<: *external
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: cpp(clang-tidy-externalB16)
+
+external-b30c:
+    <<: *external
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: cpp(clang-tidy-externalB30)
+
+external-b60c:
+    <<: *external
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: cpp(clang-tidy-externalB60)
 
 unittest:
     description: Ensure static analysis works correctly

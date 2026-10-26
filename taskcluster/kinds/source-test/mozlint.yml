@@ -148,7 +148,7 @@ uri-setspec:
             - '**/*.mm'
             - 'tools/lint/uri-setspec.yml'
 
-eslint:
+eslint: &eslint
     description: JS lint check
     treeherder:
         symbol: js(ES)
@@ -183,6 +183,42 @@ eslint:
         toolchain:
             - linux64-node
             - node-modules
+
+eslint-16c:
+    <<: *eslint
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: js(ES16)
+
+eslint-b16c:
+    <<: *eslint
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: js(ESB16)
+
+eslint-b30c:
+    <<: *eslint
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: js(ESB30)
+
+eslint-b60c:
+    <<: *eslint
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: js(ESB60)
+
+eslint-t30c:
+    <<: *eslint
+    worker-type: t-linux-docker-large-amd
+    treeherder:
+        symbol: js(EST30)
+
+eslint-t30c-noscratch:
+    <<: *eslint
+    worker-type: t-linux-docker-noscratch-large-amd
+    treeherder:
+        symbol: js(EST30N)
 
 
 eslint-build:
@@ -220,7 +256,7 @@ eslint-build:
             - linux64-node
             - node-modules
 
-stylelint:
+stylelint: &stylelint
     description: CSS lint check
     treeherder:
         symbol: stylelint
@@ -249,7 +285,7 @@ stylelint:
             - linux64-node
             - node-modules
 
-typescript:
+typescript: &typescript
     description: TypeScript checker
     treeherder:
         symbol: js(TSC)
@@ -646,7 +682,7 @@ l10n-conflicts:
             - 'tools/lint/l10n.yml'
 
 
-clang-format:
+clang-format: &clang-format
     description: clang-format on the C/C++ code
     treeherder:
         symbol: cpp(clang-format)
@@ -684,7 +720,7 @@ rustfmt:
             - linux64-rust
 
 
-clippy:
+clippy: &clippy
     description: clippy on the Rust code
     treeherder:
         symbol: rust(clippy)
@@ -988,7 +1024,7 @@ toolchain-parity:
             - 'python/mozbuild/mozbuild/configure/constants.py'
 
 
-c-includes:
+c-includes: &c-includes
     description: Remove unused mfbt includes from the codebase
     treeherder:
         symbol: cpp(includes)
@@ -1060,3 +1096,123 @@ gecko-trace:
         files-changed:
             - '**/gecko-trace.yaml'
             - '**/gecko-trace.yml'
+
+stylelint-16c:
+    <<: *stylelint
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: stylelint16
+
+stylelint-b16c:
+    <<: *stylelint
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: stylelintB16
+
+stylelint-b30c:
+    <<: *stylelint
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: stylelintB30
+
+stylelint-b60c:
+    <<: *stylelint
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: stylelintB60
+
+clang-format-16c:
+    <<: *clang-format
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: cpp(clang-format16)
+
+clang-format-b16c:
+    <<: *clang-format
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: cpp(clang-formatB16)
+
+clang-format-b30c:
+    <<: *clang-format
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: cpp(clang-formatB30)
+
+clang-format-b60c:
+    <<: *clang-format
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: cpp(clang-formatB60)
+
+clippy-16c:
+    <<: *clippy
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: rust(clippy16)
+
+clippy-b16c:
+    <<: *clippy
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: rust(clippyB16)
+
+clippy-b30c:
+    <<: *clippy
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: rust(clippyB30)
+
+clippy-b60c:
+    <<: *clippy
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: rust(clippyB60)
+
+typescript-16c:
+    <<: *typescript
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: js(TSC16)
+
+typescript-b16c:
+    <<: *typescript
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: js(TSCB16)
+
+typescript-b30c:
+    <<: *typescript
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: js(TSCB30)
+
+typescript-b60c:
+    <<: *typescript
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: js(TSCB60)
+
+c-includes-16c:
+    <<: *c-includes
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: cpp(includes16)
+
+c-includes-b16c:
+    <<: *c-includes
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: cpp(includesB16)
+
+c-includes-b30c:
+    <<: *c-includes
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: cpp(includesB30)
+
+c-includes-b60c:
+    <<: *c-includes
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: cpp(includesB60)

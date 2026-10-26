@@ -75,6 +75,13 @@ class SourceTestDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=T
 
 transforms = TransformSequence()
 
+
+@transforms.add
+def unshare_aliases(config, jobs):
+    for job in jobs:
+        yield copy.deepcopy(job)
+
+
 transforms.add_validate(SourceTestDescriptionSchema)
 
 

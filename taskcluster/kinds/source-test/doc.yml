@@ -58,7 +58,7 @@ generate:
             - node-modules
 
 
-upload:
+upload: &upload
     description: Generate and upload the Sphinx documentation
     use-python: "3.11"
     platform: doc/opt
@@ -116,3 +116,35 @@ upload:
         toolchain:
             - linux64-node
             - node-modules
+
+upload-16c:
+    <<: *upload
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: doc(upload16)
+        kind: test
+        tier: 2
+
+upload-b16c:
+    <<: *upload
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: doc(uploadB16)
+        kind: test
+        tier: 2
+
+upload-b30c:
+    <<: *upload
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: doc(uploadB30)
+        kind: test
+        tier: 2
+
+upload-b60c:
+    <<: *upload
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: doc(uploadB60)
+        kind: test
+        tier: 2
