@@ -11,6 +11,18 @@
   var hasExtendedCorpus =
     new URLSearchParams(location.search).get("extendedCorpus") == "true";
 
+  function logTiming(event, data = {}) {
+    dump(
+      `PGO_PAGE_TIMING ${JSON.stringify({ event, t: Date.now(), ...data })}\n`
+    );
+  }
+
+  window.addEventListener("message", e => {
+    if (e.data && e.data.pgoTiming) {
+      logTiming("signal", { origin: e.origin, ...e.data });
+    }
+  });
+
   function waitTimeout(time) {
     return new Promise(resolve => {
       window.setTimeout(() => {
@@ -31,16 +43,41 @@
       this.timeout = timeout;
     }
 
-    async run() {
-      var subWindow = window.open(this.url);
+    async run(index) {
+      let url = this.url;
+      logTiming("start", { index, url, timeout: this.timeout });
+      var subWindow = window.open(url);
 
       // Prevent the perf-reftest-singletons from calling alert()
-      subWindow.tpRecordTime = function () {};
+      subWindow.tpRecordTime = function () {
+        logTiming("tpRecordTime", { index, url });
+      };
 
       // Wait until the timeout is finished
       await waitTimeout(this.timeout);
 
+      logTiming("end", { index, url, ...this.inspect(subWindow) });
       subWindow.close();
+    }
+
+    inspect(subWindow) {
+      try {
+        let perf = subWindow.performance;
+        let nav = perf.getEntriesByType("navigation")[0];
+        let info = {
+          href: subWindow.location.href,
+          readyState: subWindow.document.readyState,
+        };
+        if (nav && nav.loadEventEnd > 0) {
+          info.loadEventEnd = perf.timeOrigin + nav.loadEventEnd;
+        }
+        if (subWindow.perf_data && subWindow.perf_data.end !== null) {
+          info.perfDataEnd = perf.timeOrigin + subWindow.perf_data.end;
+        }
+        return info;
+      } catch (e) {
+        return { inspectError: String(e) };
+      }
     }
   }
 
@@ -143,9 +180,11 @@
   }
 
   window.onload = async function () {
-    for (let item of items) {
-      await item.run();
+    logTiming("corpus-start", { count: items.length });
+    for (let [index, item] of items.entries()) {
+      await item.run(index);
     }
+    logTiming("corpus-end");
     Quitter.quit();
   };
 

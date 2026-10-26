@@ -6,8 +6,10 @@
 
 import glob
 import os
+import re
 import subprocess
 import sys
+import time
 
 import mozcrash
 from mozbuild.base import BinaryNotFoundException, MozbuildObject
@@ -26,6 +28,60 @@ PATH_MAPPINGS = {
     # refer to scripts located in `../..`.
     "/talos": "testing/talos/talos",
 }
+
+
+TIMING_EVENTS = []
+
+OPENER_POST = (
+    "globalThis.opener && globalThis.opener.postMessage({pgoTiming: %s}, '*');"
+)
+
+
+def record(event, **data):
+    entry = {"event": event, "t": time.time(), **data}
+    TIMING_EVENTS.append(entry)
+    print("PGO_TIMING", json.dumps(entry), flush=True)
+
+
+def injecting_handler(url_path, file_path, replacements):
+    """Serve file_path at url_path, with each (anchor, injected) pair in
+    replacements inserted directly after the first occurrence of anchor."""
+
+    def handler(request):
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
+        for anchor, injected in replacements:
+            if anchor in content:
+                content = content.replace(anchor, anchor + injected, 1)
+            else:
+                record("injection-missing", path=url_path, anchor=anchor)
+        headers = {"Content-Type": "text/javascript", "Cache-Control": "no-store"}
+        return (200, headers, content)
+
+    return {"method": "GET", "path": re.escape(url_path) + "$", "function": handler}
+
+
+def write_timings(upload_path, servers, logfile):
+    page_events = []
+    if logfile and os.path.exists(logfile):
+        with open(logfile, errors="replace") as f:
+            for line in f:
+                idx = line.find("PGO_PAGE_TIMING ")
+                if idx == -1:
+                    continue
+                try:
+                    page_events.append(
+                        json.loads(line[idx + len("PGO_PAGE_TIMING ") :])
+                    )
+                except ValueError:
+                    pass
+    data = {
+        "harness": TIMING_EVENTS,
+        "page": page_events,
+        "requests": {name: list(s.request_log) for name, s in servers.items()},
+    }
+    with open(os.path.join(upload_path, "pgo-timings.json"), "w") as f:
+        json.dump(data, f)
 
 
 def get_crashreports(directory, name=None):
@@ -101,23 +157,59 @@ if __name__ == "__main__":
     path_mappings = {
         k: os.path.join(build.topsrcdir, v) for k, v in PATH_MAPPINGS.items()
     }
+    webkit_dir = os.path.join(
+        build.topsrcdir, "third_party", "webkit", "PerformanceTests"
+    )
     httpd = MozHttpd(
         port=PORT,
         docroot=os.path.join(build.topsrcdir, "build", "pgo"),
         path_mappings=path_mappings,
+        log_requests=True,
+        urlhandlers=[
+            injecting_handler(
+                "/webkit/PerformanceTests/Speedometer/resources/main.js",
+                os.path.join(webkit_dir, "Speedometer", "resources", "main.js"),
+                [
+                    (
+                        "didRunSuites: function (measuredValues) {",
+                        OPENER_POST % "'sp2-iteration'",
+                    ),
+                    (
+                        "didFinishLastIteration: function () {",
+                        OPENER_POST % "'sp2-done'",
+                    ),
+                ],
+            ),
+            injecting_handler(
+                "/webkit/PerformanceTests/webaudio/webaudio-bench.js",
+                os.path.join(webkit_dir, "webaudio", "webaudio-bench.js"),
+                [("window.postMessage(_data, '*');", OPENER_POST % "'webaudio-done'")],
+            ),
+        ],
     )
     httpd.start(block=False)
 
     # Speedometer3 must run in its own server. The benchmark assumes that it
     # is in a root path, and will fail if it's not.
+    sp3_dir = os.path.join(webkit_dir, "Speedometer3")
     sp3_httpd = MozHttpd(
         port=8000,
-        docroot=os.path.join(
-            build.topsrcdir, "third_party", "webkit", "PerformanceTests", "Speedometer3"
-        ),
+        docroot=sp3_dir,
         path_mappings=path_mappings,
+        log_requests=True,
+        urlhandlers=[
+            injecting_handler(
+                "/resources/main.mjs",
+                os.path.join(sp3_dir, "resources", "main.mjs"),
+                [
+                    ("didRunSuites(measuredValues) {", OPENER_POST % "'sp3-iteration'"),
+                    ("didFinishLastIteration(metrics) {", OPENER_POST % "'sp3-done'"),
+                ],
+            )
+        ],
     )
     sp3_httpd.start(block=False)
+    servers = {"main": httpd, "sp3": sp3_httpd}
     print("started SP3 server on port 8000")
 
     if has_extended_corpus:
@@ -132,8 +224,23 @@ if __name__ == "__main__":
         js3_httpd = MozHttpd(
             port=8001,
             docroot=js3_dir,
+            log_requests=True,
+            urlhandlers=[
+                injecting_handler(
+                    "/JetStreamDriver.js",
+                    os.path.join(js3_dir, "JetStreamDriver.js"),
+                    [
+                        (
+                            'performance.mark("update-ui");',
+                            OPENER_POST % "'js3-benchmark', name: benchmark.name",
+                        ),
+                        ("this.isDone = true;", OPENER_POST % "'js3-done'"),
+                    ],
+                )
+            ],
         )
         js3_httpd.start(block=False)
+        servers["js3"] = js3_httpd
         print("started JS3 server on port 8001")
 
     locations = ServerLocations()
@@ -202,8 +309,10 @@ if __name__ == "__main__":
             env=env,
             process_args=process_args,
         )
+        record("run1-start")
         runner.start()
         ret = runner.wait()
+        record("run1-end", ret=ret)
         if ret:
             print("Firefox exited with code %d during profile initialization" % ret)
             logfile = process_args.get("logfile")
@@ -240,12 +349,16 @@ if __name__ == "__main__":
             env=env,
             process_args=process_args,
         )
+        record("run2-start")
         runner.start(debug_args=debug_args, interactive=interactive)
         ret = runner.wait()
+        record("run2-end", ret=ret)
         sp3_httpd.stop()
         if has_extended_corpus:
             js3_httpd.stop()
         httpd.stop()
+        if "UPLOAD_PATH" in env:
+            write_timings(env["UPLOAD_PATH"], servers, process_args.get("logfile"))
         if ret:
             print("Firefox exited with code %d during profiling" % ret)
             logfile = process_args.get("logfile")
@@ -274,7 +387,10 @@ if __name__ == "__main__":
         # Try to move the crash reports to the artifacts even if Firefox appears
         # to exit successfully, in case there's a crash that doesn't set the
         # return code to non-zero for some reason.
-        if get_crashreports(profilePath, name="Firefox exited successfully?") != 0:
+        record("crashcheck-start")
+        crash_rc = get_crashreports(profilePath, name="Firefox exited successfully?")
+        record("crashcheck-end")
+        if crash_rc != 0:
             print("Firefox exited successfully, but produced a crashreport")
             sys.exit(1)
 
@@ -295,7 +411,13 @@ if __name__ == "__main__":
                 "-o",
                 merged_profdata,
             ] + profraw_files
+            record(
+                "merge-start",
+                profraw_count=len(profraw_files),
+                profraw_bytes=sum(os.path.getsize(f) for f in profraw_files),
+            )
             rc = subprocess.call(merge_cmd)
+            record("merge-end", rc=rc)
             if rc != 0:
                 print("INFRA-ERROR: Failed to merge profile data. Corrupt profile?")
                 # exit with TBPL_RETRY
@@ -309,3 +431,7 @@ if __name__ == "__main__":
             if os.path.getsize(merged_profdata) == 0:
                 print(merged_profdata, "was created but it is empty", file=sys.stderr)
                 sys.exit(1)
+
+            record("done", merged_bytes=os.path.getsize(merged_profdata))
+            if "UPLOAD_PATH" in env:
+                write_timings(env["UPLOAD_PATH"], servers, process_args.get("logfile"))
