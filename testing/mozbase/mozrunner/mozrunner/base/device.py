@@ -81,6 +81,7 @@ class DeviceRunner(BaseRunner):
         return None
 
     def start(self, *args, **kwargs):
+        self.cleanup_ran = False
         if isinstance(self.device, BaseEmulator) and not self.device.connected:
             self.device.start()
         self.device.connect()
