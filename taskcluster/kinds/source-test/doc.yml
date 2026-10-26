@@ -58,7 +58,7 @@ generate:
             - node-modules
 
 
-upload:
+upload: &upload
     description: Generate and upload the Sphinx documentation
     use-python: "3.11"
     platform: doc/opt
@@ -116,3 +116,84 @@ upload:
         toolchain:
             - linux64-node
             - node-modules
+
+upload-16c:
+    <<: *upload
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        symbol: doc(upload16)
+        kind: test
+        tier: 2
+
+upload-b16c:
+    <<: *upload
+    worker-type: b-linux-docker-amd
+    treeherder:
+        symbol: doc(uploadB16)
+        kind: test
+        tier: 2
+
+upload-b30c:
+    <<: *upload
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        symbol: doc(uploadB30)
+        kind: test
+        tier: 2
+
+upload-b60c:
+    <<: *upload
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        symbol: doc(uploadB60)
+        kind: test
+        tier: 2
+
+upload-prof:
+    <<: *upload
+    treeherder:
+        symbol: doc(uploadProf)
+        kind: test
+        tier: 2
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        command: >
+            cp -r $MOZ_FETCHES_DIR/node_modules node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules &&
+            python3 -m cProfile -o /builds/worker/artifacts/doc.prof ./mach doc --upload --no-open --no-serve --write-url /builds/worker/firefox-source-docs-url.txt --dump-trees=/builds/worker/artifacts/trees.json --errors-file=/builds/worker/issues.json &&
+            python3 -c "import pstats; s = pstats.Stats('/builds/worker/artifacts/doc.prof'); s.sort_stats('cumulative').print_stats(80); s.sort_stats('tottime').print_stats(50)"
+        sparse-profile: sphinx-docs
+
+upload-gcdefault:
+    <<: *upload
+    treeherder:
+        symbol: doc(uploadGcdefault)
+        kind: test
+        tier: 2
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        command: >
+            cp -r $MOZ_FETCHES_DIR/node_modules node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules &&
+            DOCS_GC_MODE=default ./mach doc --upload --no-open --no-serve --write-url /builds/worker/firefox-source-docs-url.txt --dump-trees=/builds/worker/artifacts/trees.json --errors-file=/builds/worker/issues.json
+        sparse-profile: sphinx-docs
+
+upload-gcoff:
+    <<: *upload
+    treeherder:
+        symbol: doc(uploadGcoff)
+        kind: test
+        tier: 2
+    run:
+        using: run-task
+        cwd: '{checkout}'
+        command: >
+            cp -r $MOZ_FETCHES_DIR/node_modules node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
+            ln -s ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules &&
+            DOCS_GC_MODE=off ./mach doc --upload --no-open --no-serve --write-url /builds/worker/firefox-source-docs-url.txt --dump-trees=/builds/worker/artifacts/trees.json --errors-file=/builds/worker/issues.json
+        sparse-profile: sphinx-docs

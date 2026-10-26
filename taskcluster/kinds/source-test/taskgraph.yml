@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-diff:
+diff: &diff
     description: Generates diffs of CI changes
     platform: linux
     worker-type: t-linux-docker-large-amd
@@ -44,3 +44,56 @@ diff:
             - 'taskcluster/kinds/**'
             - 'taskcluster/**/*.py'
             - 'taskcluster/requirements.txt'
+
+diff-par: &diff-par
+    <<: *diff
+    worker:
+        docker-image: {in-tree: "lint"}
+        max-run-time: 2400
+        env:
+            TASKGRAPH_SERIAL: ""
+        artifacts:
+            - type: directory
+              name: public/taskgraph
+              path: /builds/worker/artifacts
+    treeherder:
+        kind: test
+        platform: gecko-decision/opt
+        symbol: tgdiffP
+        tier: 2
+
+diff-par-16c:
+    <<: *diff-par
+    worker-type: t-linux-docker-16c32gb-amd
+    treeherder:
+        kind: test
+        platform: gecko-decision/opt
+        symbol: tgdiffP16
+        tier: 2
+
+diff-par-b16c:
+    <<: *diff-par
+    worker-type: b-linux-docker-amd
+    treeherder:
+        kind: test
+        platform: gecko-decision/opt
+        symbol: tgdiffPB16
+        tier: 2
+
+diff-par-b30c:
+    <<: *diff-par
+    worker-type: b-linux-docker-large-amd
+    treeherder:
+        kind: test
+        platform: gecko-decision/opt
+        symbol: tgdiffPB30
+        tier: 2
+
+diff-par-b60c:
+    <<: *diff-par
+    worker-type: b-linux-docker-xlarge-amd
+    treeherder:
+        kind: test
+        platform: gecko-decision/opt
+        symbol: tgdiffPB60
+        tier: 2

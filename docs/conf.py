@@ -276,6 +276,12 @@ def run_sphinx_js_in_background(app):
 def freeze_gc(app, env):
     import gc
 
+    mode = os.environ.get("DOCS_GC_MODE")
+    if mode == "default":
+        return
+    if mode == "off":
+        gc.disable()
+        return
     gc.collect()
     gc.freeze()
 
