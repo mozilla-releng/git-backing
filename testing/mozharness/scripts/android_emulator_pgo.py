@@ -4,6 +4,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import copy
+import gc
 import glob
 import json
 import os
@@ -332,6 +333,13 @@ class AndroidProfileRun(TestingMixin, BaseScript, MozbaseMixin, AndroidMixin):
             workspace_dir = dirs["abs_workspace_dir"]
             os.makedirs(workspace_dir, exist_ok=True)
             adbdevice.pull(outputdir, workspace_dir)
+
+            try:
+                driver.cleanup()
+            except Exception as e:
+                self.warning(f"Failed to clean up Marionette: {e}")
+            del driver
+            gc.collect()
         except ADBTimeoutError:
             if recording_started:
                 self._stop_and_pull_recording(
