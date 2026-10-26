@@ -6,6 +6,7 @@
 
 import glob
 import os
+import re
 import subprocess
 import sys
 
@@ -26,6 +27,29 @@ PATH_MAPPINGS = {
     # refer to scripts located in `../..`.
     "/talos": "testing/talos/talos",
 }
+
+
+BENCHMARK_DONE = (
+    "globalThis.opener && globalThis.opener.postMessage({pgoBenchmarkDone: true}, '*');"
+)
+
+
+def benchmark_done_handler(url_path, file_path, anchor):
+    """Serve the benchmark script at file_path, posting a completion message to
+    the PGO driver page (see index.html) right after anchor. If anchor can't be
+    found the script is served unmodified, and the driver falls back to the
+    item's timeout."""
+
+    def handler(request):
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
+        if anchor in content:
+            content = content.replace(anchor, anchor + BENCHMARK_DONE, 1)
+        else:
+            print(f"WARNING: could not find {anchor!r} in {file_path}", flush=True)
+        return (200, {"Content-Type": "text/javascript"}, content)
+
+    return {"method": "GET", "path": re.escape(url_path) + "$", "function": handler}
 
 
 def get_crashreports(directory, name=None):
@@ -101,21 +125,42 @@ if __name__ == "__main__":
     path_mappings = {
         k: os.path.join(build.topsrcdir, v) for k, v in PATH_MAPPINGS.items()
     }
+    webkit_dir = os.path.join(
+        build.topsrcdir, "third_party", "webkit", "PerformanceTests"
+    )
     httpd = MozHttpd(
         port=PORT,
         docroot=os.path.join(build.topsrcdir, "build", "pgo"),
         path_mappings=path_mappings,
+        urlhandlers=[
+            benchmark_done_handler(
+                "/webkit/PerformanceTests/Speedometer/resources/main.js",
+                os.path.join(webkit_dir, "Speedometer", "resources", "main.js"),
+                "didFinishLastIteration: function () {",
+            ),
+            benchmark_done_handler(
+                "/webkit/PerformanceTests/webaudio/webaudio-bench.js",
+                os.path.join(webkit_dir, "webaudio", "webaudio-bench.js"),
+                "window.postMessage(_data, '*');",
+            ),
+        ],
     )
     httpd.start(block=False)
 
     # Speedometer3 must run in its own server. The benchmark assumes that it
     # is in a root path, and will fail if it's not.
+    sp3_dir = os.path.join(webkit_dir, "Speedometer3")
     sp3_httpd = MozHttpd(
         port=8000,
-        docroot=os.path.join(
-            build.topsrcdir, "third_party", "webkit", "PerformanceTests", "Speedometer3"
-        ),
+        docroot=sp3_dir,
         path_mappings=path_mappings,
+        urlhandlers=[
+            benchmark_done_handler(
+                "/resources/main.mjs",
+                os.path.join(sp3_dir, "resources", "main.mjs"),
+                "didFinishLastIteration(metrics) {",
+            )
+        ],
     )
     sp3_httpd.start(block=False)
     print("started SP3 server on port 8000")
@@ -132,6 +177,13 @@ if __name__ == "__main__":
         js3_httpd = MozHttpd(
             port=8001,
             docroot=js3_dir,
+            urlhandlers=[
+                benchmark_done_handler(
+                    "/JetStreamDriver.js",
+                    os.path.join(js3_dir, "JetStreamDriver.js"),
+                    "this.isDone = true;",
+                )
+            ],
         )
         js3_httpd.start(block=False)
         print("started JS3 server on port 8001")
