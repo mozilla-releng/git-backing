@@ -30,6 +30,7 @@ class BaseRunner(metaclass=ABCMeta):
     process_handler = None
     timeout = None
     output_timeout = None
+    cleanup_ran = False
 
     def __init__(
         self,
@@ -71,7 +72,7 @@ class BaseRunner(metaclass=ABCMeta):
         self.explicit_cleanup = explicit_cleanup
 
     def __del__(self):
-        if not self.explicit_cleanup:
+        if not self.explicit_cleanup and not self.cleanup_ran:
             # If we're relying on the gc for cleanup do the same with the profile
             self.cleanup(keep_profile=True)
 
@@ -111,6 +112,7 @@ class BaseRunner(metaclass=ABCMeta):
         """
         self.timeout = timeout
         self.output_timeout = outputTimeout
+        self.cleanup_ran = False
         cmd = self.command
 
         # ensure the runner is stopped
@@ -266,6 +268,7 @@ class BaseRunner(metaclass=ABCMeta):
         """
         Cleanup all runner state
         """
+        self.cleanup_ran = True
         self.stop()
         if not keep_profile:
             self.profile.cleanup()

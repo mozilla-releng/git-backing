@@ -10,11 +10,23 @@ import signal
 import sys
 import tempfile
 import time
+import weakref
 
 import mozfile
 
 from ..devices import BaseEmulator
 from .runner import BaseRunner
+
+
+def _weak_callback(method):
+    ref = weakref.WeakMethod(method)
+
+    def callback(*args, **kwargs):
+        method = ref()
+        if method is not None:
+            return method(*args, **kwargs)
+
+    return callback
 
 
 class DeviceRunner(BaseRunner):
@@ -51,9 +63,9 @@ class DeviceRunner(BaseRunner):
         stdout = codecs.getwriter("utf-8")(sys.stdout.buffer)
         process_args = {
             "stream": stdout,
-            "processOutputLine": self.on_output,
-            "onFinish": self.on_finish,
-            "onTimeout": self.on_timeout,
+            "processOutputLine": _weak_callback(self.on_output),
+            "onFinish": _weak_callback(self.on_finish),
+            "onTimeout": _weak_callback(self.on_timeout),
         }
         process_args.update(kwargs.get("process_args") or {})
 
@@ -69,6 +81,7 @@ class DeviceRunner(BaseRunner):
         return None
 
     def start(self, *args, **kwargs):
+        self.cleanup_ran = False
         if isinstance(self.device, BaseEmulator) and not self.device.connected:
             self.device.start()
         self.device.connect()
