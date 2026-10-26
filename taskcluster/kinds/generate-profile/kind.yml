@@ -158,6 +158,7 @@ tasks:
         run:
             using: run-task
             checkout: true
+            use-caches: false
             cwd: '{checkout}'
             command: >-
                 python3 testing/mozharness/scripts/android_emulator_pgo.py
@@ -202,6 +203,7 @@ tasks:
         run:
             using: run-task
             checkout: true
+            use-caches: false
             cwd: '{checkout}'
             command: >-
                 python3 testing/mozharness/scripts/android_emulator_pgo.py
