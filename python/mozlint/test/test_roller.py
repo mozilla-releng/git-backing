@@ -10,12 +10,19 @@ import sys
 import time
 from itertools import chain
 
+import mozpack.path as mozpath
 import mozunit
 import pytest
 
 from mozlint.errors import LintersNotConfigured, NoValidLinter
 from mozlint.result import Issue, ResultSummary
-from mozlint.roller import LintRoller, _group_jobs, _split_dirs
+from mozlint.roller import (
+    LintRoller,
+    _balanced_jobs,
+    _group_jobs,
+    _read_ignore_patterns,
+    _split_dirs,
+)
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -471,6 +478,58 @@ def test_split_dirs_jobs(monkeypatch, lint, linters, filedir):
     lint.linters[0]["split-dirs"] = 2
     num_jobs = len(lint.roll(filedir, num_procs=16).issues["count"])
     assert num_jobs == len(os.listdir(filedir))
+
+
+def test_balanced_jobs(tmp_path):
+    top = tmp_path / "top"
+    files = [f"big/{d}/{i}.js" for d in ("x", "y") for i in range(4)]
+    files += [f"vendor/{i}.js" for i in range(20)]
+    files += ["small/a.js", "small/b.py", "skip/c.js", ".dot/d.js"]
+    for path in files:
+        (top / path).parent.mkdir(parents=True, exist_ok=True)
+        (top / path).write_text("")
+    paths = [str(top / name) for name in ("big", "small", "skip", "vendor", ".dot")]
+    jobs = _balanced_jobs(
+        paths,
+        2,
+        str(tmp_path),
+        (".js",),
+        mozpath.matcher(["top/skip"]),
+        mozpath.matcher(["top/vendor"]),
+        True,
+        200000,
+    )
+    rel = [sorted(mozpath.relpath(p, str(top)) for p in job) for job in jobs]
+    assert rel == [["big/x", "small"], [".dot", "big/y", "vendor"]]
+
+
+def test_balanced_jobs_max_chars(tmp_path):
+    top = tmp_path / "top"
+    for name in ("a", "b", "c"):
+        (top / name).mkdir(parents=True)
+        (top / name / "f.js").write_text("")
+    paths = [str(top / name) for name in ("a", "b", "c")]
+    size = len(paths[0]) + 1
+    none = mozpath.matcher([])
+    jobs = _balanced_jobs(paths, 1, str(tmp_path), (".js",), none, none, False, size)
+    assert sorted(len(job) for job in jobs) == [1, 1, 1]
+
+
+def test_read_ignore_patterns(tmp_path):
+    ignores = tmp_path / "ignores.mjs"
+    ignores.write_text(
+        "export default [\n"
+        '  "!.*.js",\n'
+        '  "*.ts",\n'
+        '  "**/reftests/",\n'
+        '  "js/src/jit-test/", // comment\n'
+        "];\n"
+    )
+    assert _read_ignore_patterns(str(ignores)) == [
+        "**/*.ts",
+        "**/reftests",
+        "js/src/jit-test",
+    ]
 
 
 def test_group_jobs(filedir):

@@ -77,9 +77,12 @@ Each `.yml` file must have at least one linter defined in it. Here are the suppo
 - setup - A function that sets up external dependencies (optional)
 - support-files - A list of glob patterns matching configuration files (optional)
 - find-dotfiles - If set to `true`, run on dot files (.\*) (optional)
-- split-dirs - The number of levels to split each directory into before dividing the paths
-  into jobs. Use this for linters that lint a directory the same way as each of its entries
-  (optional)
+- split-dirs - How to split each directory before dividing the paths into jobs. A number
+  splits that many levels deep, and `auto` splits only the directories heavier than an
+  equal share of the files. Use this for linters that lint a directory the same way as
+  each of its entries (optional)
+- split-ignore-file - With `split-dirs: auto`, a JavaScript file of quoted ignore patterns
+  whose matches count as empty when weighing (optional)
 - ignore-case - If set to `true` and `type` is regex, ignore the case (optional)
 
 Note that a linter may not have both `extensions` and `exclude_extensions` specified at the

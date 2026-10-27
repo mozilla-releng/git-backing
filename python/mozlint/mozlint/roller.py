@@ -8,6 +8,7 @@ import atexit
 import copy
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -130,6 +131,122 @@ def _split_dirs(paths, find_dotfiles, depth):
     return split
 
 
+ENTRY_WEIGHT = 0.2
+
+
+def _read_ignore_patterns(path):
+    """The quoted glob patterns of a JavaScript ignore list, as mozpath patterns.
+
+    Negated patterns are skipped, so the result can only ignore more than the
+    list does.
+    """
+    patterns = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if not (m := re.match(r'\s*"([^"!][^"]*)",?\s*(//.*)?$', line)):
+                continue
+            pattern = m.group(1).strip("/")
+            patterns.append(pattern if "/" in pattern else f"**/{pattern}")
+    return patterns
+
+
+def _weigh(path, is_dir, root, extensions, excluded, ignored, find_dotfiles):
+    """Return a ``[path, weight, children]`` tree for ``path``, or ``None`` if
+    it is excluded. A file matching ``extensions`` weighs 1, and every entry
+    also weighs ``ENTRY_WEIGHT`` for the time spent walking it. An ignored path
+    weighs nothing.
+    """
+    rel = mozpath.normsep(path[len(root) :].lstrip(os.sep + "/"))
+    if excluded(rel):
+        return None
+    if ignored(rel):
+        return [path, 0, None]
+    if not is_dir:
+        return [path, int(path.endswith(extensions)) + ENTRY_WEIGHT, None]
+    children = []
+    try:
+        with os.scandir(path) as it:
+            entries = sorted(it, key=lambda e: e.name)
+    except OSError:
+        return [path, ENTRY_WEIGHT, None]
+    for entry in entries:
+        if entry.name.startswith(".") and not find_dotfiles:
+            continue
+        if child := _weigh(
+            entry.path,
+            entry.is_dir(follow_symlinks=False),
+            root,
+            extensions,
+            excluded,
+            ignored,
+            find_dotfiles,
+        ):
+            children.append(child)
+    return [path, sum(c[1] for c in children) + ENTRY_WEIGHT, children]
+
+
+def _balanced_jobs(
+    paths, num_jobs, root, extensions, excluded, ignored, find_dotfiles, max_chars
+):
+    """Divide ``paths`` into about ``num_jobs`` lists of equal weight.
+
+    A directory heavier than an equal share is replaced by its entries, so no
+    single path holds up a job. Paths are then handed out heaviest first to the
+    lightest job, opening a new job only when a command line would grow past
+    ``max_chars``.
+    """
+    nodes = [
+        node
+        for p in paths
+        if (
+            node := _weigh(
+                p, os.path.isdir(p), root, extensions, excluded, ignored, find_dotfiles
+            )
+        )
+    ]
+    target = sum(n[1] for n in nodes) / num_jobs
+    items = []
+    while nodes:
+        path, weight, children = nodes.pop()
+        if not (
+            children and weight > target and not os.path.basename(path).startswith(".")
+        ):
+            items.append((weight, [path]))
+            continue
+        # The files directly in a directory stay together, in name order, so a
+        # job does not spread over many directories.
+        chunk, chunk_weight = [], 0
+        for child in children:
+            if child[2] is not None:
+                nodes.append(child)
+                continue
+            if chunk and chunk_weight + child[1] > target:
+                items.append((chunk_weight, chunk))
+                chunk, chunk_weight = [], 0
+            chunk.append(child[0])
+            chunk_weight += child[1]
+        if chunk:
+            items.append((chunk_weight, chunk))
+
+    jobs = [[0, 0, []] for _ in range(num_jobs)]
+    for weight, item_paths in sorted(items, key=lambda i: (-i[0], i[1][0])):
+        size = sum(len(p) + 1 for p in item_paths)
+        job = min(
+            (j for j in jobs if j[1] + size <= max_chars),
+            key=lambda j: (j[0], len(j[2])),
+            default=None,
+        )
+        if job is None:
+            job = [0, 0, []]
+            jobs.append(job)
+        job[0] += weight
+        job[1] += size
+        job[2].extend(item_paths)
+    # Heaviest first, so the pool hands the light jobs to whichever process
+    # frees up first.
+    return [j[2] for j in sorted(jobs, key=lambda j: -j[0]) if j[2]]
+
+
 def _ancestors(path):
     parent = os.path.dirname(path)
     while parent != path:
@@ -218,6 +335,7 @@ class LintRoller:
     MAX_PATHS_PER_JOB = (
         50  # set a max size to prevent command lines that are too long on Windows
     )
+    MAX_CHARS_PER_JOB = 20000 if sys.platform == "win32" else 200000
 
     def __init__(
         self,
@@ -405,7 +523,27 @@ class LintRoller:
                 yield linter, lpaths
                 continue
 
-            if depth := linter.get("split-dirs"):
+            depth = linter.get("split-dirs")
+            if depth == "auto":
+                extensions = tuple(f".{e}" for e in linter.get("extensions", []))
+                ignore = [p.strip().strip("/") for p in self.third_party_exclude]
+                if ignore_file := linter.get("split-ignore-file"):
+                    ignore += _read_ignore_patterns(
+                        os.path.join(self.root, ignore_file)
+                    )
+                for job_paths in _balanced_jobs(
+                    lpaths,
+                    num_procs,
+                    self.root,
+                    extensions,
+                    mozpath.matcher(linter.get("exclude", [])),
+                    mozpath.matcher([p for p in ignore if p]),
+                    linter.get("find-dotfiles", False),
+                    self.MAX_CHARS_PER_JOB,
+                ):
+                    yield linter, job_paths
+                continue
+            if depth:
                 lpaths = _split_dirs(lpaths, linter.get("find-dotfiles", False), depth)
 
             # One job per CPU, more if needed to keep each job within
