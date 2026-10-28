@@ -1481,9 +1481,9 @@ void BrowsingContext::RegisterWindowContext(WindowContext* aWindow) {
   mWindowContexts.AppendElement(aWindow);
 
   // If the newly registered WindowContext is for our current inner window ID,
-  // re-run the `DidSet` handler to re-establish the relationship.
+  // re-run the `DidChange` handler to re-establish the relationship.
   if (aWindow->InnerWindowId() == GetCurrentInnerWindowId()) {
-    DidSet(FieldIndex<IDX_CurrentInnerWindowId>());
+    DidChange(FieldIndex<IDX_CurrentInnerWindowId>());
     MOZ_DIAGNOSTIC_ASSERT(mCurrentWindowContext == aWindow);
   }
 }
@@ -1498,7 +1498,7 @@ void BrowsingContext::UnregisterWindowContext(WindowContext* aWindow) {
     // Re-read our `CurrentInnerWindowId` value and use it to set
     // `mCurrentWindowContext`. As `aWindow` is now unregistered and discarded,
     // we won't find it, and the value will be cleared back to `nullptr`.
-    DidSet(FieldIndex<IDX_CurrentInnerWindowId>());
+    DidChange(FieldIndex<IDX_CurrentInnerWindowId>());
     MOZ_DIAGNOSTIC_ASSERT(mCurrentWindowContext == nullptr);
   }
 }
@@ -3951,7 +3951,7 @@ auto BrowsingContext::CanSet(FieldIndex<IDX_CurrentInnerWindowId>,
   return CanSetResult::Allow;
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_CurrentInnerWindowId>) {
+void BrowsingContext::DidChange(FieldIndex<IDX_CurrentInnerWindowId>) {
   RefPtr<WindowContext> prevWindowContext = mCurrentWindowContext.forget();
   mCurrentWindowContext = WindowContext::GetById(GetCurrentInnerWindowId());
   MOZ_ASSERT(

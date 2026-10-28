@@ -272,14 +272,13 @@ void WindowContext::RecomputeCanExecuteScripts(bool aApplyChanges) {
   }
 }
 
-void WindowContext::DidSet(FieldIndex<IDX_SHEntryHasUserInteraction>,
-                           bool aOldValue) {
+void WindowContext::DidSetInParent(FieldIndex<IDX_SHEntryHasUserInteraction>) {
   MOZ_ASSERT(
       TopWindowContext() == this,
       "SHEntryHasUserInteraction can only be set on the top window context");
   // This field is set when the child notifies us of new user interaction, so we
   // also set the currently active shentry in the parent as having interaction.
-  if (XRE_IsParentProcess() && mBrowsingContext) {
+  if (mBrowsingContext) {
     SessionHistoryEntry* activeEntry =
         mBrowsingContext->Canonical()->GetActiveSessionHistoryEntry();
     if (activeEntry && GetSHEntryHasUserInteraction()) {

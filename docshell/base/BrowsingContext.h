@@ -1459,7 +1459,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   CanSetResult CanSet(FieldIndex<IDX_CurrentInnerWindowId>,
                       const uint64_t& aValue, ContentParent* aSource);
 
-  void DidSet(FieldIndex<IDX_CurrentInnerWindowId>);
+  void DidChange(FieldIndex<IDX_CurrentInnerWindowId>);
 
   bool CanSet(FieldIndex<IDX_IsPopupSpam>, const bool& aValue,
               ContentParent* aSource);

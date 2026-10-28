@@ -313,7 +313,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, bool aOldValue);
 
-  void DidSet(FieldIndex<IDX_SHEntryHasUserInteraction>, bool aOldValue);
+  void DidSetInParent(FieldIndex<IDX_SHEntryHasUserInteraction>);
 
   void DidSet(FieldIndex<IDX_HasActivePeerConnections>, bool aOldValue);
 
