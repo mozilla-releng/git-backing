@@ -88,6 +88,14 @@ class BounceTrackingState : public nsIWebProgressListener,
       nsIPrincipal* aTriggeringPrincipal,
       const bool aHasValidUserGestureActivation, uint64_t aLoadId);
 
+  // A top level load which started in aSource is about to commit in aTarget, a
+  // new tab created for the container the load switched to. The extended
+  // navigation moves along with the load, unless aSource has started another
+  // navigation since. aLoadId is the retargeted load's load identifier.
+  static void OnLoadRetargeted(dom::CanonicalBrowsingContext* aSource,
+                               dom::CanonicalBrowsingContext* aTarget,
+                               uint64_t aLoadId);
+
   // Whether the given principal should be tracked for bounce tracking.
   static bool ShouldTrackPrincipal(nsIPrincipal* aPrincipal);
 
@@ -154,10 +162,18 @@ class BounceTrackingState : public nsIWebProgressListener,
   // Init to be called after creation, attaches nsIWebProgressListener.
   [[nodiscard]] nsresult Init(dom::BrowsingContextWebProgress* aWebProgress);
 
+  struct SiteListEntry {
+    nsCString mSiteHost;
+    // The storage partition the hop ran in.
+    OriginAttributes mOriginAttributes;
+  };
+
   // When the response is received at the end of a navigation, fill the
   // bounce set.
   [[nodiscard]] nsresult OnResponseReceived(
-      const nsTArray<nsCString>& aSiteList);
+      const nsTArray<SiteListEntry>& aSiteList);
+
+  [[nodiscard]] nsresult StartClientBounceDetectionTimeout();
 
   // When the document is loaded at the end of a navigation, update the
   // final host.

@@ -23,7 +23,6 @@ class mozIStorageConnection;
 namespace mozilla {
 
 class BounceTrackingStateGlobal;
-class BounceTrackingState;
 class OriginAttributes;
 
 extern LazyLogModule gBounceTrackingProtectionLog;
@@ -43,6 +42,11 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
   // Initialises the storage including the on-disk database.
   [[nodiscard]] nsresult Init();
 
+  // BTP state is partitioned by neither first party domain nor partition key.
+  // Returns the OriginAttributes BTP keys its state on.
+  static OriginAttributes NormalizeOriginAttributes(
+      const OriginAttributes& aOriginAttributes);
+
   // Getters for mStateGlobal.
   RefPtr<BounceTrackingStateGlobal> GetStateGlobal(
       const OriginAttributes& aOriginAttributes);
@@ -54,9 +58,6 @@ class BounceTrackingProtectionStorage final : public nsIObserver,
 
   RefPtr<BounceTrackingStateGlobal> GetOrCreateStateGlobal(
       nsIPrincipal* aPrincipal);
-
-  RefPtr<BounceTrackingStateGlobal> GetOrCreateStateGlobal(
-      BounceTrackingState* aBounceTrackingState);
 
   using StateGlobalMap =
       nsTHashMap<OriginAttributesHashKey, RefPtr<BounceTrackingStateGlobal>>;
