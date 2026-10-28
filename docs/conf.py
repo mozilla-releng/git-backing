@@ -273,6 +273,13 @@ def run_sphinx_js_in_background(app):
     app.connect("env-before-read-docs", finish)
 
 
+def freeze_gc(app, env):
+    import gc
+
+    gc.collect()
+    gc.freeze()
+
+
 def setup(app):
     app.add_css_file("custom_theme.css")
     app.add_js_file("scrollable_regions.js")
@@ -280,3 +287,4 @@ def setup(app):
     app.connect("html-page-context", add_github_source_link)
     app.extensions["sphinx_js"].parallel_read_safe = True
     run_sphinx_js_in_background(app)
+    app.connect("env-updated", freeze_gc)
