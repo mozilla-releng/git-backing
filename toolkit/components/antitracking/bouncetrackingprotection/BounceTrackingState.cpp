@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BounceTrackingProtection.h"
+#include "BounceTrackingProtectionStorage.h"
 #include "BounceTrackingState.h"
 #include "BounceTrackingRecord.h"
 #include "ProfileAfterChangeGate.h"
@@ -55,10 +56,7 @@ BounceTrackingState::~BounceTrackingState() {
   if (sBounceTrackingStates) {
     sBounceTrackingStates->Remove(mBrowserId);
   }
-  if (mClientBounceDetectionTimeout) {
-    mClientBounceDetectionTimeout->Cancel();
-    mClientBounceDetectionTimeout = nullptr;
-  }
+  CancelClientBounceDetectionTimeout();
 }
 
 // static
@@ -211,15 +209,16 @@ nsresult BounceTrackingState::Init(
   NS_ENSURE_TRUE(browsingContext, NS_ERROR_FAILURE);
   mBrowserId = browsingContext->BrowserId();
 
-  // Create a copy of the BC's OriginAttributes so we can use it later without
-  // having to hold a reference to the BC.
-  mOriginAttributes = browsingContext->OriginAttributesRef();
-  // We don't need first party domain. Many things in BTP are keyed by
-  // OriginAttributes and we don't want to create unecessary partitions.
-  mOriginAttributes.mFirstPartyDomain.Truncate();
-
-  MOZ_ASSERT(mOriginAttributes.mPartitionKey.IsEmpty(),
+  MOZ_ASSERT(browsingContext->OriginAttributesRef().mPartitionKey.IsEmpty(),
              "Top level BCs mus not have a partition key.");
+
+  // Create a copy of the BC's OriginAttributes so we can use it later without
+  // having to hold a reference to the BC. We don't need first party domain.
+  // Many things in BTP are keyed by OriginAttributes and we don't want to
+  // create unecessary partitions.
+  mOriginAttributes =
+      BounceTrackingProtectionStorage::NormalizeOriginAttributes(
+          browsingContext->OriginAttributesRef());
 
   // Add a listener for window load. See BounceTrackingState::OnStateChange for
   // the listener code.
@@ -277,12 +276,7 @@ void BounceTrackingState::Reset(const OriginAttributes* aOriginAttributes,
          !aPattern->Matches(bounceTrackingState->OriginAttributesRef()))) {
       continue;
     }
-    if (bounceTrackingState->mClientBounceDetectionTimeout) {
-      MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
-                  "{}: mClientBounceDetectionTimeout->Cancel()", __FUNCTION__);
-      bounceTrackingState->mClientBounceDetectionTimeout->Cancel();
-      bounceTrackingState->mClientBounceDetectionTimeout = nullptr;
-    }
+    bounceTrackingState->CancelClientBounceDetectionTimeout();
     bounceTrackingState->ResetBounceTrackingRecord();
   }
 }
@@ -441,13 +435,9 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
   // they do not necessarily carry the tab's OriginAttributes. See Bug 2054941.
   //
   // The container is left out of the comparison because a top level load can be
-  // retargeted into a new tab in the container its site is bound to, splitting
-  // one extended navigation across two tabs.
-  //
-  // TODO: Bug 2058145: BTP does not account for those transitions yet: hops
-  // which ran in another container are recorded under this tab's, causing false
-  // negatives and, more problematic, false positives. Bug 2059768 covers the
-  // known cases with todo() expectations.
+  // retargeted into a new tab in the container its site is bound to. Each hop
+  // is recorded with the OriginAttributes it ran in, and the record follows the
+  // load into the new tab, see OnLoadRetargeted.
 #ifdef DEBUG
   if (nsCOMPtr<nsIURI> channelURIForAssert;
       NS_SUCCEEDED(aChannel->GetURI(getter_AddRefs(channelURIForAssert))) &&
@@ -474,8 +464,12 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
   // not "null".
   bool siteListIsEmpty = true;
 
-  // Collect uri list including any redirects.
-  nsTArray<nsCString> siteList;
+  // Collect uri list including any redirects. Record each hop with the
+  // container it ran in: the tab's, unless a redirect to a site bound to
+  // another container switched the rest of the load into it.
+  nsTArray<SiteListEntry> siteList;
+  const OriginAttributes& channelOriginAttributes =
+      loadInfo->GetOriginAttributes();
 
   for (const nsCOMPtr<nsIRedirectHistoryEntry>& redirectHistoryEntry :
        loadInfo->RedirectChain()) {
@@ -484,7 +478,8 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (!BounceTrackingState::ShouldTrackPrincipal(principal)) {
-      siteList.AppendElement("null"_ns);
+      siteList.AppendElement(
+          SiteListEntry{"null"_ns, principal->OriginAttributesRef()});
       continue;
     }
 
@@ -493,9 +488,11 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (NS_WARN_IF(baseDomain.IsEmpty())) {
-      siteList.AppendElement("null");
+      siteList.AppendElement(
+          SiteListEntry{"null"_ns, principal->OriginAttributesRef()});
     } else {
-      siteList.AppendElement(baseDomain);
+      siteList.AppendElement(
+          SiteListEntry{baseDomain, principal->OriginAttributesRef()});
       siteListIsEmpty = false;
     }
   }
@@ -518,10 +515,10 @@ nsresult BounceTrackingState::OnDocumentStartRequest(nsIChannel* aChannel) {
       MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
                   "{}: Failed to get site host from channelURI: {}",
                   __FUNCTION__, channelURI->GetSpecOrDefault());
-      siteList.AppendElement("null"_ns);
+      siteList.AppendElement(SiteListEntry{"null"_ns, channelOriginAttributes});
     } else {
       MOZ_ASSERT(!siteHost.IsEmpty(), "siteHost should not be empty.");
-      siteList.AppendElement(siteHost);
+      siteList.AppendElement(SiteListEntry{siteHost, channelOriginAttributes});
       siteListIsEmpty = false;
     }
   }
@@ -632,7 +629,8 @@ nsresult BounceTrackingState::OnBFCacheRestored() {
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (!siteHost.IsEmpty()) {
-      rv = OnResponseReceived(AutoTArray<nsCString, 1>{siteHost});
+      rv = OnResponseReceived(AutoTArray<SiteListEntry, 1>{
+          SiteListEntry{siteHost, mOriginAttributes}});
       NS_ENSURE_SUCCESS(rv, rv);
     }
   }
@@ -740,12 +738,7 @@ nsresult BounceTrackingState::OnStartNavigation(
 
   // Remove any queued global tasks to record stateful bounces for bounce
   // tracking from the networking task source.
-  if (mClientBounceDetectionTimeout) {
-    MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
-                "{}: mClientBounceDetectionTimeout->Cancel()", __FUNCTION__);
-    mClientBounceDetectionTimeout->Cancel();
-    mClientBounceDetectionTimeout = nullptr;
-  }
+  CancelClientBounceDetectionTimeout();
 
   // The initiator's (schemeless) site, for the user activation set.
   nsAutoCString siteHost;
@@ -799,7 +792,7 @@ nsresult BounceTrackingState::OnStartNavigation(
   // initialHost.
   if (!mBounceTrackingRecord) {
     mBounceTrackingRecord = MakeRefPtr<BounceTrackingRecord>();
-    mBounceTrackingRecord->SetInitialHost(initialSiteHost);
+    mBounceTrackingRecord->SetInitialHost(initialSiteHost, mOriginAttributes);
     if (hasUserActivation) {
       mBounceTrackingRecord->AddUserActivationHost(siteHost);
     }
@@ -822,7 +815,7 @@ nsresult BounceTrackingState::OnStartNavigation(
 
     MOZ_ASSERT(!mBounceTrackingRecord);
     mBounceTrackingRecord = MakeRefPtr<BounceTrackingRecord>();
-    mBounceTrackingRecord->SetInitialHost(initialSiteHost);
+    mBounceTrackingRecord->SetInitialHost(initialSiteHost, mOriginAttributes);
     // Not initialSiteHost: the user activation set feeds
     // DynamicFpiNavigationHeuristic, which wants the site interacted with.
     mBounceTrackingRecord->AddUserActivationHost(siteHost);
@@ -834,9 +827,9 @@ nsresult BounceTrackingState::OnStartNavigation(
   // candidate. Not initialSiteHost: its opener fallback would name the
   // initiating tab again.
   if (departingSiteHost.IsEmpty()) {
-    mBounceTrackingRecord->AddBounceHost("null"_ns);
+    mBounceTrackingRecord->AddBounceHost("null"_ns, mOriginAttributes);
   } else {
-    mBounceTrackingRecord->AddBounceHost(departingSiteHost);
+    mBounceTrackingRecord->AddBounceHost(departingSiteHost, mOriginAttributes);
   }
 
   return NS_OK;
@@ -845,11 +838,12 @@ nsresult BounceTrackingState::OnStartNavigation(
 // Private
 
 nsresult BounceTrackingState::OnResponseReceived(
-    const nsTArray<nsCString>& aSiteList) {
+    const nsTArray<SiteListEntry>& aSiteList) {
 #ifdef DEBUG
   MOZ_ASSERT(!aSiteList.IsEmpty(), "siteList should not be empty.");
-  for (const nsCString& site : aSiteList) {
-    MOZ_ASSERT(!site.IsEmpty(), "site should not be an empty string.");
+  for (const SiteListEntry& entry : aSiteList) {
+    MOZ_ASSERT(!entry.mSiteHost.IsEmpty(),
+               "site should not be an empty string.");
   }
 #endif
 
@@ -857,8 +851,11 @@ nsresult BounceTrackingState::OnResponseReceived(
   if (MOZ_LOG_TEST(gBounceTrackingProtectionLog, LogLevel::Debug)) {
     nsAutoCString siteListStr;
 
-    for (const nsACString& site : aSiteList) {
-      siteListStr.Append(site);
+    for (const SiteListEntry& entry : aSiteList) {
+      nsAutoCString suffix;
+      entry.mOriginAttributes.CreateSuffix(suffix);
+      siteListStr.Append(entry.mSiteHost);
+      siteListStr.Append(suffix);
       siteListStr.AppendLiteral(", ");
     }
 
@@ -875,15 +872,25 @@ nsresult BounceTrackingState::OnResponseReceived(
 
   // Check if there is still an active timeout. This shouldn't happen since
   // OnStartNavigation already cancels it.
-  if (mClientBounceDetectionTimeout) {
-    MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
-                "{}: mClientBounceDetectionTimeout->Cancel()", __FUNCTION__);
-    mClientBounceDetectionTimeout->Cancel();
-    mClientBounceDetectionTimeout = nullptr;
-  }
+  CancelClientBounceDetectionTimeout();
 
   // Run steps after a timeout: queue a global task on the networking task
   // source with global to record stateful bounces for bounce.
+  nsresult rv = StartClientBounceDetectionTimeout();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // For each URL in URLs: Insert host to the navigable’s bounce tracking
+  // record's bounce set.
+  for (const SiteListEntry& entry : aSiteList) {
+    mBounceTrackingRecord->AddBounceHost(entry.mSiteHost,
+                                         entry.mOriginAttributes);
+  }
+
+  return NS_OK;
+}
+
+nsresult BounceTrackingState::StartClientBounceDetectionTimeout() {
+  MOZ_ASSERT(!mClientBounceDetectionTimeout);
   MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
               "{}: Scheduling mClientBounceDetectionTimeout", __FUNCTION__);
 
@@ -920,13 +927,65 @@ nsresult BounceTrackingState::OnResponseReceived(
       nsITimer::TYPE_ONE_SHOT, "mClientBounceDetectionTimeout"_ns);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // For each URL in URLs: Insert host to the navigable’s bounce tracking
-  // record's bounce set.
-  for (const nsACString& site : aSiteList) {
-    mBounceTrackingRecord->AddBounceHost(site);
+  return NS_OK;
+}
+
+// static
+void BounceTrackingState::OnLoadRetargeted(
+    dom::CanonicalBrowsingContext* aSource,
+    dom::CanonicalBrowsingContext* aTarget, uint64_t aLoadId) {
+  MOZ_ASSERT(aSource);
+  MOZ_ASSERT(aTarget);
+
+  // The load never starts in the target, so this is what creates its state,
+  // which must exist even if the record stays: the purge spares the sites open
+  // in tabs with a BounceTrackingState.
+  RefPtr<BounceTrackingState> target = aTarget->GetBounceTrackingState();
+  RefPtr<BounceTrackingState> source = aSource->GetBounceTrackingState();
+  if (!target || !source || target == source ||
+      !source->mBounceTrackingRecord) {
+    return;
+  }
+  // The new tab is created asynchronously. If the source started another
+  // navigation meanwhile, the record belongs to that one and stays.
+  if (source->mLastStartedLoadId != Some(aLoadId)) {
+    MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
+                "{}: source moved on to another load, keeping its record",
+                __FUNCTION__);
+    return;
   }
 
-  return NS_OK;
+  MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
+              "{}: source: {}, target: {}", __FUNCTION__, *source, *target);
+
+  if (NS_WARN_IF(target->mBounceTrackingRecord)) {
+    MOZ_ASSERT_UNREACHABLE("The target was created for this load.");
+    return;
+  }
+  target->CancelClientBounceDetectionTimeout();
+
+  target->mBounceTrackingRecord = std::move(source->mBounceTrackingRecord);
+  target->mLastStartedLoadId = source->mLastStartedLoadId;
+  // User activation in another container must not feed the storage access
+  // heuristic of this one, see DynamicFpiNavigationHeuristic.
+  target->mBounceTrackingRecord->ClearUserActivationHosts();
+
+  if (source->mClientBounceDetectionTimeout) {
+    source->CancelClientBounceDetectionTimeout();
+    DebugOnly<nsresult> rv = target->StartClientBounceDetectionTimeout();
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "StartClientBounceDetectionTimeout failed");
+  }
+}
+
+void BounceTrackingState::CancelClientBounceDetectionTimeout() {
+  if (!mClientBounceDetectionTimeout) {
+    return;
+  }
+  MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug,
+              "{}: mClientBounceDetectionTimeout->Cancel()", __FUNCTION__);
+  mClientBounceDetectionTimeout->Cancel();
+  mClientBounceDetectionTimeout = nullptr;
 }
 
 nsresult BounceTrackingState::OnDocumentLoaded(
@@ -972,7 +1031,8 @@ nsresult BounceTrackingState::OnDocumentLoaded(
 
   // Set the navigable’s bounce tracking record's final host to the host of
   // finalSite.
-  mBounceTrackingRecord->SetFinalHost(siteHost);
+  mBounceTrackingRecord->SetFinalHost(
+      siteHost, aDocumentPrincipal->OriginAttributesRef());
 
   return NS_OK;
 }
