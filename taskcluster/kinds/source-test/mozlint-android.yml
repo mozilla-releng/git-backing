@@ -17,8 +17,12 @@ task-defaults:
     worker-type: t-linux-docker-amd
     worker:
         docker-image: {in-tree: android-build}
+        caches:
+            - type: persistent
+              name: android-lint-gradle-user-home
+              mount-point: /builds/worker/gradle-user-home
         env:
-            GRADLE_USER_HOME: /builds/worker/checkouts/gecko/mobile/android/gradle/dotgradle-offline
+            GRADLE_USER_HOME: /builds/worker/gradle-user-home
             MOZCONFIG: mobile/android/config/mozconfigs/android-arm/nightly-android-lints
             MOZ_OBJDIR: obj-firefox
             PERFHERDER_EXTRA_OPTIONS: android-lints
@@ -79,6 +83,7 @@ lints:
             ln -s $MOZ_FETCHES_DIR/android-sdk-linux $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
+            cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-api-lint
@@ -119,6 +124,7 @@ fenix:
             ln -s $MOZ_FETCHES_DIR/android-sdk-linux $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
+            cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-fenix
@@ -147,6 +153,7 @@ focus:
             ln -s $MOZ_FETCHES_DIR/android-sdk-linux $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
+            cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-focus
@@ -175,6 +182,7 @@ android-components:
             ln -s $MOZ_FETCHES_DIR/android-sdk-linux $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
+            cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-ac
