@@ -107,7 +107,8 @@ lints:
             - '**/*.gradle.kts'
             # Other misc lint related files.
             - 'python/mozlint/**'
-            - 'tools/lint/**'
+            - 'tools/lint/android/**'
+            - 'tools/lint/android-*.yml'
 
 fenix:
     treeherder:
@@ -135,7 +136,8 @@ fenix:
             - '**/*.gradle'
             # Other misc lint related files.
             - 'python/mozlint/**'
-            - 'tools/lint/**'
+            - 'tools/lint/android/**'
+            - 'tools/lint/android-*.yml'
 
 focus:
     treeherder:
@@ -163,7 +165,8 @@ focus:
             - '**/*.gradle'
             # Other misc lint related files.
             - 'python/mozlint/**'
-            - 'tools/lint/**'
+            - 'tools/lint/android/**'
+            - 'tools/lint/android-*.yml'
 
 android-components:
     treeherder:
@@ -190,4 +193,5 @@ android-components:
             - '**/*.gradle'
             # Other misc lint related files.
             - 'python/mozlint/**'
-            - 'tools/lint/**'
+            - 'tools/lint/android/**'
+            - 'tools/lint/android-*.yml'
