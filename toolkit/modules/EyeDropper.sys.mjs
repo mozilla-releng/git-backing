@@ -347,99 +347,96 @@ export class EyeDropper {
    * forwarded to the content process.
    */
   #addInputListeners() {
-    const window = this.#window;
     const options = {
       capture: true,
       signal: this.#inputAbortController.signal,
     };
-    const swallow = event => {
+    // A private method cannot be used as a listener directly, as it would be
+    // called with the event target as `this`.
+    const listener = event => this.#eventHandler(event);
+    for (const type of [
+      "mousemove",
+      "mousedown",
+      "mouseup",
+      "click",
+      "dblclick",
+      "auxclick",
+      "contextmenu",
+      "wheel",
+      "keydown",
+      "keyup",
+      "keypress",
+      "resize",
+      "TabSelect",
+      "deactivate",
+    ]) {
+      this.#window.addEventListener(type, listener, options);
+    }
+    this.#browser.addEventListener("FullZoomChange", listener, options);
+  }
+
+  /**
+   * Handles the events listened to by #addInputListeners().
+   *
+   * @param {Event} event
+   */
+  #eventHandler(event) {
+    // Always false for events that are not about the mouse.
+    const isOverPage = this.#isOverPage(event.clientX, event.clientY);
+    const blockEvent = event => {
       event.preventDefault();
       event.stopPropagation();
     };
-    const cancel = () => this.#finish(null);
-
-    window.addEventListener(
-      "mousemove",
-      event => {
-        if (this.#isOverPage(event.clientX, event.clientY)) {
-          swallow(event);
-          this.#moveTo(event.clientX, event.clientY);
+    switch (event.type) {
+      case "mousedown":
+        // Pressing a mouse button over the browser UI dismisses the eyedropper
+        // and lets the UI handle it.
+        if (!isOverPage) {
+          this.#finish(null);
+          break;
         }
-      },
-      options
-    );
-    // Pressing a mouse button over the browser UI dismisses the eyedropper
-    // and lets the UI handle it.
-    window.addEventListener(
-      "mousedown",
-      event => {
-        if (!this.#isOverPage(event.clientX, event.clientY)) {
-          cancel();
-          return;
-        }
-        swallow(event);
-      },
-      options
-    );
-    window.addEventListener(
-      "click",
-      event => {
-        if (this.#isOverPage(event.clientX, event.clientY)) {
-          swallow(event);
-          if (event.button === 0) {
+      // fall through
+      case "mousemove":
+      case "mouseup":
+      case "click":
+      case "dblclick":
+      case "auxclick":
+      case "contextmenu":
+      case "wheel":
+        if (isOverPage) {
+          blockEvent(event);
+          if (event.type === "mousemove") {
+            this.#moveTo(event.clientX, event.clientY);
+          } else if (event.type === "click" && event.button === 0) {
             this.#moveTo(event.clientX, event.clientY);
             this.#finish(this.#cursorColor);
           }
         }
-      },
-      options
-    );
-    for (const type of ["mouseup", "dblclick", "auxclick", "contextmenu"]) {
-      window.addEventListener(
-        type,
-        event => {
-          if (this.#isOverPage(event.clientX, event.clientY)) {
-            swallow(event);
-          }
-        },
-        options
-      );
-    }
-    // Scrolling is done off the main thread, where it cannot be prevented from
-    // here, and would make the screenshot stale.
-    window.addEventListener(
-      "wheel",
-      event => {
-        if (this.#isOverPage(event.clientX, event.clientY)) {
-          swallow(event);
-        }
-      },
-      options
-    );
-    // Keys go to the focused <browser> but are seen by the window first.
-    // Shortcuts with modifiers dismiss the eyedropper, so that they apply to
-    // the page as it is.
-    window.addEventListener(
-      "keydown",
-      event => {
+        break;
+      // Keys go to the focused <browser> but are seen by the window first.
+      // Shortcuts with modifiers dismiss the eyedropper, so that they apply to
+      // the page as it is.
+      case "keydown":
         if (event.metaKey || event.ctrlKey || event.altKey) {
-          cancel();
-          return;
+          this.#finish(null);
+          break;
         }
-        swallow(event);
+        blockEvent(event);
         if (event.key === "Escape") {
-          cancel();
+          this.#finish(null);
         }
-      },
-      options
-    );
-    for (const type of ["keyup", "keypress"]) {
-      window.addEventListener(type, swallow, options);
+        break;
+      case "keyup":
+      case "keypress":
+        blockEvent(event);
+        break;
+      // The screenshot no longer matches what is shown.
+      case "FullZoomChange":
+      case "resize":
+      case "TabSelect":
+      case "deactivate":
+        this.#finish(null);
+        break;
     }
-    // The screenshot no longer matches what is shown.
-    this.#browser.addEventListener("FullZoomChange", cancel, options);
-    window.addEventListener("resize", cancel, options);
-    window.addEventListener("TabSelect", cancel, options);
-    window.addEventListener("deactivate", cancel, options);
   }
 }

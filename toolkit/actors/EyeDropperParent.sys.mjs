@@ -37,7 +37,9 @@ class EyeDropperPicker {
    */
   constructor(aBrowser) {
     if (!aBrowser) {
-      throw new Error("EyeDropper does not yet support being opened for chrome documents");
+      throw new Error(
+        "EyeDropper does not yet support being opened for chrome documents"
+      );
     }
 
     this.#eyeDropper = new lazy.EyeDropper(aBrowser);
