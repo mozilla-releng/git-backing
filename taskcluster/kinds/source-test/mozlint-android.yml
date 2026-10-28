@@ -92,7 +92,7 @@ lints:
             --linter android-checkstyle
             --linter android-lint
             --linter android-test
-            *
+            *; rc=$?; J=$(find $MOZ_FETCHES_DIR -path '*/bin/jcmd' | head -1); for p in $(pgrep -f 'bootstrap\.GradleDaemo[n]|daemon\.KotlinCompileDaemo[n]'); do echo "JVMDIAG pid $p args: $(tr '\0' ' ' < /proc/$p/cmdline | grep -o -- '-X[^ ]*\|-XX:[^ ]*\|GradleDaemon\|KotlinCompileDaemon' | tr '\n' ' ')"; $J $p Compiler.codecache | sed "s/^/JVMDIAG $p /"; done; exit $rc
     when:
         files-changed:
             # Source files.
@@ -128,7 +128,7 @@ fenix:
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-fenix
-            *
+            *; rc=$?; J=$(find $MOZ_FETCHES_DIR -path '*/bin/jcmd' | head -1); for p in $(pgrep -f 'bootstrap\.GradleDaemo[n]|daemon\.KotlinCompileDaemo[n]'); do echo "JVMDIAG pid $p args: $(tr '\0' ' ' < /proc/$p/cmdline | grep -o -- '-X[^ ]*\|-XX:[^ ]*\|GradleDaemon\|KotlinCompileDaemon' | tr '\n' ' ')"; $J $p Compiler.codecache | sed "s/^/JVMDIAG $p /"; done; exit $rc
     when:
         files-changed:
             # Source files.
@@ -157,7 +157,7 @@ focus:
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-focus
-            *
+            *; rc=$?; J=$(find $MOZ_FETCHES_DIR -path '*/bin/jcmd' | head -1); for p in $(pgrep -f 'bootstrap\.GradleDaemo[n]|daemon\.KotlinCompileDaemo[n]'); do echo "JVMDIAG pid $p args: $(tr '\0' ' ' < /proc/$p/cmdline | grep -o -- '-X[^ ]*\|-XX:[^ ]*\|GradleDaemon\|KotlinCompileDaemon' | tr '\n' ' ')"; $J $p Compiler.codecache | sed "s/^/JVMDIAG $p /"; done; exit $rc
     when:
         files-changed:
             # Source files.
@@ -186,7 +186,7 @@ android-components:
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-ac
-            *
+            *; rc=$?; J=$(find $MOZ_FETCHES_DIR -path '*/bin/jcmd' | head -1); for p in $(pgrep -f 'bootstrap\.GradleDaemo[n]|daemon\.KotlinCompileDaemo[n]'); do echo "JVMDIAG pid $p args: $(tr '\0' ' ' < /proc/$p/cmdline | grep -o -- '-X[^ ]*\|-XX:[^ ]*\|GradleDaemon\|KotlinCompileDaemon' | tr '\n' ' ')"; $J $p Compiler.codecache | sed "s/^/JVMDIAG $p /"; done; exit $rc
     when:
         files-changed:
             # Source files.
