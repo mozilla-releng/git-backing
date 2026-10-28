@@ -2366,13 +2366,15 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch(
 
                   MOZ_LOG(gProcessIsolationLog, LogLevel::Verbose,
                           ("Process Switch: Redirected load to new tab"));
+                  if (switchedContainer) {
+                    BounceTrackingState::OnLoadRetargeted(
+                        startedIn, aBrowsingContext->Canonical(),
+                        self->mLoadIdentifier);
+                    NotifyLoadRetargeted(startedIn);
+                  }
                   self->TriggerProcessSwitch(
                       MOZ_KnownLive(aBrowsingContext->Canonical()), options,
                       /* aIsNewTab */ true);
-
-                  if (switchedContainer) {
-                    NotifyLoadRetargeted(startedIn);
-                  }
                 },
             [self = RefPtr{this}](const CopyableErrorResult&) {
               MOZ_LOG(gProcessIsolationLog, LogLevel::Error,
