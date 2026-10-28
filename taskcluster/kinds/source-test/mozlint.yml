@@ -688,6 +688,7 @@ rustfmt:
 
 clippy:
     description: clippy on the Rust code
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: rust(clippy)
     run:
