@@ -74,6 +74,7 @@ lints:
         symbol: android(lints)
     run:
         command: >
+            (set +x; while sleep 5; do echo "MEMSAMPLE $(date -u +%H:%M:%S) $(free -m | awk '/^Mem:/{print $3}') $(ps -C java -o rss= | awk '{s+=$1} END {print int(s/1024)}') $(pgrep -c java)"; done) & trap "kill $!" EXIT;
             ln -s $MOZ_FETCHES_DIR/android-gradle-dependencies $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/android-sdk-linux $GECKO_PATH &&
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
