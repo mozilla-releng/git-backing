@@ -3336,13 +3336,15 @@ void BrowsingContext::DidSet(FieldIndex<IDX_SessionStoreEpoch>,
   sessionStoreChild->SetEpoch(GetSessionStoreEpoch());
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_GVAudibleAutoplayRequestStatus>) {
+void BrowsingContext::DidChange(
+    FieldIndex<IDX_GVAudibleAutoplayRequestStatus>) {
   MOZ_ASSERT(IsTop(),
              "Should only set GVAudibleAutoplayRequestStatus in the top-level "
              "browsing context");
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_GVInaudibleAutoplayRequestStatus>) {
+void BrowsingContext::DidChange(
+    FieldIndex<IDX_GVInaudibleAutoplayRequestStatus>) {
   MOZ_ASSERT(IsTop(),
              "Should only set GVAudibleAutoplayRequestStatus in the top-level "
              "browsing context");
@@ -3395,8 +3397,8 @@ void BrowsingContext::DidChange(FieldIndex<IDX_ControlsDocumentPiP>,
   }
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ExplicitActive>,
-                             ExplicitActiveStatus aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_ExplicitActive>,
+                                ExplicitActiveStatus aOldValue) {
   MOZ_ASSERT(IsTop());
 
   const bool isActive = IsActive();
@@ -4051,7 +4053,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_AncestorLoading>) {
   }
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>) {
+void BrowsingContext::DidChange(FieldIndex<IDX_AuthorStyleDisabledDefault>) {
   MOZ_ASSERT(IsTop(),
              "Should only set AuthorStyleDisabledDefault in the top "
              "browsing context");
@@ -4186,8 +4188,8 @@ void BrowsingContext::CreateChildSHistory() {
   mChildSessionHistory = MakeRefPtr<ChildSHistory>(this);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_HasSessionHistory>,
-                             bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_HasSessionHistory>,
+                                bool aOldValue) {
   MOZ_ASSERT(GetHasSessionHistory() || !aOldValue,
              "We don't support turning off session history.");
 

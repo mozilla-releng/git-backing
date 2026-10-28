@@ -1439,7 +1439,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidChange(FieldIndex<IDX_DisplayMode>);
 
-  void DidSet(FieldIndex<IDX_ExplicitActive>, ExplicitActiveStatus aOldValue);
+  void DidChange(FieldIndex<IDX_ExplicitActive>,
+                 ExplicitActiveStatus aOldValue);
 
   bool CanSet(FieldIndex<IDX_ControlsDocumentPiP>, bool,
               ContentParent* aSource);
@@ -1466,8 +1467,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_IsPopupSpam>);
 
-  void DidSet(FieldIndex<IDX_GVAudibleAutoplayRequestStatus>);
-  void DidSet(FieldIndex<IDX_GVInaudibleAutoplayRequestStatus>);
+  void DidChange(FieldIndex<IDX_GVAudibleAutoplayRequestStatus>);
+  void DidChange(FieldIndex<IDX_GVInaudibleAutoplayRequestStatus>);
 
   void DidSet(FieldIndex<IDX_Loading>);
 
@@ -1496,7 +1497,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
                       ContentParent* aSource);
   void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
 
-  void DidSet(FieldIndex<IDX_HasSessionHistory>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_HasSessionHistory>, bool aOldValue);
 
   bool CanSet(FieldIndex<IDX_BrowserId>, const uint64_t& aValue,
               ContentParent* aSource);
@@ -1515,7 +1516,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidChange(FieldIndex<IDX_FullZoom>);
   void DidChange(FieldIndex<IDX_TextZoom>);
-  void DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>);
+  void DidChange(FieldIndex<IDX_AuthorStyleDisabledDefault>);
 
   void DidSet(FieldIndex<IDX_IsSyntheticDocumentContainer>);
 
@@ -1523,7 +1524,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidChange(FieldIndex<IDX_ForceOffline>);
 
-  void DidSet(FieldIndex<IDX_IsDocumentPiP>, bool aWasPiP) {
+  void DidChange(FieldIndex<IDX_IsDocumentPiP>, bool aWasPiP) {
     if (GetIsDocumentPiP() && !aWasPiP) {
       SetDisplayMode(DisplayMode::Picture_in_picture, IgnoreErrors());
     } else if (!GetIsDocumentPiP() && aWasPiP) {

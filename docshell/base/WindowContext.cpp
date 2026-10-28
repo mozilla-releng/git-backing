@@ -325,8 +325,8 @@ void WindowContext::DidSet(FieldIndex<IDX_UserActivationStateAndModifiers>) {
   }
 }
 
-void WindowContext::DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>,
-                           bool aOldValue) {
+void WindowContext::DidChange(FieldIndex<IDX_HasReportedShadowDOMUsage>,
+                              bool aOldValue) {
   if (!aOldValue && GetHasReportedShadowDOMUsage() && IsInProcess()) {
     MOZ_ASSERT(TopWindowContext() == this);
     if (mBrowsingContext) {

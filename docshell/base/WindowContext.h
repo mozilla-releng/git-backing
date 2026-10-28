@@ -311,7 +311,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_AllowJavascript>, bool aOldValue);
 
-  void DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_HasReportedShadowDOMUsage>, bool aOldValue);
 
   void DidSetInParent(FieldIndex<IDX_SHEntryHasUserInteraction>);
 
