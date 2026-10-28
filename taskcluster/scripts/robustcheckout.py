@@ -905,6 +905,27 @@ def _docheckout(
                 b"%s" % (sparse_profile, checkoutrevision)
             )
 
+        # TRACKING hg64 - Mercurial 6.4 and later require call to
+        # dirstate.changing_parents(repo)
+        def parentchange(repo):
+            if util.safehasattr(repo.dirstate, "changing_parents"):
+                return repo.dirstate.changing_parents(repo)
+            return repo.dirstate.parentchange()
+
+        if repo[b"."].node() == nullid:
+            profile_dir = os.path.dirname(sparse_profile)
+            ui.write(
+                b"(updating to %s with only %s checked out)\n"
+                % (checkoutrevision, profile_dir)
+            )
+            with repo.wlock(), parentchange(repo):
+                sparsemod._updateconfigandrefreshwdir(
+                    repo, [b"path:" + profile_dir], [], [], force=True
+                )
+            with timeit("sparse_bootstrap_update", "sparse-bootstrap-update"):
+                if commands.update(ui, repo, rev=checkoutrevision, clean=True):
+                    raise error.Abort(b"error updating")
+
         old_config = sparsemod.parseconfig(
             repo.ui, repo.vfs.tryread(b"sparse"), b"sparse"
         )
@@ -929,13 +950,6 @@ def _docheckout(
             # one to change the sparse profile and another to update to the new
             # revision. This is not desired. But there's not a good API in
             # Mercurial to do this as one operation.
-            # TRACKING hg64 - Mercurial 6.4 and later require call to
-            # dirstate.changing_parents(repo)
-            def parentchange(repo):
-                if util.safehasattr(repo.dirstate, "changing_parents"):
-                    return repo.dirstate.changing_parents(repo)
-                return repo.dirstate.parentchange()
-
             with repo.wlock(), parentchange(repo), timeit(
                 "sparse_update_config", "sparse-update-config"
             ):
