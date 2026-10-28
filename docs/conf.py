@@ -240,9 +240,43 @@ def make_sphinx_js_skip_missing_objects():
 make_sphinx_js_skip_missing_objects()
 
 
+def run_sphinx_js_in_background(app):
+    import threading
+
+    import sphinx_js
+
+    app.disconnect(
+        next(
+            listener.id
+            for listener in app.events.listeners["builder-inited"]
+            if listener.handler is sphinx_js.analyze
+        )
+    )
+    state = {}
+
+    def run():
+        try:
+            sphinx_js.analyze(app)
+        except BaseException as e:
+            state["error"] = e
+
+    def start(app):
+        state["thread"] = threading.Thread(target=run)
+        state["thread"].start()
+
+    def finish(app, env, docnames):
+        state["thread"].join()
+        if "error" in state:
+            raise state["error"]
+
+    app.connect("builder-inited", start, priority=100)
+    app.connect("env-before-read-docs", finish)
+
+
 def setup(app):
     app.add_css_file("custom_theme.css")
     app.add_js_file("scrollable_regions.js")
     app.connect("html-page-context", install_sphinx_design)
     app.connect("html-page-context", add_github_source_link)
     app.extensions["sphinx_js"].parallel_read_safe = True
+    run_sphinx_js_in_background(app)
