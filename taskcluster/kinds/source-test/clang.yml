@@ -35,6 +35,7 @@ task-defaults:
 
 tidy:
     description: Run static-analysis (clang-tidy) on C/C++ patches
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: cpp(clang-tidy)
     run:
@@ -60,6 +61,7 @@ tidy:
 
 external:
     description: Run static-analysis (clang-tidy) on C/C++ patches with external checks
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: cpp(clang-tidy-external)
     attributes:
