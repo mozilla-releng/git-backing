@@ -252,6 +252,7 @@ stylelint:
 
 typescript:
     description: TypeScript checker
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: js(TSC)
         tier: 2
