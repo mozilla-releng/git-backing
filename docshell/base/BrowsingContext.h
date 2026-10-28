@@ -1408,31 +1408,24 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_OpenerPolicy>,
               nsILoadInfo::CrossOriginOpenerPolicy, ContentParent*);
 
-  void DidSet(FieldIndex<IDX_InRDMPane>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_InRDMPane>);
   void DidSet(FieldIndex<IDX_HasOrientationOverride>, bool aOldValue);
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY void DidSet(FieldIndex<IDX_ForceDesktopViewport>,
-                                          bool aOldValue);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void DidChange(
+      FieldIndex<IDX_ForceDesktopViewport>);
 
-  void DidSet(FieldIndex<IDX_EmbedderColorSchemes>,
-              EmbedderColorSchemes&& aOldValue);
+  void DidChange(FieldIndex<IDX_EmbedderColorSchemes>);
 
-  void DidSet(FieldIndex<IDX_EmbedderScrollbarInset>,
-              LayoutDeviceIntMargin&& aOldValue);
+  void DidChange(FieldIndex<IDX_EmbedderScrollbarInset>);
 
-  void DidSet(FieldIndex<IDX_PrefersColorSchemeOverride>,
-              dom::PrefersColorSchemeOverride aOldValue);
+  void DidChange(FieldIndex<IDX_PrefersColorSchemeOverride>);
 
-  void DidSet(FieldIndex<IDX_ForcedColorsOverride>,
-              dom::ForcedColorsOverride aOldValue);
+  void DidChange(FieldIndex<IDX_ForcedColorsOverride>);
 
-  void DidSet(FieldIndex<IDX_PrefersReducedMotionOverride>,
-              dom::PrefersReducedMotionOverride aOldValue);
+  void DidChange(FieldIndex<IDX_PrefersReducedMotionOverride>);
 
-  void DidSet(FieldIndex<IDX_PrefersContrastOverride>,
-              dom::PrefersContrastOverride aOldValue);
+  void DidChange(FieldIndex<IDX_PrefersContrastOverride>);
 
-  void DidSet(FieldIndex<IDX_AnimationsPlayBackRateMultiplier>,
-              double aOldValue);
+  void DidChange(FieldIndex<IDX_AnimationsPlayBackRateMultiplier>);
 
   void PresContextAffectingFieldChanged();
 
@@ -1440,18 +1433,17 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_TimezoneOverride>, nsString&& aOldValue);
 
-  void DidSet(FieldIndex<IDX_MediumOverride>, nsString&& aOldValue);
+  void DidChange(FieldIndex<IDX_MediumOverride>);
 
-  void DidSet(FieldIndex<IDX_TouchEventsOverrideInternal>,
-              dom::TouchEventsOverride&& aOldValue);
+  void DidChange(FieldIndex<IDX_TouchEventsOverrideInternal>);
 
-  void DidSet(FieldIndex<IDX_DisplayMode>, enum DisplayMode aOldValue);
+  void DidChange(FieldIndex<IDX_DisplayMode>);
 
   void DidSet(FieldIndex<IDX_ExplicitActive>, ExplicitActiveStatus aOldValue);
 
   bool CanSet(FieldIndex<IDX_ControlsDocumentPiP>, bool,
               ContentParent* aSource);
-  void DidSet(FieldIndex<IDX_ControlsDocumentPiP>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_ControlsDocumentPiP>, bool aOldValue);
 
   void DidSet(FieldIndex<IDX_IsActiveBrowserWindowInternal>, bool aOldValue);
 
@@ -1460,9 +1452,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // volume of all media elements.
   void DidSet(FieldIndex<IDX_Muted>);
 
-  void DidSet(FieldIndex<IDX_ShouldDelayMediaFromStart>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_ShouldDelayMediaFromStart>);
 
-  void DidSet(FieldIndex<IDX_OverrideDPPX>, float aOldValue);
+  void DidChange(FieldIndex<IDX_OverrideDPPX>);
 
   CanSetResult CanSet(FieldIndex<IDX_CurrentInnerWindowId>,
                       const uint64_t& aValue, ContentParent* aSource);
@@ -1512,7 +1504,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_PendingInitialization>, bool aNewValue,
               ContentParent* aSource);
 
-  void DidSet(FieldIndex<IDX_PageAwakeRequestCount>, uint32_t aOldValue);
+  void DidChange(FieldIndex<IDX_PageAwakeRequestCount>);
 
   void DidSet(FieldIndex<IDX_AllowJavascript>, bool aOldValue);
 
@@ -1521,15 +1513,15 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // worth it regardless.
   // void DidSet(FieldIndex<IDX_ForceDesktopViewport>, bool aOldValue);
 
-  void DidSet(FieldIndex<IDX_FullZoom>, float aOldValue);
-  void DidSet(FieldIndex<IDX_TextZoom>, float aOldValue);
+  void DidChange(FieldIndex<IDX_FullZoom>);
+  void DidChange(FieldIndex<IDX_TextZoom>);
   void DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>);
 
   void DidSet(FieldIndex<IDX_IsSyntheticDocumentContainer>);
 
-  void DidSet(FieldIndex<IDX_IsUnderHiddenEmbedderElement>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_IsUnderHiddenEmbedderElement>);
 
-  void DidSet(FieldIndex<IDX_ForceOffline>, bool aOldValue);
+  void DidChange(FieldIndex<IDX_ForceOffline>);
 
   void DidSet(FieldIndex<IDX_IsDocumentPiP>, bool aWasPiP) {
     if (GetIsDocumentPiP() && !aWasPiP) {

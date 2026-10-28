@@ -3356,14 +3356,10 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_ControlsDocumentPiP>, bool,
   return IsContent() && setByOwner;
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ControlsDocumentPiP>,
-                             bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_ControlsDocumentPiP>,
+                                bool aOldValue) {
   const bool controlsPiP = GetControlsDocumentPiP();
   MOZ_ASSERT(IsTopContent());
-
-  if (controlsPiP == aOldValue) {
-    return;
-  }
 
   if (XRE_IsParentProcess()) {
     CanonicalBrowsingContext* chromeTopBC =
@@ -3421,13 +3417,9 @@ void BrowsingContext::DidSet(FieldIndex<IDX_ExplicitActive>,
   ActivenessChanged(isActive);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_InRDMPane>, bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_InRDMPane>) {
   MOZ_ASSERT(IsTop(),
              "Should only set InRDMPane in the top-level browsing context");
-  if (GetInRDMPane() == aOldValue) {
-    return;
-  }
-
   // Reset screen orientation override when disabling RDM.
   if (!GetInRDMPane()) {
     ResetOrientationOverride();
@@ -3477,12 +3469,8 @@ void BrowsingContext::DidSet(FieldIndex<IDX_HasOrientationOverride>,
           });
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ForceDesktopViewport>,
-                             bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_ForceDesktopViewport>) {
   MOZ_ASSERT(IsTop(), "Should only set in the top-level browsing context");
-  if (ForceDesktopViewport() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
   if (nsIDocShell* shell = GetDocShell()) {
     if (RefPtr ps = shell->GetPresShell()) {
@@ -3492,9 +3480,8 @@ void BrowsingContext::DidSet(FieldIndex<IDX_ForceDesktopViewport>,
   }
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_PageAwakeRequestCount>,
-                             uint32_t aOldValue) {
-  if (!IsTop() || aOldValue == GetPageAwakeRequestCount()) {
+void BrowsingContext::DidChange(FieldIndex<IDX_PageAwakeRequestCount>) {
+  if (!IsTop()) {
     return;
   }
   Group()->UpdateToplevelsSuspendedIfNeeded();
@@ -3536,73 +3523,42 @@ bool BrowsingContext::InactiveForSuspend() const {
   return !IsActive() && GetPageAwakeRequestCount() == 0;
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_TouchEventsOverrideInternal>,
-                             dom::TouchEventsOverride&& aOldValue) {
-  if (GetTouchEventsOverrideInternal() == aOldValue) {
-    return;
-  }
+void BrowsingContext::DidChange(FieldIndex<IDX_TouchEventsOverrideInternal>) {
   MediaFeatureValuesChanged(this,
                             MediaFeatureChangeReason::SystemMetricsChange);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_EmbedderColorSchemes>,
-                             EmbedderColorSchemes&& aOldValue) {
-  if (GetEmbedderColorSchemes() == aOldValue) {
-    return;
-  }
+void BrowsingContext::DidChange(FieldIndex<IDX_EmbedderColorSchemes>) {
   PresContextAffectingFieldChanged();
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_EmbedderScrollbarInset>,
-                             LayoutDeviceIntMargin&& aOldValue) {
-  if (GetEmbedderScrollbarInset() == aOldValue) {
-    return;
-  }
+void BrowsingContext::DidChange(FieldIndex<IDX_EmbedderScrollbarInset>) {
   PresContextAffectingFieldChanged();
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_PrefersColorSchemeOverride>,
-                             dom::PrefersColorSchemeOverride aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_PrefersColorSchemeOverride>) {
   MOZ_ASSERT(IsTop());
-  if (PrefersColorSchemeOverride() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ForcedColorsOverride>,
-                             dom::ForcedColorsOverride aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_ForcedColorsOverride>) {
   MOZ_ASSERT(IsTop());
-  if (ForcedColorsOverride() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_PrefersReducedMotionOverride>,
-                             dom::PrefersReducedMotionOverride aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_PrefersReducedMotionOverride>) {
   MOZ_ASSERT(IsTop());
-  if (PrefersReducedMotionOverride() == aOldValue) {
-    return;
-  }
   MediaFeatureValuesChanged(this, MediaFeatureChangeReason::PreferenceChange);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_PrefersContrastOverride>,
-                             dom::PrefersContrastOverride aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_PrefersContrastOverride>) {
   MOZ_ASSERT(IsTop());
-  if (PrefersContrastOverride() == aOldValue) {
-    return;
-  }
   MediaFeatureValuesChanged(this, MediaFeatureChangeReason::PreferenceChange);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_AnimationsPlayBackRateMultiplier>,
-                             double aOldValue) {
+void BrowsingContext::DidChange(
+    FieldIndex<IDX_AnimationsPlayBackRateMultiplier>) {
   MOZ_ASSERT(IsTop());
-  if (AnimationsPlayBackRateMultiplier() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
 }
 
@@ -3646,22 +3602,14 @@ void BrowsingContext::DidSet(FieldIndex<IDX_LanguageOverride>,
   });
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_MediumOverride>,
-                             nsString&& aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_MediumOverride>) {
   MOZ_ASSERT(IsTop());
-  if (GetMediumOverride() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_DisplayMode>,
-                             enum DisplayMode aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_DisplayMode>) {
   MOZ_ASSERT(IsTop());
 
-  if (GetDisplayMode() == aOldValue) {
-    return;
-  }
   // Images and other resources don't change their display-mode evaluation,
   // display-mode is a property of the browsing context.
   MediaFeatureValuesChanged(this, MediaFeatureChangeReason::DisplayModeChange);
@@ -3680,12 +3628,8 @@ void BrowsingContext::DidSet(FieldIndex<IDX_Muted>) {
   });
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ShouldDelayMediaFromStart>,
-                             bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_ShouldDelayMediaFromStart>) {
   MOZ_ASSERT(IsTop(), "Set attribute on non top-level context!");
-  if (aOldValue == GetShouldDelayMediaFromStart()) {
-    return;
-  }
   if (!GetShouldDelayMediaFromStart()) {
     PreOrderWalk([&](BrowsingContext* aContext) {
       if (nsPIDOMWindowOuter* win = aContext->GetDOMWindow()) {
@@ -3695,11 +3639,8 @@ void BrowsingContext::DidSet(FieldIndex<IDX_ShouldDelayMediaFromStart>,
   }
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_OverrideDPPX>, float aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_OverrideDPPX>) {
   MOZ_ASSERT(IsTop());
-  if (GetOverrideDPPX() == aOldValue) {
-    return;
-  }
   PresContextAffectingFieldChanged();
 }
 
@@ -4123,11 +4064,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>) {
   // state when new iframes are inserted.
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_TextZoom>, float aOldValue) {
-  if (GetTextZoom() == aOldValue) {
-    return;
-  }
-
+void BrowsingContext::DidChange(FieldIndex<IDX_TextZoom>) {
   if (IsInProcess()) {
     if (nsIDocShell* shell = GetDocShell()) {
       if (nsPresContext* pc = shell->GetPresContext()) {
@@ -4153,11 +4090,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_TextZoom>, float aOldValue) {
 // TODO(emilio): It'd be potentially nicer and cheaper to allow to set this only
 // on the Top() browsing context, but there are a lot of tests that rely on
 // zooming a subframe so...
-void BrowsingContext::DidSet(FieldIndex<IDX_FullZoom>, float aOldValue) {
-  if (GetFullZoom() == aOldValue) {
-    return;
-  }
-
+void BrowsingContext::DidChange(FieldIndex<IDX_FullZoom>) {
   if (IsInProcess()) {
     if (nsIDocShell* shell = GetDocShell()) {
       if (nsPresContext* pc = shell->GetPresContext()) {
@@ -4287,17 +4220,12 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_PendingInitialization>,
   return GetPendingInitialization() && !aNewValue;
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_IsUnderHiddenEmbedderElement>,
-                             bool aOldValue) {
+void BrowsingContext::DidChange(FieldIndex<IDX_IsUnderHiddenEmbedderElement>) {
   nsIDocShell* shell = GetDocShell();
   if (!shell) {
     return;
   }
   const bool newValue = IsUnderHiddenEmbedderElement();
-  if (NS_WARN_IF(aOldValue == newValue)) {
-    return;
-  }
-
   if (auto* bc = BrowserChild::GetFrom(shell)) {
     bc->UpdateVisibility();
   }
@@ -4343,11 +4271,7 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsUnderHiddenEmbedderElement>,
   }
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_ForceOffline>, bool aOldValue) {
-  const bool newValue = ForceOffline();
-  if (newValue == aOldValue) {
-    return;
-  }
+void BrowsingContext::DidChange(FieldIndex<IDX_ForceOffline>) {
   PreOrderWalk([&](BrowsingContext* aBrowsingContext)
                    MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA {
                      if (RefPtr<WindowContext> windowContext =
