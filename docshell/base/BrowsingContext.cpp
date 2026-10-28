@@ -3889,20 +3889,21 @@ auto BrowsingContext::CanSet(FieldIndex<IDX_DefaultLoadFlags>,
   return LegacyRevertIfNotOwningOrParentProcess(aSource);
 }
 
-void BrowsingContext::DidSet(FieldIndex<IDX_DefaultLoadFlags>) {
-  auto loadFlags = GetDefaultLoadFlags();
+void BrowsingContext::DidChange(FieldIndex<IDX_DefaultLoadFlags>) {
   if (GetDocShell()) {
-    nsDocShell::Cast(GetDocShell())->SetLoadGroupDefaultLoadFlags(loadFlags);
+    nsDocShell::Cast(GetDocShell())
+        ->SetLoadGroupDefaultLoadFlags(GetDefaultLoadFlags());
   }
+}
 
-  if (XRE_IsParentProcess()) {
-    PreOrderWalk([&](BrowsingContext* aContext) {
-      if (aContext != this) {
-        // Setting load flags on a discarded context has no effect.
-        (void)aContext->SetDefaultLoadFlags(loadFlags);
-      }
-    });
-  }
+void BrowsingContext::DidSetInParent(FieldIndex<IDX_DefaultLoadFlags>) {
+  auto loadFlags = GetDefaultLoadFlags();
+  PreOrderWalk([&](BrowsingContext* aContext) {
+    if (aContext != this) {
+      // Setting load flags on a discarded context has no effect.
+      (void)aContext->SetDefaultLoadFlags(loadFlags);
+    }
+  });
 }
 
 auto BrowsingContext::CanSet(FieldIndex<IDX_UserAgentOverride>,

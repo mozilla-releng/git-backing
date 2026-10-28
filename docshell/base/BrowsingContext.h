@@ -1495,7 +1495,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   CanSetResult CanSet(FieldIndex<IDX_DefaultLoadFlags>,
                       const uint32_t& aDefaultLoadFlags,
                       ContentParent* aSource);
-  void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
+  void DidChange(FieldIndex<IDX_DefaultLoadFlags>);
+  void DidSetInParent(FieldIndex<IDX_DefaultLoadFlags>);
 
   void DidChange(FieldIndex<IDX_HasSessionHistory>, bool aOldValue);
 
