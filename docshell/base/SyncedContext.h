@@ -72,6 +72,10 @@ enum class CanSet {
   Custom,
 };
 
+// Return type of the default `DidSet`, `DidChange` and `DidSetInParent`
+// handlers, used to detect which handlers a field has.
+struct NoDidSet {};
+
 template <typename T>
 struct FieldInfo {
   // If set, the field is only settable on toplevel contexts.
@@ -197,6 +201,18 @@ class Transaction {
   //
   // NOTE: This method mutates `this` if any changes were reverted.
   IndexSet Validate(Context* aOwner, ContentParent* aSource);
+
+  // Send this transaction to all processes other than `aSource`, leaving out
+  // fields which are being set to the value they already have, unless they
+  // have a `DidSet` handler. Every other process already has the parent's
+  // current values, unless it has its own later change in flight, which will
+  // be relayed when the parent receives it.
+  void SendChangedFields(Context* aOwner, ContentParent* aSource);
+
+  template <size_t I>
+  static constexpr bool HasDidSet();
+  template <size_t I>
+  static constexpr bool HasDidChange();
 
   template <size_t I>
   CanSetResult ValidateOne(Index<I>, Context* aOwner, ContentParent* aSource);

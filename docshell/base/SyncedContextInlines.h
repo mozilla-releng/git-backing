@@ -11,6 +11,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "nsReadableUtils.h"
 #include "mozilla/HalIPCUtils.h"
+#include "mozilla/StaticPrefs_dom.h"
 
 namespace mozilla {
 namespace dom {
@@ -121,12 +122,7 @@ nsresult Transaction<Context>::Commit(Context* aOwner) {
   } else {
     MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
 
-    // Tell our derived class to send the correct "Commit" IPC messages.
-    BrowsingContextGroup* group = aOwner->Group();
-    group->EachParent([&](ContentParent* aParent) {
-      aOwner->SendCommitTransaction(aParent, *this,
-                                    aParent->GetBrowsingContextFieldEpoch());
-    });
+    SendChangedFields(aOwner, nullptr);
   }
 
   Apply(aOwner, /* aFromIPC */ false);
@@ -160,14 +156,63 @@ mozilla::ipc::IPCResult Transaction<Context>::CommitFromIPC(
     return IPC_OK();
   }
 
-  BrowsingContextGroup* group = owner->Group();
-  group->EachOtherParent(aSource, [&](ContentParent* aParent) {
-    owner->SendCommitTransaction(aParent, *this,
-                                 aParent->GetBrowsingContextFieldEpoch());
-  });
-
+  SendChangedFields(owner, aSource);
   Apply(owner, /* aFromIPC */ true);
   return IPC_OK();
+}
+
+template <typename Context>
+void Transaction<Context>::SendChangedFields(Context* aOwner,
+                                             ContentParent* aSource) {
+  MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
+
+  IndexSet unchanged;
+  if (StaticPrefs::dom_synced_context_skip_unchanged_fields()) {
+    EachIndex([&](auto idx) {
+      constexpr size_t I = decltype(idx)::value;
+      if (!HasDidSet<I>() && mModified.contains(I) &&
+          mValues.Get(idx) == aOwner->mFields.mValues.Get(idx)) {
+        unchanged += I;
+      }
+    });
+  }
+
+  mModified -= unchanged;
+  if (!mModified.isEmpty()) {
+    // Tell our derived class to send the correct "Commit" IPC messages.
+    aOwner->Group()->EachOtherParent(aSource, [&](ContentParent* aParent) {
+      aOwner->SendCommitTransaction(aParent, *this,
+                                    aParent->GetBrowsingContextFieldEpoch());
+    });
+  }
+  mModified += unchanged;
+}
+
+template <typename Context>
+template <size_t I>
+constexpr bool Transaction<Context>::HasDidSet() {
+  using FieldType =
+      std::remove_cvref_t<decltype(std::declval<Transaction&>().mValues.Get(
+          Index<I>{}))>;
+  return !std::is_same_v<decltype(std::declval<Context&>().DidSet(Index<I>{})),
+                         NoDidSet> ||
+         !std::is_same_v<decltype(std::declval<Context&>().DidSet(
+                             Index<I>{}, std::declval<FieldType>())),
+                         NoDidSet>;
+}
+
+template <typename Context>
+template <size_t I>
+constexpr bool Transaction<Context>::HasDidChange() {
+  using FieldType =
+      std::remove_cvref_t<decltype(std::declval<Transaction&>().mValues.Get(
+          Index<I>{}))>;
+  return !std::is_same_v<decltype(std::declval<Context&>().DidChange(
+                             Index<I>{})),
+                         NoDidSet> ||
+         !std::is_same_v<decltype(std::declval<Context&>().DidChange(
+                             Index<I>{}, std::declval<FieldType>())),
+                         NoDidSet>;
 }
 
 template <typename Context>
@@ -290,8 +335,21 @@ void Transaction<Context>::Apply(Context* aOwner, bool aFromIPC) {
       auto& txnField = mValues.Get(idx);
       auto& ownerField = aOwner->mFields.mValues.Get(idx);
       std::swap(ownerField, txnField);
-      aOwner->DidSet(idx);
-      aOwner->DidSet(idx, std::move(txnField));
+      constexpr size_t I = decltype(idx)::value;
+      static_assert(!(HasDidSet<I>() && HasDidChange<I>()),
+                    "Fields can't have both DidSet and DidChange handlers");
+      if constexpr (HasDidSet<I>()) {
+        aOwner->DidSet(idx);
+        aOwner->DidSet(idx, std::move(txnField));
+      } else if constexpr (HasDidChange<I>()) {
+        if (!(ownerField == txnField)) {
+          aOwner->DidChange(idx);
+          aOwner->DidChange(idx, std::move(txnField));
+        }
+      }
+      if (XRE_IsParentProcess()) {
+        aOwner->DidSetInParent(idx);
+      }
     }
   });
   mModified.clear();

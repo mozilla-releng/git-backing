@@ -4555,6 +4555,8 @@ void BrowsingContext::NavigationTraverse(
 void BrowsingContext::SetChildSHistory(ChildSHistory* aChildSHistory) {
   mChildSessionHistory = aChildSHistory;
   mChildSessionHistory->SetBrowsingContext(this);
+  // Other processes must already have this value, as it isn't synced here.
+  MOZ_ASSERT(!EverAttached() || GetHasSessionHistory());
   mFields.SetWithoutSyncing<IDX_HasSessionHistory>(true);
 }
 

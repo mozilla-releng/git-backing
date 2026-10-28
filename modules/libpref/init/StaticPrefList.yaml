@@ -6531,6 +6531,14 @@
   value: @IS_ANDROID@
   mirror: always
 
+# Whether the parent leaves out synced context fields without DidSet handlers,
+# which are being set to the value they already have, when sending
+# transactions to other processes.
+- name: dom.synced_context.skip_unchanged_fields
+  type: bool
+  value: true
+  mirror: always
+
 # The following three prefs control the maximum script run time before slow
 # script warning.
 

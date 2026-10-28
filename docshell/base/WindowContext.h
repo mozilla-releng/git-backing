@@ -317,13 +317,37 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   void DidSet(FieldIndex<IDX_HasActivePeerConnections>, bool aOldValue);
 
-  // Overload `DidSet` to get notifications for a particular field being set.
+  // Overload `DidChange` to get notifications for a particular field's value
+  // changing, in every process.
   //
-  // You can also overload the variant that gets the old value if you need it.
+  // Overload `DidSet` instead if the notification is needed whenever the field
+  // is set, even to the value it already has. Such sets are then sent to every
+  // process, where they would otherwise be left out.
+  //
+  // You can also overload the variants that get the old value if you need it.
+  // A field can't have both `DidChange` and `DidSet` handlers.
   template <size_t I>
-  void DidSet(FieldIndex<I>) {}
+  syncedcontext::NoDidSet DidChange(FieldIndex<I>) {
+    return {};
+  }
   template <size_t I, typename T>
-  void DidSet(FieldIndex<I>, T&& aOldValue) {}
+  syncedcontext::NoDidSet DidChange(FieldIndex<I>, T&& aOldValue) {
+    return {};
+  }
+  template <size_t I>
+  syncedcontext::NoDidSet DidSet(FieldIndex<I>) {
+    return {};
+  }
+  template <size_t I, typename T>
+  syncedcontext::NoDidSet DidSet(FieldIndex<I>, T&& aOldValue) {
+    return {};
+  }
+
+  // Overload `DidSetInParent` to get notifications in the parent process for
+  // a particular field being set, even to the value it already has. Called
+  // after any `DidChange` or `DidSet` handlers.
+  template <size_t I>
+  void DidSetInParent(FieldIndex<I>) {}
   void DidSet(FieldIndex<IDX_UserActivationStateAndModifiers>);
 
   // Recomputes whether we can execute scripts in this WindowContext based on
