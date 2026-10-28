@@ -84,6 +84,7 @@ lints:
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
             cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
+            echo "org.gradle.jvmargs=-Xmx7g -Xms2g -XX:MaxMetaspaceSize=6g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:ReservedCodeCacheSize=1g" >> $GRADLE_USER_HOME/gradle.properties &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-api-lint
@@ -125,6 +126,7 @@ fenix:
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
             cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
+            echo "org.gradle.jvmargs=-Xmx7g -Xms2g -XX:MaxMetaspaceSize=6g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:ReservedCodeCacheSize=1g" >> $GRADLE_USER_HOME/gradle.properties &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-fenix
@@ -154,6 +156,7 @@ focus:
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
             cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
+            echo "org.gradle.jvmargs=-Xmx7g -Xms2g -XX:MaxMetaspaceSize=6g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:ReservedCodeCacheSize=1g" >> $GRADLE_USER_HOME/gradle.properties &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-focus
@@ -183,6 +186,7 @@ android-components:
             ln -s $MOZ_FETCHES_DIR/node $GECKO_PATH &&
             cd $GECKO_PATH &&
             cp mobile/android/gradle/dotgradle-offline/* $GRADLE_USER_HOME &&
+            echo "org.gradle.jvmargs=-Xmx7g -Xms2g -XX:MaxMetaspaceSize=6g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:ReservedCodeCacheSize=1g" >> $GRADLE_USER_HOME/gradle.properties &&
             ./mach --log-no-times build pre-export export &&
             ./mach --log-no-times lint -f treeherder -f json:/builds/worker/mozlint.json
             --linter android-ac
