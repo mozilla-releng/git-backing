@@ -438,8 +438,8 @@ def _s3_upload(root, project, unique_id, version=None):
         key_prefixes.append(f"{project}/{version}")
 
     # Until we redirect / to main/latest, upload the main docs
-    # to the root.
-    if project == "main":
+    # to the root of the production bucket.
+    if project == "main" and os.environ.get("MOZ_SCM_LEVEL") == "3":
         key_prefixes.append("")
 
     key_prefixes.append(unique_id)
@@ -465,10 +465,11 @@ def _s3_upload(root, project, unique_id, version=None):
             redirect_prefix + k: redirect_prefix + v for k, v in redirects.items()
         })
 
-    print("Redirects currently staged")
-    pprint(all_redirects, indent=1)
+    if all_redirects:
+        print("Redirects currently staged")
+        pprint(all_redirects, indent=1)
 
-    s3_set_redirects(all_redirects)
+        s3_set_redirects(all_redirects)
 
     unique_link = BASE_LINK + unique_id + "/index.html"
     print("Uploaded documentation can be accessed here " + unique_link)
