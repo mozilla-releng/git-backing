@@ -150,6 +150,7 @@ uri-setspec:
 
 eslint:
     description: JS lint check
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: js(ES)
     run:
