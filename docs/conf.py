@@ -244,3 +244,4 @@ def setup(app):
     app.add_js_file("scrollable_regions.js")
     app.connect("html-page-context", install_sphinx_design)
     app.connect("html-page-context", add_github_source_link)
+    app.extensions["sphinx_js"].parallel_read_safe = True
