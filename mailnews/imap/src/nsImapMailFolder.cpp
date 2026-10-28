@@ -26,6 +26,7 @@
 #include "nsMsgFolderFlags.h"
 #include "nsIImapUrl.h"
 #include "nsImapUtils.h"
+#include "nsImapUrl.h"
 #include "nsMsgUtils.h"
 #include "nsIMsgMailSession.h"
 #include "nsITransactionManager.h"
@@ -485,7 +486,7 @@ nsresult nsImapMailFolder::CreateSubFolders(nsIFile* path) {
         if (NS_SUCCEEDED(rv) &&
             folderFlags & nsMsgFolderFlags::Virtual)  // ignore virtual folders
           continue;
-        int32_t hierarchyDelimiter;
+        int32_t hierarchyDelimiter = kOnlineHierarchySeparatorUnknown;
         rv = cacheElement->GetCachedInt32("hierDelim", &hierarchyDelimiter);
         if (NS_SUCCEEDED(rv) &&
             hierarchyDelimiter == kOnlineHierarchySeparatorUnknown) {
@@ -495,8 +496,10 @@ nsresult nsImapMailFolder::CreateSubFolders(nsIFile* path) {
         rv = cacheElement->GetCachedString("onlineName", onlineFullUtfName);
         if (NS_SUCCEEDED(rv) && !onlineFullUtfName.IsEmpty()) {
           CopyFolderNameToUTF16(onlineFullUtfName, currentFolderNameStr);
-          char delimiter = 0;
-          GetHierarchyDelimiter(&delimiter);
+          char delimiter = hierarchyDelimiter;
+          if (hierarchyDelimiter == kOnlineHierarchySeparatorUnknown) {
+            GetHierarchyDelimiter(&delimiter);
+          }
           int32_t leafPos = currentFolderNameStr.RFindChar(delimiter);
           if (leafPos > 0) currentFolderNameStr.Cut(0, leafPos + 1);
 
@@ -504,6 +507,14 @@ nsresult nsImapMailFolder::CreateSubFolders(nsIFile* path) {
           CopyUTF8toUTF16(onlineFullUtfName, utfLeafName);
           leafPos = utfLeafName.RFindChar(delimiter);
           if (leafPos > 0) utfLeafName.Cut(0, leafPos + 1);
+          // The URI uses the canonical name, like the folder discovery does.
+          if (hierarchyDelimiter != '/' &&
+              hierarchyDelimiter != kOnlineHierarchySeparatorUnknown) {
+            nsCString escapedLeafName;
+            nsImapUrl::EscapeSlashes(NS_ConvertUTF16toUTF8(utfLeafName).get(),
+                                     getter_Copies(escapedLeafName));
+            CopyUTF8toUTF16(escapedLeafName, utfLeafName);
+          }
         }
       }
     }
@@ -987,6 +998,9 @@ NS_IMETHODIMP nsImapMailFolder::CreateClientSubfolderInfo(
     rv = unusedDB->GetDBFolderInfo(getter_AddRefs(folderInfo));
     nsCOMPtr<nsIMsgImapMailFolder> imapFolder = do_QueryInterface(child, &rv);
     if (NS_SUCCEEDED(rv)) {
+      // TODO: folderNameStr is the canonical leaf, so this is the wrong online
+      // name if the real leaf contains '/', '^' or '%' and the delimiter is not
+      // '/'. PossibleImapMailbox() corrects it afterwards.
       nsAutoCString onlineName(m_onlineFolderName);
       if (!onlineName.IsEmpty()) onlineName.Append(hierarchyDelimiter);
       onlineName.Append(NS_ConvertUTF16toUTF8(folderNameStr));
@@ -2044,9 +2058,10 @@ nsImapMailFolder::GetDBFolderInfoAndDB(nsIDBFolderInfo** folderInfo,
       // contained the '^' delimiter and gmail said "NO" when folder under
       // [Gmail] is created and selected.
       if ((m_hierarchyDelimiter != '/') &&
-          (m_hierarchyDelimiter != kOnlineHierarchySeparatorUnknown))
+          (m_hierarchyDelimiter != kOnlineHierarchySeparatorUnknown)) {
         onlineCName.ReplaceChar('/', m_hierarchyDelimiter);
-      // XXX: What if online name contains slashes? Breaks?
+        nsImapUrl::UnescapeSlashes(onlineCName);
+      }
       m_onlineFolderName.Assign(onlineCName);
       autoOnlineName.Assign(onlineCName);
     }
