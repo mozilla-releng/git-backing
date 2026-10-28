@@ -649,6 +649,7 @@ l10n-conflicts:
 
 clang-format:
     description: clang-format on the C/C++ code
+    worker-type: t-linux-docker-large-amd
     treeherder:
         symbol: cpp(clang-format)
     run:
