@@ -18,7 +18,10 @@ from gecko_taskgraph.transforms.repackage import (
     PACKAGE_FORMATS as PACKAGE_FORMATS_VANILLA,
 )
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
-from gecko_taskgraph.util.partners import get_partner_config_by_kind
+from gecko_taskgraph.util.partners import (
+    get_partner_config_by_kind,
+    get_partner_treeherder,
+)
 from gecko_taskgraph.util.platforms import archive_format, executable_extension
 from gecko_taskgraph.util.workertypes import worker_type_implementation
 
@@ -212,6 +215,7 @@ def make_job_description(config, jobs):
             "worker-type": worker_type,
             "dependencies": dependencies,
             "attributes": attributes,
+            "treeherder": get_partner_treeherder(config, job, dep_job, "Rel", "rpk"),
             "scopes": ["queue:get-artifact:releng/partner/*"],
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "routes": job.get("routes", []),

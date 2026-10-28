@@ -12,6 +12,7 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.dependencies import get_primary_dependency
 from taskgraph.util.schema import Schema
 from taskgraph.util.taskcluster import get_artifact_prefix
+from taskgraph.util.treeherder import inherit_treeherder_from_dep, join_symbol
 
 from gecko_taskgraph.transforms.beetmover import craft_release_properties
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
@@ -100,11 +101,17 @@ def make_task_description(config, jobs):
         description = "Beetmover for partner attribution"
         attributes = copy_attributes_from_dependent_job(dep_job)
 
+        treeherder = inherit_treeherder_from_dep(job, dep_job)
+        treeherder["symbol"] = join_symbol(
+            "Rel", "BM" + dep_job.task["extra"]["treeherder"]["symbol"]
+        )
+
         task = {
             "label": "{}-{}".format(config.kind, job["name"]),
             "description": description,
             "dependencies": {dep_job.kind: dep_job.label},
             "attributes": attributes,
+            "treeherder": treeherder,
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "run-on-repo-type": job.get("run-on-repo-type", ["git", "hg"]),
             "shipping-phase": job["shipping-phase"],

@@ -14,7 +14,10 @@ from taskgraph.util.schema import Schema
 from taskgraph.util.taskcluster import get_artifact_path
 
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
-from gecko_taskgraph.util.partners import get_partner_config_by_kind
+from gecko_taskgraph.util.partners import (
+    get_partner_config_by_kind,
+    get_partner_treeherder,
+)
 from gecko_taskgraph.util.scriptworker import get_signing_type_per_platform
 
 transforms = TransformSequence()
@@ -153,6 +156,7 @@ def make_repackage_signing_description(config, jobs):
             },
             "dependencies": dependencies,
             "attributes": attributes,
+            "treeherder": get_partner_treeherder(config, job, dep_job, "rs"),
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "run-on-repo-type": job.get("run-on-repo-type", ["git", "hg"]),
             "extra": {

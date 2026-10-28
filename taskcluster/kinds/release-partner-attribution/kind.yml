@@ -27,6 +27,10 @@ task-defaults:
         artifact_prefix: releng/partner
         shippable: true
     description: Release Promotion partner attribution
+    treeherder:
+        platform: firefox-release/opt
+        kind: test
+        tier: 1
     run-on-projects: []  # to make sure this never runs as part of CI
     shipping-product: firefox
     shipping-phase: promote
@@ -43,12 +47,16 @@ task-defaults:
 
 tasks:
     win:
+        treeherder:
+            symbol: Rel(Attr-win)
         platforms:
             - win32-shippable   # Stub installer only
         run:
             using: mach
             mach: python python/mozrelease/mozrelease/attribute_builds.py
     macos:
+        treeherder:
+            symbol: Rel(Attr-macos)
         fetches:
             toolchain:
                 - linux64-libdmg

@@ -13,6 +13,7 @@ from taskgraph.util.dependencies import get_primary_dependency
 
 from gecko_taskgraph.util.partners import (
     apply_partner_priority,
+    get_partner_treeherder,
     get_repack_ids_by_platform,
 )
 
@@ -61,6 +62,10 @@ def chunk_partners(config, jobs):
                     partner_job = copy.deepcopy(job)  # don't overwrite dict values here
                     partner_job.setdefault("extra", {})
                     partner_job["extra"]["repack_id"] = repack_id
+                    if config.kind == "release-partner-repack-chunking-dummy":
+                        partner_job["treeherder"] = get_partner_treeherder(
+                            config, partner_job, dep_job, "Rel", "c"
+                        )
                     yield partner_job
         # fan out chunked mac signing for repackage
         elif repack_ids:

@@ -83,10 +83,11 @@ def register_callback_action(
     title : str
         A human readable title for the action to be used as label on a button
         or text on a link for triggering the action.
-    symbol : str
+    symbol : str or callable
         Treeherder symbol for the action callback, this is the symbol that the
         task calling your callback will be displayed as. This is usually 1-3
-        letters abbreviating the action title.
+        letters abbreviating the action title. A callable receives graph_config
+        and returns a JSON-e template, rendered with the action input.
     description : str
         A human readable description of the action in **markdown**.
         This will be display as tooltip and in dialog window when the action
@@ -153,10 +154,12 @@ def register_callback_action(
             "schema must be a JSON compatible object"
         )
         assert isinstance(cb, FunctionType), "callback must be a function"
+        assert isinstance(symbol, str) or callable(symbol), (
+            "symbol must be a string or callable"
+        )
         # Allow for json-e > 25 chars in the symbol.
-        if "$" not in symbol:
+        if isinstance(symbol, str) and "$" not in symbol:
             assert 1 <= len(symbol) <= 25, "symbol must be between 1 and 25 characters"
-        assert isinstance(symbol, str), "symbol must be a string"
 
         assert not mem["registered"], (
             "register_callback_action must be used as decorator"
@@ -203,7 +206,7 @@ def register_callback_action(
                 # target taskGroupId (the task group this decision task is creating)
                 "taskGroupId": decision_task_id,
                 "cb_name": cb_name,
-                "symbol": symbol,
+                "symbol": symbol(graph_config) if callable(symbol) else symbol,
             }
 
             # The full parameter set is too large, and gets duplicated in

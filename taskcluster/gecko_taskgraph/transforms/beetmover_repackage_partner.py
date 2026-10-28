@@ -16,7 +16,11 @@ from taskgraph.util.taskcluster import get_artifact_prefix
 
 from gecko_taskgraph.transforms.beetmover import craft_release_properties
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
-from gecko_taskgraph.util.partners import get_ftp_platform, get_partner_config_by_kind
+from gecko_taskgraph.util.partners import (
+    get_ftp_platform,
+    get_partner_config_by_kind,
+    get_partner_treeherder,
+)
 from gecko_taskgraph.util.scriptworker import (
     add_scope_prefix,
     get_beetmover_bucket_scope,
@@ -102,6 +106,7 @@ def make_task_description(config, jobs):
             "description": description,
             "dependencies": dependencies,
             "attributes": attributes,
+            "treeherder": get_partner_treeherder(config, job, dep_job, "BMR"),
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "shipping-phase": job["shipping-phase"],
             "shipping-product": job.get("shipping-product"),

@@ -15,6 +15,7 @@ from redo import retry
 from taskgraph.util import json
 from taskgraph.util.copy import deepcopy
 from taskgraph.util.schema import resolve_keyed_by
+from taskgraph.util.treeherder import inherit_treeherder_from_dep, join_symbol
 
 # Suppress chatty requests logging
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -501,6 +502,31 @@ def get_repack_ids_by_platform(config, build_platform):
             for locale in locales:
                 combinations.append(f"{partner}/{sub_config_name}/{locale}")
     return sorted(combinations)
+
+
+def get_partner_treeherder(config, job, dep_job, group, stage=""):
+    """Number repacks per platform to fit Treeherder's 25-character symbol limit."""
+    extra = job.get("extra", {})
+    dep_extra = dep_job.task["extra"]
+    repack_id = extra.get("repack_id", dep_extra.get("repack_id"))
+    if repack_id:
+        locale = repack_id.rsplit("/", 1)[1]
+        if config.kind.startswith("release-eme-free"):
+            suffix = locale
+        else:
+            repack_ids = get_repack_ids_by_platform(
+                config, dep_job.attributes["build_platform"]
+            )
+            suffix = f"{repack_ids.index(repack_id) + 1}-{locale}"
+    else:
+        suffix = extra.get("repack_suffix", dep_extra.get("repack_suffix"))
+        assert suffix, f"Missing repack suffix for {job['label']}"
+
+    prefix = "EME" if config.kind.startswith("release-eme-free") else "P"
+    symbol = "-".join(filter(None, (prefix, stage, suffix)))
+    treeherder = inherit_treeherder_from_dep(job, dep_job)
+    treeherder.update(symbol=join_symbol(group, symbol), kind="test", tier=1)
+    return treeherder
 
 
 def get_partners_to_be_published(config):

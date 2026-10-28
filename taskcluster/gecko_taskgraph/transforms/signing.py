@@ -15,6 +15,7 @@ from taskgraph.util.keyed_by import evaluate_keyed_by
 from taskgraph.util.schema import Schema, taskref_or_string_msgspec
 
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
+from gecko_taskgraph.util.partners import get_partner_treeherder
 from gecko_taskgraph.util.scriptworker import (
     add_scope_prefix,
     get_signing_type_per_platform,
@@ -116,8 +117,10 @@ def make_task_description(config, jobs):
         is_shippable = dep_job.attributes.get("shippable", False)
         build_platform = dep_job.attributes.get("build_platform")
         assert build_platform
-        treeherder = None
-        if "partner" not in config.kind and "eme-free" not in config.kind:
+        if "partner" in config.kind or "eme-free" in config.kind:
+            stage = "n" if config.kind.endswith("-notarization") else "s"
+            treeherder = get_partner_treeherder(config, job, dep_job, "Rel", stage)
+        else:
             treeherder = job.get("treeherder", {})
 
             dep_th_platform = (

@@ -30,6 +30,26 @@ from gecko_taskgraph.util.taskgraph import (
 
 logger = logging.getLogger(__name__)
 
+RELPRO_TH_SYMBOLS = {
+    # TH doesn't show symbols longer than 25 chars
+    "promote_firefox_partner_repack": "promote_partner_repack",
+    "promote_firefox_partner_attribution": "promote_partner_attribution",
+}
+
+
+def get_relpro_th_symbol_template(graph_config):
+    """Build a JSON-e template that selects a flavor's Treeherder symbol.
+
+    The template resolves the symbol from the action input before the hook
+    creates the action task. Unmapped flavors use their names as symbols.
+    """
+    flavors = graph_config["release-promotion"]["flavors"]
+    all_symbols = {flavor: RELPRO_TH_SYMBOLS.get(flavor, flavor) for flavor in flavors}
+    return {
+        "$let": {"symbols": all_symbols},
+        "in": {"$eval": "symbols[input.release_promotion_flavor]"},
+    }
+
 
 def is_release_promotion_available(parameters):
     return parameters["project"] in RELEASE_PROMOTION_PROJECTS
@@ -69,7 +89,7 @@ def get_flavors(graph_config, param):
 @register_callback_action(
     name="release-promotion",
     title="Release Promotion",
-    symbol="${input.release_promotion_flavor}",
+    symbol=get_relpro_th_symbol_template,
     description="Promote a release.",
     permission="release-promotion",
     order=500,

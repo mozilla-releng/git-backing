@@ -3,17 +3,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
+import jsone
 import pytest
 import yaml
 from mozunit import main
 from pytest_taskgraph import make_graph, make_task
 from taskcluster.exceptions import TaskclusterRestFailure
 from taskgraph import create
+from taskgraph.parameters import Parameters
 from taskgraph.util import json
 from taskgraph.util.taskcluster import _task_definitions_cache
 
 from gecko_taskgraph import decision
-from gecko_taskgraph.actions import trigger_action_callback
+from gecko_taskgraph.actions import render_actions_json, trigger_action_callback
 from gecko_taskgraph.actions.confirm_failure import confirm_modifier
 
 ROOT_URL = "https://taskcluster.example.com"
@@ -67,6 +69,34 @@ def run_action(mocker, monkeypatch, parameters, graph_config):
         return ret
 
     return inner
+
+
+@pytest.mark.parametrize(
+    "flavor,expected_symbol",
+    [
+        ("promote_firefox_partner_repack", "promote_partner_repack"),
+        ("promote_firefox", "promote_firefox"),
+        ("push_firefox", "push_firefox"),
+        ("ship_firefox", "ship_firefox"),
+    ],
+)
+def test_release_promotion_symbol(graph_config, flavor, expected_symbol):
+    actions = render_actions_json(
+        Parameters(strict=False, project="try"), graph_config, "decision"
+    )
+    action = next(a for a in actions["actions"] if a["name"] == "release-promotion")
+    payload = jsone.render(
+        action["hookPayload"],
+        {
+            "input": {"release_promotion_flavor": flavor},
+            "taskId": None,
+            "taskGroupId": "decision",
+        },
+    )
+    symbol = payload["decision"]["action"]["symbol"]
+    assert symbol == expected_symbol
+    assert len(symbol) <= 25
+    assert payload["user"]["input"]["release_promotion_flavor"] == flavor
 
 
 def test_cancel(responses, run_action):

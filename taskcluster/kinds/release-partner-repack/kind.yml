@@ -22,6 +22,10 @@ kind-dependencies:
 
 task-defaults:
     name: partner-repack
+    treeherder:
+        symbol: Rel(P)
+        kind: test
+        tier: 1
     description: Release Promotion partner repacks
     task-context:
         from-custom:
@@ -53,6 +57,8 @@ task-defaults:
 
 tasks:
     linux64-shippable:
+        treeherder:
+            platform: linux64/opt
         attributes:
             build_platform: linux64-shippable
             build_type: opt
@@ -60,6 +66,8 @@ tasks:
             shippable: true
 
     macosx64-shippable:
+        treeherder:
+            platform: macosx64/opt
         attributes:
             build_platform: macosx64-shippable
             build_type: opt
@@ -67,6 +75,8 @@ tasks:
             shippable: true
 
     win32-shippable:
+        treeherder:
+            platform: win32/opt
         attributes:
             build_platform: win32-shippable
             build_type: opt
@@ -74,6 +84,8 @@ tasks:
             shippable: true
 
     win64-shippable:
+        treeherder:
+            platform: win64/opt
         attributes:
             build_platform: win64-shippable
             build_type: opt
@@ -81,6 +93,8 @@ tasks:
             shippable: true
 
     win64-aarch64-shippable:
+        treeherder:
+            platform: win64-aarch64/opt
         attributes:
             build_platform: win64-aarch64-shippable
             build_type: opt

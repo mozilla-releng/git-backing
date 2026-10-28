@@ -14,6 +14,7 @@ from taskgraph.util.schema import Schema
 
 from gecko_taskgraph.transforms.beetmover import craft_release_properties
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
+from gecko_taskgraph.util.partners import get_partner_treeherder
 
 
 class BeetmoverChecksumsDescriptionSchema(Schema, kw_only=True):
@@ -88,6 +89,7 @@ def make_beetmover_checksums_description(config, jobs):
             "scopes": dep_job.task["scopes"],
             "dependencies": dependencies,
             "attributes": attributes,
+            "treeherder": get_partner_treeherder(config, job, dep_job, "Rel", "cs"),
             "run-on-projects": dep_job.attributes.get("run_on_projects"),
             "extra": extra,
         }
