@@ -567,6 +567,11 @@ async function runTest(aTarget, aDescription) {
       input = event;
     }
     window.addEventListener("input", onInput, {capture: true});
+    let textInClipboard = null;
+    function onPaste(e) {
+      textInClipboard = e.clipboardData.getData("text/plain");
+    }
+    window.addEventListener("paste", onPaste);
     let ret;
     test(function () {
       ret = document.execCommand(kTest.command, false, kTest.param);
@@ -592,8 +597,14 @@ async function runTest(aTarget, aDescription) {
     if (kTest.additionalCheckFunc) {
       kTest.additionalCheckFunc(kDescription);
     }
+    if (textInClipboard !== null) {
+      test(function () {
+        assert_true(true);
+      }, `${kDescription}: text/plain data in clipboard is ${textInClipboard}`);
+    }
     window.removeEventListener("beforeinput", onBeforeinput, {capture: true});
     window.removeEventListener("input", onInput, {capture: true});
+    window.removeEventListener("paste", onPaste);
   }
 }
 
