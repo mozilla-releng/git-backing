@@ -64,6 +64,38 @@ class BounceTrackingRecord final : public nsIBounceTrackingRecord {
   // Whether aHost bounced in any storage partition.
   bool HasBounceHost(const nsACString& aHost) const;
 
+  // Whether any site of this record, the initial and final site included, ran
+  // in a storage partition aPredicate matches.
+  template <typename Predicate>
+  bool HasOriginAttributesMatching(Predicate&& aPredicate) const {
+    if ((!mInitialHost.IsEmpty() && aPredicate(mInitialOriginAttributes)) ||
+        (!mFinalHost.IsEmpty() && aPredicate(mFinalOriginAttributes))) {
+      return true;
+    }
+    for (const auto& entry : mBounceHosts) {
+      if (aPredicate(entry.GetKey())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Whether aHost is a site of this record, the initial and final site
+  // included, in a storage partition aPredicate matches.
+  template <typename Predicate>
+  bool HasSiteHost(const nsACString& aHost, Predicate&& aPredicate) const {
+    if ((aHost == mInitialHost && aPredicate(mInitialOriginAttributes)) ||
+        (aHost == mFinalHost && aPredicate(mFinalOriginAttributes))) {
+      return true;
+    }
+    for (const auto& entry : mBounceHosts) {
+      if (aPredicate(entry.GetKey()) && entry.GetData().Contains(aHost)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void ClearUserActivationHosts();
 
   const nsTHashSet<nsCStringHashKey>& GetUserActivationHosts() const;

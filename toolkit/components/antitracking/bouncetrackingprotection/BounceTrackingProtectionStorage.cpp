@@ -89,9 +89,31 @@ nsresult BounceTrackingProtectionStorage::ClearByType(
   return DeleteDBEntriesByType(nullptr, aType);
 }
 
+// The bounce chain records the state globals keep with their candidates and
+// purge log entries name every site of the chain, which can span containers.
+// Clearing data has to drop the records naming cleared sites in every state
+// global, not only in the cleared ones.
+template <typename Predicate>
+static void DropChainRecordsInAllStateGlobals(
+    const BounceTrackingProtectionStorage::StateGlobalMap& aStateGlobals,
+    Predicate&& aPredicate) {
+  for (const RefPtr<BounceTrackingStateGlobal>& stateGlobal :
+       aStateGlobals.Values()) {
+    stateGlobal->DropChainRecordsIf(aPredicate);
+  }
+}
+
 nsresult BounceTrackingProtectionStorage::ClearBySiteHost(
     const nsACString& aSiteHost, OriginAttributes* aOriginAttributes) {
   NS_ENSURE_TRUE(!aSiteHost.IsEmpty(), NS_ERROR_INVALID_ARG);
+
+  DropChainRecordsInAllStateGlobals(
+      mStateGlobal, [&](const BounceTrackingRecord& aRecord) {
+        return aRecord.HasSiteHost(
+            aSiteHost, [&](const OriginAttributes& aCandidate) {
+              return !aOriginAttributes || *aOriginAttributes == aCandidate;
+            });
+      });
 
   // If OriginAttributes are passed only clear the matching state global.
   if (aOriginAttributes) {
@@ -138,6 +160,18 @@ nsresult BounceTrackingProtectionStorage::ClearByTimeRange(PRTime aFrom,
 nsresult BounceTrackingProtectionStorage::ClearByOriginAttributesPattern(
     const OriginAttributesPattern& aOriginAttributesPattern,
     const Maybe<nsCString>& aSiteHost) {
+  auto patternMatches = [&](const OriginAttributes& aOriginAttributes) {
+    return aOriginAttributesPattern.Matches(aOriginAttributes);
+  };
+
+  // Clearing a site drops only the records naming it, clearing whole
+  // partitions every record touching them.
+  DropChainRecordsInAllStateGlobals(
+      mStateGlobal, [&](const BounceTrackingRecord& aRecord) {
+        return aSiteHost ? aRecord.HasSiteHost(*aSiteHost, patternMatches)
+                         : aRecord.HasOriginAttributesMatching(patternMatches);
+      });
+
   // Clear in memory state.
   for (auto iter = mStateGlobal.Iter(); !iter.Done(); iter.Next()) {
     BounceTrackingStateGlobal* stateGlobal = iter.Data();

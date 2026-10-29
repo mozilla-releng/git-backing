@@ -623,6 +623,8 @@ BounceTrackingProtection::ClearBySiteHostAndOriginAttributes(
       !originAttributes.Init(aCx, aOriginAttributes)) {
     return NS_ERROR_INVALID_ARG;
   }
+  originAttributes = BounceTrackingProtectionStorage::NormalizeOriginAttributes(
+      originAttributes);
 
   // Reset per tab state for tabs matching the given OriginAttributes.
   BounceTrackingState::ResetAllForOriginAttributes(originAttributes);

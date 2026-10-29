@@ -91,6 +91,27 @@ class BounceTrackingStateGlobal final {
       Maybe<BounceTrackingProtectionStorage::EntryType> aEntryType = Nothing(),
       bool aSkipStorage = false);
 
+  // Drops the bounce chain record of every bounce tracker candidate and purge
+  // log entry whose record aPredicate matches. Classification and purging don't
+  // depend on the record.
+  template <typename Predicate>
+  void DropChainRecordsIf(Predicate&& aPredicate) {
+    for (auto iter = mBounceTrackers.Iter(); !iter.Done(); iter.Next()) {
+      RefPtr<BounceTrackingRecord>& record = iter.Data().mRecord;
+      if (record && aPredicate(*record)) {
+        record = nullptr;
+      }
+    }
+    for (auto iter = mRecentPurges.Iter(); !iter.Done(); iter.Next()) {
+      for (const RefPtr<BounceTrackingPurgeEntry>& entry : iter.Data()) {
+        BounceTrackingRecord* record = entry->GetBounceChainRecord();
+        if (record && aPredicate(*record)) {
+          entry->SetBounceChainRecord(nullptr);
+        }
+      }
+    }
+  }
+
   const nsTHashMap<nsCStringHashKey, PRTime>& UserActivationMapRef() {
     return mUserActivation;
   }
