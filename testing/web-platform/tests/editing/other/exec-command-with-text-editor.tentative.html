@@ -567,11 +567,21 @@ async function runTest(aTarget, aDescription) {
       input = event;
     }
     window.addEventListener("input", onInput, {capture: true});
+    let textInClipboard = null;
+    function onPaste(e) {
+      textInClipboard = e.clipboardData.getData("text/plain");
+    }
+    window.addEventListener("paste", onPaste);
     let ret;
     test(function () {
       ret = document.execCommand(kTest.command, false, kTest.param);
       assert_equals(ret, kTest.expectedExecCommandResult);
     }, `${kDescription}: execCommand() should return ${kTest.expectedExecCommandResult}`);
+    if (textInClipboard !== null) {
+      test(function () {
+        assert_true(true);
+      }, `${kDescription}: text/plain data in clipboard is ${textInClipboard}`);
+    }
     test(function () {
       let value = aTarget.value.substring(0, aTarget.selectionStart) +
                       "[" +
@@ -594,6 +604,7 @@ async function runTest(aTarget, aDescription) {
     }
     window.removeEventListener("beforeinput", onBeforeinput, {capture: true});
     window.removeEventListener("input", onInput, {capture: true});
+    window.removeEventListener("paste", onPaste);
   }
 }
 
