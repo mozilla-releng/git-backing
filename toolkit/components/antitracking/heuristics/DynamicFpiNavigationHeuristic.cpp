@@ -79,6 +79,13 @@ void DynamicFpiNavigationHeuristic::MaybeGrantStorageAccess(
     return;
   }
 
+  // A load retargeted into another container must not be granted access from
+  // the session history and user activation of the tab it is leaving.
+  if (resultPrincipal->OriginAttributesRef().mUserContextId !=
+      bounceTrackingState->OriginAttributesRef().mUserContextId) {
+    return;
+  }
+
   BounceTrackingRecord* record = bounceTrackingState->GetBounceTrackingRecord();
   if (!record) {
     return;
