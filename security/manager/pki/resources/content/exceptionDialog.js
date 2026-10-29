@@ -141,13 +141,16 @@ async function checkCert() {
  *          otherwise.
  */
 function getURI() {
-  // Use fixup service instead of just ioservice's newURI since it's quite
-  // likely that the host will be supplied without a protocol prefix, resulting
-  // in malformed uri exceptions being thrown.
-  let locationTextBox = document.getElementById("locationTextBox");
-  let { preferredURI: uri } = Services.uriFixup.getFixupURIInfo(
-    locationTextBox.value
-  );
+  // It's quite likely that the host will be supplied without a protocol
+  // prefix. Add one explicitly rather than leaving it to the fixup service,
+  // which could turn "mail.example.com:993" into a URI with the scheme
+  // "mail.example.com" if an external protocol handler claims it (as the
+  // desktop portal may on Flatpak and Snap).
+  let value = document.getElementById("locationTextBox").value.trim();
+  if (value && !/^([a-z][a-z0-9+.-]*)?:\/\//i.test(value)) {
+    value = "https://" + value;
+  }
+  let { preferredURI: uri } = Services.uriFixup.getFixupURIInfo(value);
 
   if (!uri) {
     return null;
