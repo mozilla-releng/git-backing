@@ -7966,8 +7966,7 @@ NS_IMETHODIMP nsImapMailFolder::PerformExpand(nsIMsgWindow* aMsgWindow) {
   return rv;
 }
 
-NS_IMETHODIMP nsImapMailFolder::RenameClient(nsIMsgWindow* msgWindow,
-                                             nsIMsgFolder* msgFolder,
+NS_IMETHODIMP nsImapMailFolder::RenameClient(nsIMsgFolder* msgFolder,
                                              const nsACString& oldName,
                                              const nsACString& newName) {
   nsresult rv;
@@ -8059,8 +8058,7 @@ NS_IMETHODIMP nsImapMailFolder::RenameClient(nsIMsgWindow* msgWindow,
     unusedDB->Close(true);
     // We _know_ it's an IMAP folder, since our own AddSubfolderWithPath()
     // created it.
-    static_cast<nsImapMailFolder*>(child.get())
-        ->RenameSubFolders(msgWindow, msgFolder);
+    static_cast<nsImapMailFolder*>(child.get())->RenameSubFolders(msgFolder);
     nsCOMPtr<nsIMsgFolder> msgParent;
     msgFolder->GetParent(getter_AddRefs(msgParent));
     msgFolder->SetParent(nullptr);
@@ -8080,8 +8078,7 @@ NS_IMETHODIMP nsImapMailFolder::RenameClient(nsIMsgWindow* msgWindow,
   return rv;
 }
 
-nsresult nsImapMailFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
-                                            nsIMsgFolder* oldFolder) {
+nsresult nsImapMailFolder::RenameSubFolders(nsIMsgFolder* oldFolder) {
   m_initialized = true;
   nsTArray<RefPtr<nsIMsgFolder>> subFolders;
   nsresult rv = oldFolder->GetSubFolders(subFolders);
@@ -8154,8 +8151,7 @@ nsresult nsImapMailFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
       msgFolder->MatchOrChangeFilterDestination(
           child, false /*caseInsensitive*/, &changed);
       if (changed) AlertFilterChanged(msgFolder);
-      static_cast<nsImapMailFolder*>(child.get())
-          ->RenameSubFolders(msgWindow, msgFolder);
+      static_cast<nsImapMailFolder*>(child.get())->RenameSubFolders(msgFolder);
     }
   }
   return rv;
