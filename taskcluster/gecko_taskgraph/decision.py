@@ -245,8 +245,12 @@ def taskgraph_decision(options, parameters):
     # Start querying bugbug early, so its results are ready sooner for the
     # optimizers, and so they are stored even on pushes that don't use them
     # (e.g. backstop pushes).
-    bugbug_future = None
-    if not create.testing and parameters["project"] == "autoland":
+    bugbug_future = options.get("bugbug_future")
+    if (
+        bugbug_future is None
+        and not create.testing
+        and parameters["project"] == "autoland"
+    ):
         bugbug_future = start_push_schedules(
             parameters["project"], parameters["head_rev"]
         )
@@ -385,6 +389,13 @@ def get_decision_parameters(graph_config, options):
     repo_path = os.getcwd()
     repo = get_repository(repo_path)
 
+    # Start the bugbug query before anything else, as it takes a while to
+    # complete and blocks generating the tasks of the test kinds.
+    if not create.testing and uses_bugbug(parameters, options):
+        options["bugbug_future"] = start_push_schedules(
+            parameters["project"], parameters["head_rev"]
+        )
+
     # Set some vcs specific parameters
     if parameters["repository_type"] == "hg":
         metadata = get_hg_revision_metadata(GECKO, parameters["head_rev"])
@@ -513,11 +524,7 @@ def get_decision_parameters(graph_config, options):
     # load extra parameters from file or note if able
     if options.get("allow_parameter_override"):
         note_ref = "refs/notes/decision-parameters"
-        if options.get("try_task_config_file"):
-            task_config_file = os.path.abspath(options.get("try_task_config_file"))
-        else:
-            task_config_file = os.path.join(os.getcwd(), "try_task_config.json")
-
+        task_config_file = get_try_task_config_file(options)
         if os.path.isfile(task_config_file):
             set_try_config(parameters, task_config_file)
             parameters["try_mode"] = "try_task_config"
@@ -594,6 +601,30 @@ def get_git_files_changed(repo, parameters):
             SystemResourceMonitor.end_marker("git", text)
 
     return repo.get_changed_files(rev=parameters["head_rev"], base=base_rev)
+
+
+def get_try_task_config_file(options):
+    if options.get("try_task_config_file"):
+        return os.path.abspath(options["try_task_config_file"])
+    return os.path.join(os.getcwd(), "try_task_config.json")
+
+
+def uses_bugbug(parameters, options):
+    """Whether the test kinds will query bugbug, as far as can be told before
+    the parameters are complete."""
+    if parameters["project"] == "autoland":
+        return True
+    if not options.get("allow_parameter_override"):
+        return False
+    try:
+        with open(get_try_task_config_file(options)) as fh:
+            task_config = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return (
+        task_config.get("version") == 2
+        and task_config["parameters"].get("test_manifest_loader") == "bugbug"
+    )
 
 
 def set_try_config(parameters, task_config_file):

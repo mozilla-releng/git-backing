@@ -399,5 +399,40 @@ def test_build_decision_perfherder_data(
     jsonschema.validate(data, schema)
 
 
+@pytest.mark.parametrize(
+    "project,override,ttc,expected",
+    (
+        pytest.param("autoland", False, None, True, id="autoland"),
+        pytest.param("try", True, None, False, id="no try_task_config"),
+        pytest.param(
+            "try",
+            True,
+            {"version": 2, "parameters": {"test_manifest_loader": "bugbug"}},
+            True,
+            id="bugbug loader",
+        ),
+        pytest.param(
+            "try",
+            False,
+            {"version": 2, "parameters": {"test_manifest_loader": "bugbug"}},
+            False,
+            id="override disallowed",
+        ),
+        pytest.param(
+            "try",
+            True,
+            {"version": 2, "parameters": {"test_manifest_loader": "default"}},
+            False,
+            id="default loader",
+        ),
+        pytest.param("try", True, {"tasks": ["a"]}, False, id="version 1"),
+    ),
+)
+def test_uses_bugbug(project, override, ttc, expected):
+    options = {"allow_parameter_override": override}
+    with MockedOpen({TTC_FILE: json.dumps(ttc) if ttc is not None else None}):
+        assert decision.uses_bugbug({"project": project}, options) == expected
+
+
 if __name__ == "__main__":
     main()
