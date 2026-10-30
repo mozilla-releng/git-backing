@@ -446,12 +446,11 @@ nsresult BounceTrackingProtection::RecordUserActivation(
     return NS_OK;
   }
 
-  if (!BounceTrackingState::ShouldTrackPrincipal(aPrincipal)) {
-    return NS_OK;
-  }
-
   BounceTrackingSite site =
       MOZ_TRY(BounceTrackingSite::FromPrincipal(aPrincipal));
+  if (site.IsNull()) {
+    return NS_OK;
+  }
 
   MOZ_LOG_FMT(gBounceTrackingProtectionLog, LogLevel::Debug, "{}: site: {}",
               __FUNCTION__, site);
@@ -1410,8 +1409,9 @@ nsresult BounceTrackingProtection::ClearExpiredUserInteractions(
 }
 
 void BounceTrackingProtection::MaybeLogPurgedWarningForSite(
-    nsIPrincipal* aPrincipal, BounceTrackingState* aBounceTrackingState) {
-  NS_ENSURE_TRUE_VOID(aPrincipal);
+    const BounceTrackingSite& aSite,
+    BounceTrackingState* aBounceTrackingState) {
+  NS_ENSURE_TRUE_VOID(!aSite.IsNull());
   NS_ENSURE_TRUE_VOID(aBounceTrackingState);
 
   // Ensure that the BTS is connected to a BrowsingContext. We will later use
@@ -1425,20 +1425,14 @@ void BounceTrackingProtection::MaybeLogPurgedWarningForSite(
   // Check if the site is in the recently purged log. If it is we should log a
   // console warning.
   RefPtr<BounceTrackingStateGlobal> stateGlobal =
-      mStorage->GetStateGlobal(aPrincipal);
+      mStorage->GetStateGlobal(aSite.OriginAttributesRef());
   if (!stateGlobal) {
     // No state global which means we don't have any purge data for the given
     // OriginAttributes on record.
     return;
   }
 
-  Result<BounceTrackingSite, nsresult> site =
-      BounceTrackingSite::FromPrincipal(aPrincipal);
-  if (NS_WARN_IF(site.isErr()) || site.inspect().IsNull()) {
-    return;
-  }
-
-  if (!stateGlobal->RecentPurgesMapRef().Contains(site.inspect().SiteHost())) {
+  if (!stateGlobal->RecentPurgesMapRef().Contains(aSite.SiteHost())) {
     // No recent purge found for the given site.
     return;
   }
@@ -1455,8 +1449,7 @@ void BounceTrackingProtection::MaybeLogPurgedWarningForSite(
 
   auto siteHostArg = l10nArgs.Value().Entries().AppendElement();
   siteHostArg->mKey = "siteHost";
-  siteHostArg->mValue.SetValue().SetAsUTF8String().Assign(
-      site.inspect().SiteHost());
+  siteHostArg->mValue.SetValue().SetAsUTF8String().Assign(aSite.SiteHost());
 
   // Construct the localized string.
   nsAutoCString message;
