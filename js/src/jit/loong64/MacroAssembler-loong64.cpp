@@ -5997,8 +5997,8 @@ void MacroAssemblerLOONG64Compat::testNullSet(Condition cond,
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_NULL), cond);
+  splitSignExtTag(value, scratch);
+  ma_cmp_set(dest, scratch, ImmTagSignExt(JSVAL_TAG_NULL), cond);
 }
 
 void MacroAssemblerLOONG64Compat::testObjectSet(Condition cond,
@@ -6007,8 +6007,8 @@ void MacroAssemblerLOONG64Compat::testObjectSet(Condition cond,
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_OBJECT), cond);
+  splitSignExtTag(value, scratch);
+  ma_cmp_set(dest, scratch, ImmTagSignExt(JSVAL_TAG_OBJECT), cond);
 }
 
 void MacroAssemblerLOONG64Compat::testUndefinedSet(Condition cond,
@@ -6017,8 +6017,8 @@ void MacroAssemblerLOONG64Compat::testUndefinedSet(Condition cond,
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
-  splitTag(value, scratch);
-  ma_cmp_set(dest, scratch, ImmTag(JSVAL_TAG_UNDEFINED), cond);
+  splitSignExtTag(value, scratch);
+  ma_cmp_set(dest, scratch, ImmTagSignExt(JSVAL_TAG_UNDEFINED), cond);
 }
 
 void MacroAssemblerLOONG64Compat::unboxInt32(const ValueOperand& operand,
@@ -6341,7 +6341,7 @@ Register MacroAssemblerLOONG64Compat::extractObject(const Address& address,
 Register MacroAssemblerLOONG64Compat::extractTag(const Address& address,
                                                  Register scratch) {
   loadPtr(address, scratch);
-  as_bstrpick_d(scratch, scratch, 63, JSVAL_TAG_SHIFT);
+  splitSignExtTag(scratch, scratch);
   return scratch;
 }
 
