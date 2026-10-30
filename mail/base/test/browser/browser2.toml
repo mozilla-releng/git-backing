@@ -40,6 +40,8 @@ tags = ["virtualfolders"]
 ["browser_groupedBySortPersistence.js"]
 tags = ["virtualfolders"]
 
+["browser_imapPseudoInterrupt.js"]
+
 ["browser_interactionTelemetry.js"]
 
 ["browser_mailTabsAndWindows.js"]
