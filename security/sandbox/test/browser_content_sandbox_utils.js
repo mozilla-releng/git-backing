@@ -16,23 +16,8 @@ function sanityChecks() {
     return;
   }
 
-  let level = 0;
-  let prefExists = true;
-
-  // Read the security.sandbox.content.level pref.
-  // eslint-disable-next-line mozilla/use-default-preference-values
-  try {
-    level = Services.prefs.getIntPref("security.sandbox.content.level");
-  } catch (e) {
-    prefExists = false;
-  }
-
-  ok(prefExists, "pref security.sandbox.content.level exists");
-  if (!prefExists) {
-    return;
-  }
-
-  info(`security.sandbox.content.level=${level}`);
+  let level = GetEffectiveContentSandboxLevel();
+  info(`effective content sandbox level=${level}`);
   Assert.greater(level, 0, "content sandbox is enabled.");
 
   let isFileIOSandboxed = isContentFileIOSandboxed(level);
@@ -491,13 +476,14 @@ function GetFileBrowser() {
   return GetBrowserType("file");
 }
 
-function GetSandboxLevel() {
-  // Current level
-  return Services.prefs.getIntPref("security.sandbox.content.level");
+function GetEffectiveContentSandboxLevel() {
+  return Cc["@mozilla.org/sandbox/sandbox-settings;1"].getService(
+    Ci.mozISandboxSettings
+  ).effectiveContentSandboxLevel;
 }
 
 async function runTestsList(tests) {
-  let level = GetSandboxLevel();
+  let level = GetEffectiveContentSandboxLevel();
 
   // remove tests not enabled by the current sandbox level
   tests = tests.filter(test => test.minLevel <= level);

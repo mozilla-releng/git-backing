@@ -242,26 +242,8 @@ add_task(async function () {
     return;
   }
 
-  let level = 0;
-  let prefExists = true;
-
-  // Read the security.sandbox.content.level pref.
-  // If the pref isn't set and we're running on Linux on !isNightly(),
-  // exit without failing. The Linux content sandbox is only enabled
-  // on Nightly at this time.
-  // eslint-disable-next-line mozilla/use-default-preference-values
-  try {
-    level = Services.prefs.getIntPref("security.sandbox.content.level");
-  } catch (e) {
-    prefExists = false;
-  }
-
-  ok(prefExists, "pref security.sandbox.content.level exists");
-  if (!prefExists) {
-    return;
-  }
-
-  info(`security.sandbox.content.level=${level}`);
+  let level = GetEffectiveContentSandboxLevel();
+  info(`effective content sandbox level=${level}`);
   Assert.greater(level, 0, "content sandbox is enabled.");
 
   let areSyscallsSandboxed = areContentSyscallsSandboxed(level);

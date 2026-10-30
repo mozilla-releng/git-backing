@@ -233,7 +233,7 @@ async function testFileAccessMacOnly() {
   let webBrowser = GetWebBrowser();
   let fileContentProcessEnabled = isFileContentProcessEnabled();
   let fileBrowser = GetFileBrowser();
-  let level = GetSandboxLevel();
+  let level = GetEffectiveContentSandboxLevel();
 
   let tests = [];
 
