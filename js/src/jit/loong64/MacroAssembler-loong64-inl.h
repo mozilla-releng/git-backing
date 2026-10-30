@@ -2073,24 +2073,33 @@ void MacroAssembler::branchTestNull(Condition cond, const ValueOperand& value,
 void MacroAssembler::branchTestNullOrUndefined(Condition cond, Register tag,
                                                Label* label) {
   MOZ_ASSERT(cond == Equal || cond == NotEqual);
-  if (cond == Equal) {
-    branchTestNull(Equal, tag, label);
-    branchTestUndefined(Equal, tag, label);
-    return;
-  }
-  Label done;
-  branchTestNull(Equal, tag, &done);
-  branchTestUndefined(NotEqual, tag, label);
-  bind(&done);
+  constexpr unsigned kShift = JS::detail::ValueNullOrUndefinedShift;
+  constexpr int32_t kNegBits = static_cast<int32_t>(
+      (UINT32_C(1) << (64 - kShift)) - JS::detail::ValueNullOrUndefinedBits);
+
+  UseScratchRegisterScope temps(*this);
+  const Register scratch = temps.Acquire();
+  as_srai_d(scratch, tag, kShift - JSVAL_TAG_SHIFT);
+  as_addi_d(scratch, scratch, kNegBits);
+  ma_b(scratch, scratch, label, cond == Equal ? Zero : NonZero);
 }
 
 void MacroAssembler::branchTestNullOrUndefined(Condition cond,
                                                const ValueOperand& value,
                                                Label* label) {
+  MOZ_ASSERT(cond == Equal || cond == NotEqual);
+  constexpr unsigned kShift = JS::detail::ValueNullOrUndefinedShift;
+  constexpr uint32_t kBits = JS::detail::ValueNullOrUndefinedBits;
+  static_assert(kBits >> (64 - kShift - 1) == 1,
+                "the shared bits must sign-extend to a negative value");
+  constexpr int32_t kNegBits =
+      static_cast<int32_t>((UINT32_C(1) << (64 - kShift)) - kBits);
+
   UseScratchRegisterScope temps(*this);
-  Register scratch = temps.Acquire();
-  splitSignExtTag(value, scratch);
-  branchTestNullOrUndefined(cond, scratch, label);
+  const Register scratch = temps.Acquire();
+  as_srai_d(scratch, value.valueReg(), kShift);
+  as_addi_d(scratch, scratch, kNegBits);
+  ma_b(scratch, scratch, label, cond == Equal ? Zero : NonZero);
 }
 
 void MacroAssembler::branchTestNull(Condition cond, const Address& address,
