@@ -17,7 +17,6 @@ export const PLATFORM_WINDOWS = "win";
  * on a primary button that does not have primary styling to set its position.
  *
  * @tagname moz-button-group
- * @property {string} platform - The detected platform, set automatically.
  */
 export class MozButtonGroup extends MozLitElement {
   static queries = {
@@ -31,6 +30,14 @@ export class MozButtonGroup extends MozLitElement {
 
   constructor() {
     super();
+
+    /**
+     * The detected platform, set automatically.
+     *
+     * @type {string | undefined}
+     */
+    this.platform = undefined;
+
     this.#detectPlatform();
   }
 
