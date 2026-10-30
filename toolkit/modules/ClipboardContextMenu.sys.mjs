@@ -17,6 +17,7 @@ export var ClipboardContextMenu = {
         this.onCommand();
         break;
       }
+      case "unload":
       case "popuphiding": {
         this.onPopupHiding();
         break;
@@ -37,6 +38,10 @@ export var ClipboardContextMenu = {
   },
 
   onPopupHiding() {
+    if (!this._pendingRequest) {
+      return;
+    }
+
     // Remove the listeners before potentially sending the async message
     // below, because that might throw.
     this._removeMenupopupEventListeners();
@@ -46,6 +51,7 @@ export var ClipboardContextMenu = {
     this._menupopup = null;
     this._menuitem = null;
 
+    this._pendingRequest.promptWindow.removeEventListener("unload", this);
     let propBag = lazy.PromptUtils.objectToPropBag({
       ok: this._pasteMenuItemClicked,
     });
@@ -90,8 +96,9 @@ export var ClipboardContextMenu = {
         return;
       }
 
-      let { document } = aWindowContext.browsingContext.topChromeWindow;
-      if (!document) {
+      const topChromeWindow = aWindowContext.browsingContext.topChromeWindow;
+      const chromeDocument = topChromeWindow.document;
+      if (!chromeDocument) {
         reject(
           Components.Exception(
             "Unable to get chrome document.",
@@ -111,14 +118,15 @@ export var ClipboardContextMenu = {
         return;
       }
 
-      this._pendingRequest = { resolve, reject };
-      this._menupopup = this._getMenupopup(document);
+      this._pendingRequest = { resolve, reject, promptWindow: topChromeWindow };
+      this._menupopup = this._getMenupopup(chromeDocument);
       this._menuitem = this._menupopup.firstElementChild;
       this._addMenupopupEventListeners();
+      topChromeWindow.addEventListener("unload", this, { once: true });
 
       let mouseXInCSSPixels = {};
       let mouseYInCSSPixels = {};
-      document.documentGlobal.windowUtils.getLastOverWindowPointerLocationInCSSPixels(
+      topChromeWindow.windowUtils.getLastOverWindowPointerLocationInCSSPixels(
         mouseXInCSSPixels,
         mouseYInCSSPixels
       );
@@ -142,7 +150,7 @@ export var ClipboardContextMenu = {
         y: mouseYInCSSPixels.value,
       });
 
-      this._refreshDelayTimer(document);
+      this._refreshDelayTimer(chromeDocument);
     });
   },
 
