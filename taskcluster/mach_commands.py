@@ -273,6 +273,7 @@ def taskgraph_decision(command_context, **options):
     from gecko_taskgraph import register as register_gecko_taskgraph
     from gecko_taskgraph.decision import (
         build_decision_perfherder_data,
+        cleanup_bugbug_result,
         get_decision_parameters,
         taskgraph_decision,
     )
@@ -322,6 +323,7 @@ def taskgraph_decision(command_context, **options):
             if monitor is not None:
                 monitor.finish_phase("taskgraph")
         finally:
+            cleanup_bugbug_result(options)
             if monitor is not None:
                 monitor.stop()
             if forward_path:

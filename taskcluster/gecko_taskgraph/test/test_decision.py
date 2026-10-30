@@ -434,5 +434,23 @@ def test_uses_bugbug(project, override, ttc, expected):
         assert decision.uses_bugbug({"project": project}, options) == expected
 
 
+def test_cleanup_bugbug_result(tmp_path, monkeypatch):
+    from gecko_taskgraph.util.bugbug import PUSH_SCHEDULES_ENV
+
+    result_dir = tmp_path / "bugbug"
+    result_dir.mkdir()
+    (result_dir / "bugbug-push-schedules.json").write_text("{}")
+    monkeypatch.setenv(PUSH_SCHEDULES_ENV, str(result_dir / "result.json"))
+    options = {"bugbug_result_dir": str(result_dir)}
+
+    decision.cleanup_bugbug_result(options)
+    assert not result_dir.exists()
+    assert PUSH_SCHEDULES_ENV not in os.environ
+    assert "bugbug_result_dir" not in options
+
+    # Nothing to clean up.
+    decision.cleanup_bugbug_result(options)
+
+
 if __name__ == "__main__":
     main()

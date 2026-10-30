@@ -35,7 +35,7 @@ from .actions import render_actions_json
 from .files_changed import get_changed_files
 from .parameters import get_app_version, get_version
 from .util.backstop import ANDROID_PERFTEST_BACKSTOP_INDEX, BACKSTOP_INDEX, is_backstop
-from .util.bugbug import push_schedules, start_push_schedules
+from .util.bugbug import PUSH_SCHEDULES_ENV, push_schedules, start_push_schedules
 from .util.hg import get_hg_revision_metadata
 from .util.partials import populate_release_history
 from .util.taskcluster import insert_index
@@ -390,10 +390,16 @@ def get_decision_parameters(graph_config, options):
     repo = get_repository(repo_path)
 
     # Start the bugbug query before anything else, as it takes a while to
-    # complete and blocks generating the tasks of the test kinds.
+    # complete and blocks generating the tasks of the test kinds, which wait
+    # for its result rather than querying bugbug again.
     if not create.testing and uses_bugbug(parameters, options):
+        options["bugbug_result_dir"] = tempfile.mkdtemp(prefix="bugbug-")
+        result_path = os.path.join(
+            options["bugbug_result_dir"], "bugbug-push-schedules.json"
+        )
+        os.environ[PUSH_SCHEDULES_ENV] = result_path
         options["bugbug_future"] = start_push_schedules(
-            parameters["project"], parameters["head_rev"]
+            parameters["project"], parameters["head_rev"], result_path
         )
 
     # Set some vcs specific parameters
@@ -601,6 +607,14 @@ def get_git_files_changed(repo, parameters):
             SystemResourceMonitor.end_marker("git", text)
 
     return repo.get_changed_files(rev=parameters["head_rev"], base=base_rev)
+
+
+def cleanup_bugbug_result(options):
+    """Remove what get_decision_parameters set up to share the result of the
+    bugbug query."""
+    if result_dir := options.pop("bugbug_result_dir", None):
+        os.environ.pop(PUSH_SCHEDULES_ENV, None)
+        shutil.rmtree(result_dir, ignore_errors=True)
 
 
 def get_try_task_config_file(options):
