@@ -45,6 +45,9 @@ docker.RUN_TASK_FILES = {
         "fetch-content",
     ]
 }
+docker.RUN_TASK_FILES["run-task/fetch-content"] = os.path.join(
+    GECKO, "taskcluster", "scripts", "fetch-content"
+)
 docker.RUN_TASK_FILES["run-task/run-task-setup.py"] = os.path.join(
     GECKO, "taskcluster", "scripts", "run-task-setup.py"
 )
