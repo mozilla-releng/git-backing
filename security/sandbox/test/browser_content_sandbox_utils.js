@@ -291,7 +291,7 @@ function isContentFileIOSandboxed(level) {
   // varies across Windows, Mac, Linux, other.
   switch (Services.appinfo.OS) {
     case "WINNT":
-      fileIOSandboxMinLevel = 1;
+      fileIOSandboxMinLevel = 6;
       break;
     case "Darwin":
       fileIOSandboxMinLevel = 1;
@@ -311,7 +311,7 @@ function isContentFileIOSandboxed(level) {
 function minProfileReadSandboxLevel() {
   switch (Services.appinfo.OS) {
     case "WINNT":
-      return 3;
+      return 6;
     case "Darwin":
       return 2;
     case "Linux":
@@ -327,7 +327,7 @@ function minProfileReadSandboxLevel() {
 function minHomeReadSandboxLevel() {
   switch (Services.appinfo.OS) {
     case "WINNT":
-      return 3;
+      return 6;
     case "Darwin":
       return 3;
     case "Linux":

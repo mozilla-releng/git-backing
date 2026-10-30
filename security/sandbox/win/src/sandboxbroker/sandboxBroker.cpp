@@ -1060,8 +1060,6 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
   // The setting of these levels is pretty arbitrary, but they are a useful (if
   // crude) tool while we are tightening the policy. Gaps are left to try and
   // avoid changing their meaning.
-  MOZ_RELEASE_ASSERT(aSandboxLevel >= 1,
-                     "Should not be called with aSandboxLevel < 1");
   if (aSandboxLevel >= 20) {
     jobLevel = sandbox::JobLevel::kLockdown;
     accessTokenLevel = sandbox::USER_LOCKDOWN;
@@ -1082,28 +1080,13 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
     accessTokenLevel = sandbox::USER_LIMITED;
     initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
     delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_UNTRUSTED;
-  } else if (aSandboxLevel >= 4) {
+  } else if (aSandboxLevel >= 6) {
     jobLevel = sandbox::JobLevel::kLockdown;
     accessTokenLevel = sandbox::USER_LIMITED;
-    initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
-    delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
-  } else if (aSandboxLevel >= 3) {
-    jobLevel = sandbox::JobLevel::kLockdown;
-    accessTokenLevel = sandbox::USER_LIMITED;
-    initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
-    delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
-  } else if (aSandboxLevel == 2) {
-    jobLevel = sandbox::JobLevel::kInteractive;
-    accessTokenLevel = sandbox::USER_INTERACTIVE;
     initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
     delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
   } else {
-    MOZ_ASSERT(aSandboxLevel == 1);
-
-    jobLevel = sandbox::JobLevel::kUnprotected;
-    accessTokenLevel = sandbox::USER_RESTRICTED_NON_ADMIN;
-    initialIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
-    delayedIntegrityLevel = sandbox::INTEGRITY_LEVEL_LOW;
+    MOZ_CRASH("Should not be called with aSandboxLevel < 6");
   }
 
   // If the process will handle file: URLs, don't allow settings that
@@ -1140,14 +1123,9 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
                      "SetIntegrityLevel should never fail, what happened?");
   config->SetDelayedIntegrityLevel(delayedIntegrityLevel);
 
-  if (aSandboxLevel > 5) {
-    config->SetLockdownDefaultDacl();
-    config->AddRestrictingRandomSid();
-  }
-
-  if (aSandboxLevel > 4) {
-    config->SetDesktop(sandbox::Desktop::kAlternateWinstation);
-  }
+  config->SetLockdownDefaultDacl();
+  config->AddRestrictingRandomSid();
+  config->SetDesktop(sandbox::Desktop::kAlternateWinstation);
 
   if (StaticPrefs::security_sandbox_content_close_ksecdd_handle()) {
     // bug 2006941 and bug 2008739 and bug 2022584 - Trellix DLP uses these
@@ -1210,7 +1188,7 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
 
   // We still have edge cases where the child at low integrity can't read some
   // files, so add a rule to allow read access to everything when required.
-  if (aSandboxLevel == 1 || aIsFileProcess) {
+  if (aIsFileProcess) {
     result =
         config->AllowFileAccess(sandbox::FileSemantics::kAllowReadonly, L"*");
     MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
@@ -1374,7 +1352,7 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
   // files. This is added after the other rules here, so that paths they allow
   // never wait for the font path set to be rebuilt. File processes already have
   // read-only access to all files.
-  if (sFontFileRuleEnabled && aSandboxLevel != 1 && !aIsFileProcess) {
+  if (sFontFileRuleEnabled && !aIsFileProcess) {
     result = config->AllowFontFileAccess();
     MOZ_RELEASE_ASSERT(sandbox::SBOX_ALL_OK == result,
                        "Failed to add font file rules.");
