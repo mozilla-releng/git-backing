@@ -24,7 +24,6 @@ window.addEventListener("close", event => {
   }
 });
 
-var gFilterListMsgWindow = null;
 var gCurrentFilterList;
 var gServerMenu = null;
 var gFilterListbox = null;
@@ -91,10 +90,6 @@ var filterEditorQuitObserver = {
 };
 
 function onLoad() {
-  gFilterListMsgWindow = Cc[
-    "@mozilla.org/messenger/msgwindow;1"
-  ].createInstance(Ci.nsIMsgWindow);
-
   gServerMenu = document.getElementById("serverMenu");
   gFilterListbox = document.getElementById("filterList");
   gEditButton = document.getElementById("editButton");
@@ -750,7 +745,7 @@ function runSelectedFilters() {
   MailServices.filters.applyFiltersToFolders(
     filterList,
     [folder],
-    gFilterListMsgWindow,
+    true,
     {
       QueryInterface: ChromeUtils.generateQI([
         "nsIMsgOperationListener",
