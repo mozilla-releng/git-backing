@@ -2884,12 +2884,11 @@ nsresult nsImapMailFolder::NormalEndHeaderParseStream(
   char* headers;
   int32_t headersSize;
 
-  nsCOMPtr<nsIMsgWindow> msgWindow;
-  nsCOMPtr<nsIMsgMailNewsUrl> msgUrl;
+  bool interactive = false;
   if (imapUrl) {
-    msgUrl = do_QueryInterface(imapUrl, &rv);
+    nsCOMPtr<nsIMsgMailNewsUrl> msgUrl = do_QueryInterface(imapUrl, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
-    msgUrl->GetMsgWindow(getter_AddRefs(msgWindow));
+    msgUrl->GetInteractive(&interactive);
   }
 
   nsCOMPtr<nsIMsgIncomingServer> server;
@@ -3023,7 +3022,7 @@ nsresult nsImapMailFolder::NormalEndHeaderParseStream(
                    "nsImapMailFolder::NormalEndHeaderParseStream()"));
           m_filterList->ApplyFiltersToHdr(
               nsMsgFilterType::InboxRule, newMsgHdr, this, mDatabase,
-              nsDependentCSubstring(headers, headersSize), this, !!msgWindow);
+              nsDependentCSubstring(headers, headersSize), this, interactive);
           NotifyFolderEvent(kFiltersApplied);
         }
       }
@@ -4442,17 +4441,16 @@ nsImapMailFolder::NormalEndMsgWriteStream(ImapUid uidOfMessage, bool markRead,
   if (m_filterListRequiresBody) {
     if (m_filterList) {
       GetMoveCoalescer();
-      nsCOMPtr<nsIMsgWindow> msgWindow;
+      bool interactive = false;
       if (imapUrl) {
-        nsresult rv;
-        nsCOMPtr<nsIMsgMailNewsUrl> msgUrl;
-        msgUrl = do_QueryInterface(imapUrl, &rv);
-        if (msgUrl && NS_SUCCEEDED(rv))
-          msgUrl->GetMsgWindow(getter_AddRefs(msgWindow));
+        nsCOMPtr<nsIMsgMailNewsUrl> msgUrl = do_QueryInterface(imapUrl);
+        if (msgUrl) {
+          msgUrl->GetInteractive(&interactive);
+        }
       }
       m_filterList->ApplyFiltersToHdr(nsMsgFilterType::InboxRule, newMsgHdr,
                                       this, mDatabase, EmptyCString(), this,
-                                      !!msgWindow);
+                                      interactive);
       NotifyFolderEvent(kFiltersApplied);
     }
     // Process filter plugins and other items normally done at the end of
@@ -4960,9 +4958,9 @@ nsImapMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
       endedOfflineDownload = true;
       EndOfflineDownload();
     }
-    nsCOMPtr<nsIMsgWindow> msgWindow;
+    bool interactive = false;
     nsCOMPtr<nsIMsgMailNewsUrl> mailUrl = do_QueryInterface(aUrl);
-    if (mailUrl) mailUrl->GetMsgWindow(getter_AddRefs(msgWindow));
+    if (mailUrl) mailUrl->GetInteractive(&interactive);
 
     if (imapUrl) {
       DisplayStatusMsg(imapUrl, EmptyString());
@@ -5045,7 +5043,7 @@ nsImapMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
                 if (showPreviewText && m_copyState->m_unreadCount > 0 &&
                     !(mFlags &
                       (nsMsgFolderFlags::Trash | nsMsgFolderFlags::Junk))) {
-                  UpdateFolder(!!msgWindow);
+                  UpdateFolder(interactive);
                 }
               } else {
                 srcFolder->EnableNotifications(allMessageCountNotifications,
@@ -5179,7 +5177,7 @@ nsImapMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
                 }
                 (void)OnCopyCompleted(m_copyState->m_srcSupport, aExitCode);
                 if (imapAction == nsIImapUrl::nsImapAppendDraftFromFile) {
-                  UpdateFolderWithListener(!!msgWindow, m_urlListener);
+                  UpdateFolderWithListener(interactive, m_urlListener);
                 }
               }
             } else {
@@ -5267,7 +5265,7 @@ nsImapMailFolder::OnStopRunningUrl(nsIURI* aUrl, nsresult aExitCode) {
           }
           break;
         case nsIImapUrl::nsImapSubscribe:
-          if (NS_SUCCEEDED(aExitCode) && msgWindow) {
+          if (NS_SUCCEEDED(aExitCode) && interactive) {
             nsCString canonicalFolderName;
             imapUrl->CreateCanonicalSourceFolderPathString(canonicalFolderName);
             nsCOMPtr<nsIMsgFolder> rootFolder;
