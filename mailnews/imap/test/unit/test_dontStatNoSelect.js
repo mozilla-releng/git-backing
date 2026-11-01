@@ -55,7 +55,7 @@ add_setup(function () {
   MailServices.accounts.defaultAccount = imapAccount;
 
   // Get the folder list...
-  gImapServer.performExpand(null);
+  gImapServer.performExpand(false);
   gServer.performTest("SUBSCRIBE");
   // pref tuning: one connection only, turn off notifications
   // Make sure no biff notifications happen
@@ -76,14 +76,14 @@ add_task(function checkStatSelect() {
   // imap fake server's resetTest resets the authentication state - charming.
   // So poke the _test member directly.
   gServer._test = true;
-  gIMAPInbox.getNewMessages(null, null);
+  gIMAPInbox.getNewMessages(false, null);
   gServer.performTest("STATUS");
   // We want to wait for the STATUS to be really done before we issue
   // more STATUS commands, so we do a NOOP on the
   // INBOX, and since we only have one connection with the fake server,
   // that will essentially serialize things.
   gServer._test = true;
-  gIMAPInbox.updateFolder(null);
+  gIMAPInbox.updateFolder(false);
   gServer.performTest("NOOP");
 });
 
@@ -104,7 +104,7 @@ add_task(async function checkStatNoSelect() {
     folderListener,
     Ci.nsIFolderListener.boolPropertyChanged
   );
-  gIMAPInbox.getNewMessages(null, null);
+  gIMAPInbox.getNewMessages(false, null);
   // Wait for the folder listener to get told about new messages.
   await folderListener.promise;
 });

@@ -25,11 +25,11 @@ add_setup(async function () {
     "mail.server.default.autosync_offline_stores",
     false
   );
-  IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1");
   await PromiseTestUtils.promiseFolderAdded("folder 1");
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -39,11 +39,11 @@ add_task(async function test_rename() {
   const oldURI = targetFolder.URI;
   applySettings(targetFolder);
 
-  targetFolder.rename("folder \u00e1", null);
+  targetFolder.rename("folder \u00e1");
 
   IMAPPump.server.performTest("RENAME");
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 
   const folder = rootFolder.getChildNamed("folder \u00e1");
@@ -67,7 +67,7 @@ add_task(async function test_rename() {
     "the folder object at the old URI should be detached"
   );
   const folderAdded = PromiseTestUtils.promiseFolderAdded("folder 1");
-  rootFolder.createSubfolder("folder 1", null);
+  rootFolder.createSubfolder("folder 1");
   const recreatedFolder = await folderAdded;
   Assert.notEqual(
     recreatedFolder,
@@ -88,17 +88,17 @@ add_task(async function test_renameKeepsSettings() {
 
   // A folder the user has configured.
   const folderAdded = PromiseTestUtils.promiseFolderAdded("with settings");
-  rootFolder.createSubfolder("with settings", null);
+  rootFolder.createSubfolder("with settings");
   const folder = await folderAdded;
   applySettings(folder);
 
   // Rename it, which is what the properties dialog and the context menu do.
-  folder.rename("renamed", null);
+  folder.rename("renamed");
   IMAPPump.server.performTest("RENAME");
 
   // Let the rename settle before looking at the result.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 
   const renamedFolder = rootFolder.getChildNamed("renamed");
@@ -110,7 +110,7 @@ add_task(async function test_renameKeepsSettings() {
   const syncListener = new PromiseTestUtils.PromiseUrlListener();
   renamedFolder
     .QueryInterface(Ci.nsIMsgImapMailFolder)
-    .updateFolderWithListener(null, syncListener);
+    .updateFolderWithListener(false, syncListener);
   await syncListener.promise;
   assertSettings(renamedFolder, "the renamed folder after its first sync");
 });
@@ -122,14 +122,14 @@ add_task(async function test_renameKeepsFollowingTheAccount() {
 
   // A folder the user has not configured, so it follows the account.
   const folderAdded = PromiseTestUtils.promiseFolderAdded("without settings");
-  rootFolder.createSubfolder("without settings", null);
+  rootFolder.createSubfolder("without settings");
   const folder = await folderAdded;
 
-  folder.rename("renamed again", null);
+  folder.rename("renamed again");
   IMAPPump.server.performTest("RENAME");
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 
   Assert.ok(
@@ -146,19 +146,19 @@ add_task(async function test_moveKeepsSettings() {
 
   // Somewhere to move to.
   let folderAdded = PromiseTestUtils.promiseFolderAdded("destination");
-  rootFolder.createSubfolder("destination", null);
+  rootFolder.createSubfolder("destination");
   const destination = await folderAdded;
 
   // A folder the user has configured.
   folderAdded = PromiseTestUtils.promiseFolderAdded("to move");
-  rootFolder.createSubfolder("to move", null);
+  rootFolder.createSubfolder("to move");
   const folder = await folderAdded;
   const oldURI = folder.URI;
   applySettings(folder);
 
   // Move it, which is what dragging it in the folder pane does.
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
-  MailServices.copy.copyFolder(folder, destination, true, copyListener, null);
+  MailServices.copy.copyFolder(folder, destination, true, copyListener, false);
   await copyListener.promise;
 
   assertSettings(destination.getChildNamed("to move"), "the moved folder");
@@ -169,7 +169,7 @@ add_task(async function test_moveKeepsSettings() {
     "the folder object at the old URI should be detached"
   );
   folderAdded = PromiseTestUtils.promiseFolderAdded("to move");
-  rootFolder.createSubfolder("to move", null);
+  rootFolder.createSubfolder("to move");
   const recreatedFolder = await folderAdded;
   Assert.notEqual(
     recreatedFolder,
@@ -192,13 +192,13 @@ add_task(async function test_moveToTrashDropsSettings() {
 
   // A folder the user has configured.
   const folderAdded = PromiseTestUtils.promiseFolderAdded("to delete");
-  rootFolder.createSubfolder("to delete", null);
+  rootFolder.createSubfolder("to delete");
   const folder = await folderAdded;
   applySettings(folder);
 
   // Delete it, which moves it to the trash.
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
-  MailServices.copy.copyFolder(folder, trash, true, copyListener, null);
+  MailServices.copy.copyFolder(folder, trash, true, copyListener, false);
   await copyListener.promise;
 
   const deletedFolder = trash.getChildNamed("to delete");
@@ -219,18 +219,18 @@ add_task(async function test_renameKeepsSubfolders() {
 
   // A folder with a subfolder.
   const parentAdded = PromiseTestUtils.promiseFolderAdded("parent to rename");
-  rootFolder.createSubfolder("parent to rename", null);
+  rootFolder.createSubfolder("parent to rename");
   const parent = await parentAdded;
 
   const childAdded = PromiseTestUtils.promiseFolderAdded("child");
-  parent.createSubfolder("child", null);
+  parent.createSubfolder("child");
   await childAdded;
 
-  parent.rename("renamed parent", null);
+  parent.rename("renamed parent");
   IMAPPump.server.performTest("RENAME");
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 
   const renamedParent = rootFolder.getChildNamed("renamed parent");

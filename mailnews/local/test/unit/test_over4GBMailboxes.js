@@ -98,7 +98,7 @@ add_setup(async function () {
   gInbox.msgDatabase = null;
   const parseUrlListener = new PromiseTestUtils.PromiseUrlListener();
   try {
-    gInbox.getDatabaseWithReparse(parseUrlListener, gDummyMsgWindow);
+    gInbox.getDatabaseWithReparse(parseUrlListener);
   } catch (ex) {
     Assert.equal(ex.result, Cr.NS_ERROR_NOT_INITIALIZED);
   }
@@ -295,7 +295,7 @@ add_task(async function copyIntoOver4GiB_fail_check() {
     0,
     "",
     copyListener,
-    gDummyMsgWindow
+    true
   );
   await Assert.rejects(
     copyListener.promise,
@@ -346,7 +346,7 @@ add_task(async function copyIntoOver4GiB_success_check1() {
     0,
     "",
     copyListener,
-    gDummyMsgWindow
+    true
   );
 
   await copyListener.promise;
@@ -373,7 +373,7 @@ add_task(async function copyIntoOver4GiB_success_check2() {
     0,
     "",
     copyListener,
-    gDummyMsgWindow
+    true
   );
 
   await copyListener.promise;
@@ -410,7 +410,7 @@ add_task(async function compactOver4GiB() {
     sizeToExpunge = header.messageSize;
   }
   const deleteListener = new PromiseTestUtils.PromiseCopyListener();
-  gInbox.deleteMessages(doomed, null, true, false, deleteListener, false);
+  gInbox.deleteMessages(doomed, false, true, false, deleteListener, false);
   await deleteListener.promise;
   Assert.equal(gInbox.expungedBytes, sizeToExpunge);
 
@@ -421,7 +421,7 @@ add_task(async function compactOver4GiB() {
    * the size of the mbox!
    */
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
-  gInbox.compact(urlListener, null);
+  gInbox.compact(urlListener, false);
   await urlListener.promise;
   Assert.ok(gInbox.msgDatabase.summaryValid);
   // Check that folder size is still above max limit ...
@@ -472,7 +472,7 @@ add_task(async function compactUnder4GiB() {
   }
   info("Bug 1952503 tracing: start deleting messages");
   const deleteListener = new PromiseTestUtils.PromiseCopyListener();
-  gInbox.deleteMessages(doomed, null, true, false, deleteListener, false);
+  gInbox.deleteMessages(doomed, false, true, false, deleteListener, false);
   await deleteListener.promise;
   info("Bug 1952503 tracing: done deleting messages");
 
@@ -485,7 +485,7 @@ add_task(async function compactUnder4GiB() {
   // lines to message(s).
   info("Bug 1952503 tracing: performing compaction");
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
-  gInbox.compact(urlListener, null);
+  gInbox.compact(urlListener, false);
   await urlListener.promise;
   info("Bug 1952503 tracing: compaction completed");
   // Check: message successfully copied.

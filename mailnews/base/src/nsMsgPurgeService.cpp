@@ -406,7 +406,7 @@ nsresult nsMsgPurgeService::SearchFolderToPurge(nsIMsgFolder* folder,
   NS_ASSERTION(mHdrsToDelete.IsEmpty(), "mHdrsToDelete is not empty");
 
   mSearchFolder = folder;
-  return mSearchSession->Search(nullptr);
+  return mSearchSession->Search(false);
 }
 
 NS_IMETHODIMP nsMsgPurgeService::OnNewSearch() {
@@ -471,8 +471,8 @@ NS_IMETHODIMP nsMsgPurgeService::OnSearchDone(nsresult status) {
       MOZ_LOG(MsgPurgeLogModule, mozilla::LogLevel::Info, ("delete messages"));
       if (mSearchFolder)
         mSearchFolder->DeleteMessages(
-            mHdrsToDelete, nullptr, false /*delete storage*/, false /*isMove*/,
-            nullptr, false /*allowUndo*/);
+            mHdrsToDelete, false /*interactive*/, false /*delete storage*/,
+            false /*isMove*/, nullptr, false /*allowUndo*/);
     }
   }
   mHdrsToDelete.Clear();

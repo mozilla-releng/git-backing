@@ -131,7 +131,7 @@ async function copyItems(sourceFolder, destinationFolder, headers, isMove) {
     destinationFolder,
     isMove,
     copyListener,
-    null, // msgWindow
+    false, // interactive
     false // allowUndo
   );
   await copyListener.promise;
@@ -274,7 +274,7 @@ add_task(async function test_move_copy_messages_from_another_server() {
   );
 
   const ewsRootFolder = ewsIncomingServer.rootFolder;
-  ewsIncomingServer.performExpand(null);
+  ewsIncomingServer.performExpand(false);
   const ewsDestFolder = await TestUtils.waitForCondition(
     () => ewsRootFolder.getChildNamed("copyFromAnotherServer"),
     "waiting for test folder to exist"
@@ -341,8 +341,8 @@ add_task(async function test_move_copy_messages_from_another_server() {
         [undefined],
         ewsDestFolder,
         true, // isMove
-        null, // listener
-        null, // msgWindow
+        null,
+        false, // interactive
         false // allowUndo
       ),
     /NS_ERROR_ILLEGAL_VALUE/,
@@ -357,7 +357,7 @@ add_task(async function test_move_copy_messages_to_another_server() {
   ewsServer.addMessages("copyToAnotherServer", generator.makeMessages({}));
 
   const ewsRootFolder = ewsIncomingServer.rootFolder;
-  ewsIncomingServer.performExpand(null);
+  ewsIncomingServer.performExpand(false);
   const ewsSourceFolder = await TestUtils.waitForCondition(
     () => ewsRootFolder.getChildNamed("copyToAnotherServer"),
     "waiting for test folder to exist"
@@ -426,8 +426,8 @@ add_task(async function test_move_copy_messages_to_another_server() {
         [undefined],
         localDestFolder,
         true, // isMove
-        null, // listener
-        null, // msgWindow
+        null,
+        false, // interactive
         false // allowUndo
       ),
     /NS_ERROR_ILLEGAL_VALUE/,
@@ -443,7 +443,7 @@ add_task(async function test_copy_file_message() {
   ewsServer.appendRemoteFolder(new RemoteFolder("copyFileMessage", "root"));
 
   const rootFolder = ewsIncomingServer.rootFolder;
-  ewsIncomingServer.performExpand(null);
+  ewsIncomingServer.performExpand(false);
   const folder = await TestUtils.waitForCondition(
     () => rootFolder.getChildNamed("copyFileMessage"),
     "waiting for test folder to exist"
@@ -460,7 +460,7 @@ add_task(async function test_copy_file_message() {
     0, // message flags
     "$label4", // keywords
     copyListener,
-    null // window
+    false
   );
   const copied = await copyListener.promise;
 
@@ -502,7 +502,7 @@ async function runMarkAsReadTest(mockServer, incomingServer) {
   mockServer.addMessages(folderName, syntheticMessages);
 
   const rootFolder = incomingServer.rootFolder;
-  incomingServer.getNewMessages(rootFolder, null, null);
+  incomingServer.getNewMessages(rootFolder, false, null);
 
   const folder = await TestUtils.waitForCondition(
     () => rootFolder.getChildNamed(folderName),
@@ -772,7 +772,7 @@ async function runMarkAsJunkTest(mockServer, incomingServer) {
       inboxFolder,
       "DeleteOrMoveMsgCompleted"
     );
-    inboxFolder.deleteMessages(messages, null, true, false, null, false);
+    inboxFolder.deleteMessages(messages, false, true, false, null, false);
     await eventPromise;
   });
 
@@ -789,7 +789,7 @@ async function runMarkAsJunkTest(mockServer, incomingServer) {
   inboxFolder.handleViewCommand(
     Ci.nsMsgViewCommandType.junk,
     junkMessageKeys,
-    null,
+    false,
     junkListener
   );
   await junkListener.promise;
@@ -812,7 +812,7 @@ async function runMarkAsJunkTest(mockServer, incomingServer) {
   junkFolder.handleViewCommand(
     Ci.nsMsgViewCommandType.unjunk,
     [newMessageKeys[0]],
-    null,
+    false,
     unjunkListener
   );
   await unjunkListener.promise;
@@ -909,7 +909,7 @@ async function runHardDeleteTest(mockServer, incomingServer) {
     folder,
     "DeleteOrMoveMsgCompleted"
   );
-  folder.deleteMessages([messageHeaders[0]], null, true, false, null, false);
+  folder.deleteMessages([messageHeaders[0]], false, true, false, null, false);
   await eventPromise;
 
   // Message should no longer be in the inbox.
@@ -959,7 +959,7 @@ async function runDeleteItemFromTrashTest(mockServer, incomingServer) {
   );
   trashFolder.deleteMessages(
     [trashFolderMessage],
-    null,
+    false,
     false,
     false,
     null,

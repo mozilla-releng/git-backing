@@ -345,7 +345,6 @@ function editFolder(folder, tabID) {
     {
       folder,
       serverType: folder.server.type,
-      msgWindow: top.msgWindow,
       title,
       okCallback: editFolderCallback,
       tabID,
@@ -375,7 +374,6 @@ function editVirtualFolder(folder) {
       folder,
       editExistingFolder: true,
       onOKCallback: editVirtualCallback,
-      msgWindow: top.msgWindow,
     }
   );
 }
@@ -446,7 +444,7 @@ async function rebuildFolderSummary(folder) {
   // so to avoid an intermediate state that could cause folder discovery to
   // fail for this folder, we create the local store.
   folder.msgStore.ensureLocalStore(folder);
-  folder.updateFolder(top.msgWindow);
+  folder.updateFolder(true);
 }
 
 /**
@@ -498,7 +496,7 @@ async function deleteFolder(folder) {
   }
 
   try {
-    folder.deleteSelf(top.msgWindow);
+    folder.deleteSelf(true);
   } catch (ex) {
     // Ignore known errors from canceled warning dialogs.
     if (ex.result != Cr.NS_MSG_ERROR_COPY_FOLDER_ABORTED) {
@@ -649,7 +647,7 @@ async function emptyJunk(folder, shouldPrompt = true) {
   }
 
   // Now delete the messages
-  folder.deleteMessages(messages, top.msgWindow, true, false, null, false);
+  folder.deleteMessages(messages, true, true, false, null, false);
 }
 
 /**
@@ -663,7 +661,7 @@ function compactFolder(folder) {
     return;
   }
 
-  folder.compact(null, top.msgWindow);
+  folder.compact(null, true);
 }
 
 /**
@@ -672,7 +670,7 @@ function compactFolder(folder) {
  * @param {nsIMsgFolder} folder
  */
 function compactAllFoldersForAccount(folder) {
-  folder.rootFolder.compactAll(null, top.msgWindow, true);
+  folder.rootFolder.compactAll(null, true, true);
 }
 
 export const FolderCommands = {

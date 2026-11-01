@@ -14,7 +14,7 @@ add_task(async function test403242() {
   localserver.subscribeToNewsgroup("test1");
 
   const folder = localserver.rootFolder.getChildNamed("test1");
-  folder.getNewMessages(null, {
+  folder.getNewMessages(false, {
     OnStopRunningUrl() {
       localserver.closeCachedConnections();
     },
@@ -29,7 +29,7 @@ add_task(async function test403242() {
 
   // Stream the message.
   const streamListener = new PromiseTestUtils.PromiseStreamListener();
-  msgService.streamMessage(uri, streamListener, null, null, false, "", false);
+  msgService.streamMessage(uri, streamListener, null, false, "", false);
   const msgText = await streamListener.promise;
   localserver.closeCachedConnections();
   server.stop();

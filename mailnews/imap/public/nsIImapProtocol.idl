@@ -10,7 +10,6 @@ interface nsIURI;
 interface nsIImapUrl;
 interface nsIImapIncomingServer;
 interface nsIMsgFolder;
-interface nsIMsgWindow;
 interface nsIImapFlagAndUidState;
 
 [ptr] native nsIImapHostSessionList(nsIImapHostSessionList);
@@ -76,7 +75,7 @@ interface nsIImapProtocol : nsISupports {
   // Get last active time stamp
   void GetLastActiveTimeStamp(out PRTime aTimeStamp);
 
-  void pseudoInterruptMsgLoad(in nsIMsgFolder imapFolder, in nsIMsgWindow aMsgWindow, out boolean interrupted);
+  void pseudoInterruptMsgLoad(in nsIMsgFolder imapFolder, out boolean interrupted);
 
   /**
    * Produce a pseudo-interrupt to trigger an abort of an imap mssage fetch.

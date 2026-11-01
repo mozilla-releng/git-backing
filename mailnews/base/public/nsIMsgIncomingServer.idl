@@ -8,7 +8,6 @@
 interface IOAuth2CustomDetails;
 interface nsIMsgFolder;
 interface nsIMsgFolderCache;
-interface nsIMsgWindow;
 interface nsIMsgProtocolInfo;
 interface nsIMsgFilterList;
 interface nsIMsgRetentionSettings;
@@ -214,10 +213,9 @@ interface nsIMsgIncomingServer : nsISupports {
    * Since the returned nsIMsgFilterList is mutable, it is not necessary to call
    * setFilterList after the filters have been changed.
    *
-   * @param aMsgWindow  @ref msgwindow "The standard message window"
    * @return            The list of filters.
    */
-  nsIMsgFilterList getFilterList(in nsIMsgWindow aMsgWindow);
+  nsIMsgFilterList getFilterList();
 
   /**
    * Set the server's list of filters.
@@ -237,10 +235,9 @@ interface nsIMsgIncomingServer : nsISupports {
    * the user.
    * @see getFilterList
    *
-   * @param aMsgWindow  @ref msgwindow "The standard message window"
    * @return            The list of filters.
    */
-  nsIMsgFilterList getEditableFilterList(in nsIMsgWindow aMsgWindow);
+  nsIMsgFilterList getEditableFilterList();
 
   /**
    * Set user editable filter list.
@@ -259,22 +256,22 @@ interface nsIMsgIncomingServer : nsISupports {
    * Verify that we can logon
    *
    * @param  aUrlListener - gets called back with success or failure.
-   * @param aMsgWindow         nsIMsgWindow to use for notification callbacks.
+   * @param interactive - whether the user is waiting on the check.
    * @return - the url that we run.
    */
-  nsIURI verifyLogon(in nsIUrlListener aUrlListener, in nsIMsgWindow aMsgWindow);
+  nsIURI verifyLogon(in nsIUrlListener aUrlListener, in boolean interactive);
 
   /* do a biff */
-  void performBiff(in nsIMsgWindow aMsgWindow);
+  void performBiff(in boolean interactive);
 
   /* get new messages */
-  void getNewMessages(in nsIMsgFolder aFolder, in nsIMsgWindow aMsgWindow,
+  void getNewMessages(in nsIMsgFolder aFolder, in boolean interactive,
                       in nsIUrlListener aUrlListener);
   /* this checks if a server needs a password to do biff */
   readonly attribute boolean serverRequiresPasswordForBiff;
 
   /* this gets called when the server is expanded in the folder pane */
-  void performExpand(in nsIMsgWindow aMsgWindow);
+  void performExpand(in boolean interactive);
 
   /* Write out all known folder data to folderCache */
   void writeToFolderCache(in nsIMsgFolderCache folderCache);

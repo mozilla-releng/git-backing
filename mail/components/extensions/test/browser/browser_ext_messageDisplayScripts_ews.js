@@ -30,7 +30,7 @@ add_setup(async function () {
   ewsAccount.incomingServer.username = "user";
   ewsAccount.incomingServer.password = "password";
   const ewsRootFolder = ewsAccount.incomingServer.rootFolder;
-  ewsAccount.incomingServer.performExpand(null);
+  ewsAccount.incomingServer.performExpand(false);
 
   const ewsTestFolder = await TestUtils.waitForCondition(
     () => ewsRootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox),
@@ -39,7 +39,7 @@ add_setup(async function () {
 
   const generator = new MessageGenerator();
   await ewsServer.addMessages("inbox", generator.makeMessages({}));
-  ewsAccount.incomingServer.getNewMessages(ewsRootFolder, null, null);
+  ewsAccount.incomingServer.getNewMessages(ewsRootFolder, false, null);
   await TestUtils.waitForCondition(
     () => ewsTestFolder.getTotalMessages(false) == 10
   );

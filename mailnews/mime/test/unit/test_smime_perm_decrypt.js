@@ -220,13 +220,13 @@ add_task(async function check_smime_message() {
       0,
       "",
       promiseCopyListener,
-      null
+      false
     );
 
     await promiseCopyListener.promise;
     promiseCopyListener = null;
   }
-  gInbox.server.rootFolder.createSubfolder("decrypted", null);
+  gInbox.server.rootFolder.createSubfolder("decrypted");
   const decFolder = gInbox.server.rootFolder.getChildNamed("decrypted");
 
   let hdrIndex = 0;

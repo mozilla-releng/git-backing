@@ -66,7 +66,7 @@ async function withReplacedMethod(method, replacement, fn) {
 
 async function getNewMessages() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  folder.getNewMessages(null, listener);
+  folder.getNewMessages(false, listener);
   await listener.promise;
 }
 
@@ -86,7 +86,7 @@ function getArticle(articleNumber) {
         )
         .QueryInterface(Ci.nsIMsgMailNewsUrl);
       let data = "";
-      client.startRunningUrl(null, null, url);
+      client.startRunningUrl(null, false, url);
       client.onOpen = () =>
         client.getArticleByArticleNumber("test.filter", articleNumber);
       client.onData = line => (data += line);
@@ -200,7 +200,7 @@ add_task(async function test_missingArticleWithHeader() {
  */
 add_task(async function test_skipXHdrLineForUnknownArticle() {
   // A filter on a header not in the XOVER response makes us fetch it by XHDR.
-  const filterList = folder.getFilterList(null);
+  const filterList = folder.getFilterList();
   const filter = filterList.createFilter("path");
   const searchTerm = filter.createTerm();
   searchTerm.attrib = Ci.nsMsgSearchAttrib.OtherHeader + 1;
@@ -292,7 +292,7 @@ function listgroup(onData) {
     localserver.wrappedJSObject.withClient(client => {
       client.startRunningUrl(
         null,
-        null,
+        false,
         Services.io
           .newURI(`news://localhost:${localserver.port}/test.filter`)
           .QueryInterface(Ci.nsIMsgMailNewsUrl)

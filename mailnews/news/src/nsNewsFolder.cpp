@@ -24,8 +24,6 @@
 #include "nsINewsDatabase.h"
 #include "nsILineInputStream.h"
 
-#include "nsIMsgWindow.h"
-
 #include "nsLocalFile.h"
 #include "nsNetUtil.h"
 #include "nsIURL.h"
@@ -214,7 +212,7 @@ nsresult nsMsgNewsFolder::GetDatabase() {
 }
 
 NS_IMETHODIMP
-nsMsgNewsFolder::UpdateFolder(nsIMsgWindow* aWindow) {
+nsMsgNewsFolder::UpdateFolder(bool interactive) {
   // Get news.get_messages_on_select pref
 
   // Only if news.get_messages_on_select is true do we get new messages
@@ -231,7 +229,7 @@ nsMsgNewsFolder::UpdateFolder(nsIMsgWindow* aWindow) {
       // GetNewMessages has to be the last rv set before we get to the next
       // check, so that we'll have rv set to NS_MSG_ERROR_OFFLINE when offline
       // and send a folder loaded notification to the front end.
-      rv = GetNewMessages(aWindow, nullptr);
+      rv = GetNewsMessages(interactive, false, nullptr);
     }
     if (rv != NS_MSG_ERROR_OFFLINE) {
       // For the server root folder there are no running URLs that will fire
@@ -308,8 +306,8 @@ NS_IMETHODIMP nsMsgNewsFolder::SetNewsrcHasChanged(bool newsrcHasChanged) {
   return nntpServer->SetNewsrcHasChanged(newsrcHasChanged);
 }
 
-NS_IMETHODIMP nsMsgNewsFolder::CreateSubfolder(const nsACString& newsgroupName,
-                                               nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP nsMsgNewsFolder::CreateSubfolder(
+    const nsACString& newsgroupName) {
   nsresult rv = NS_OK;
   if (newsgroupName.IsEmpty()) return NS_MSG_ERROR_INVALID_FOLDER_NAME;
 
@@ -357,8 +355,7 @@ NS_IMETHODIMP nsMsgNewsFolder::DeleteStorage() {
   return SetNewsrcHasChanged(true);
 }
 
-NS_IMETHODIMP nsMsgNewsFolder::Rename(const nsACString& newName,
-                                      nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP nsMsgNewsFolder::Rename(const nsACString& newName) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -594,12 +591,11 @@ NS_IMETHODIMP nsMsgNewsFolder::GetSizeOnDisk(int64_t* size) {
 
 NS_IMETHODIMP
 nsMsgNewsFolder::DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& msgHdrs,
-                                nsIMsgWindow* aMsgWindow, bool deleteStorage,
+                                bool interactive, bool deleteStorage,
                                 bool isMove,
                                 nsIMsgCopyServiceListener* listener,
                                 bool allowUndo) {
   nsresult rv = NS_OK;
-  NS_ENSURE_ARG_POINTER(aMsgWindow);
 
   if (!isMove) {
     nsCOMPtr<nsIMsgFolderNotificationService> notifier =
@@ -637,7 +633,7 @@ nsMsgNewsFolder::DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& msgHdrs,
 
 NS_IMETHODIMP nsMsgNewsFolder::CancelMessage(nsIMsgDBHdr* msgHdr,
                                              nsIUrlListener* aUrlListener,
-                                             nsIMsgWindow* aMsgWindow) {
+                                             bool interactive) {
   NS_ENSURE_ARG_POINTER(msgHdr);
 
   nsresult rv;
@@ -680,20 +676,19 @@ NS_IMETHODIMP nsMsgNewsFolder::CancelMessage(nsIMsgDBHdr* msgHdr,
   nsCOMPtr<nsIURI> resultUri;
   return nntpService->CancelMessage(cancelURL, messageURI,
                                     nullptr /* consumer */, aUrlListener,
-                                    aMsgWindow, getter_AddRefs(resultUri));
+                                    interactive, getter_AddRefs(resultUri));
 }
 
-NS_IMETHODIMP nsMsgNewsFolder::GetNewMessages(nsIMsgWindow* aMsgWindow,
+NS_IMETHODIMP nsMsgNewsFolder::GetNewMessages(bool interactive,
                                               nsIUrlListener* aListener) {
-  return GetNewsMessages(aMsgWindow, false, aListener);
+  return GetNewsMessages(interactive, false, aListener);
 }
 
-NS_IMETHODIMP nsMsgNewsFolder::GetNextNMessages(nsIMsgWindow* aMsgWindow) {
-  return GetNewsMessages(aMsgWindow, true, nullptr);
+NS_IMETHODIMP nsMsgNewsFolder::GetNextNMessages(bool interactive) {
+  return GetNewsMessages(interactive, true, nullptr);
 }
 
-nsresult nsMsgNewsFolder::GetNewsMessages(nsIMsgWindow* aMsgWindow,
-                                          bool aGetOld,
+nsresult nsMsgNewsFolder::GetNewsMessages(bool interactive, bool aGetOld,
                                           nsIUrlListener* aUrlListener) {
   nsresult rv = NS_OK;
 
@@ -711,7 +706,7 @@ nsresult nsMsgNewsFolder::GetNewsMessages(nsIMsgWindow* aMsgWindow,
 
   if (!isNewsServer) {
     nsCOMPtr<nsIURI> resultUri;
-    rv = nntpService->GetNewNews(nntpServer, mURI, aGetOld, this, aMsgWindow,
+    rv = nntpService->GetNewNews(nntpServer, mURI, aGetOld, this, interactive,
                                  getter_AddRefs(resultUri));
     if (aUrlListener && NS_SUCCEEDED(rv) && resultUri) {
       nsCOMPtr<nsIMsgMailNewsUrl> msgUrl(do_QueryInterface(resultUri));
@@ -724,7 +719,7 @@ nsresult nsMsgNewsFolder::GetNewsMessages(nsIMsgWindow* aMsgWindow,
       NS_ENSURE_SUCCESS(rv, rv);
       nsCOMPtr<nsIURI> resultUri;
       nntpService->GetNewNews(nntpServer, uri, aGetOld, aUrlListener,
-                              aMsgWindow, getter_AddRefs(resultUri));
+                              interactive, getter_AddRefs(resultUri));
     }
   }
   return rv;
@@ -1071,20 +1066,20 @@ NS_IMETHODIMP nsMsgNewsFolder::SetSaveArticleOffline(bool aBool) {
 }
 
 NS_IMETHODIMP nsMsgNewsFolder::DownloadAllForOffline(nsIUrlListener* listener,
-                                                     nsIMsgWindow* msgWindow) {
+                                                     bool interactive) {
   nsresult rv = NS_OK;
 
   nsCOMPtr<nsINntpService> nntpService(
       do_GetService("@mozilla.org/messenger/nntpservice;1", &rv));
   if (NS_SUCCEEDED(rv) && nntpService) {
-    rv = nntpService->DownloadFolderForOffline(this, msgWindow);
+    rv = nntpService->DownloadFolderForOffline(this, interactive);
   }
 
   return rv;
 }
 
 NS_IMETHODIMP nsMsgNewsFolder::DownloadMessagesForOffline(
-    nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, nsIMsgWindow* msgWindow) {
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, bool interactive) {
   nsresult rv = NS_OK;
 
   nsTArray<nsMsgKey> srcKeyArray(messages.Length());
@@ -1097,7 +1092,8 @@ NS_IMETHODIMP nsMsgNewsFolder::DownloadMessagesForOffline(
   nsCOMPtr<nsINntpService> nntpService(
       do_GetService("@mozilla.org/messenger/nntpservice;1", &rv));
   if (NS_SUCCEEDED(rv) && nntpService) {
-    rv = nntpService->DownloadMessagesForOffline(this, srcKeyArray, msgWindow);
+    rv =
+        nntpService->DownloadMessagesForOffline(this, srcKeyArray, interactive);
   }
 
   return rv;
@@ -1129,7 +1125,7 @@ NS_IMETHODIMP nsMsgNewsFolder::NotifyFinishedDownloadinghdrs() {
   ChangeNumPendingUnread(-mNumPendingUnreadMessages);
   bool filtersRun;
   // run the bayesian spam filters, if enabled.
-  CallFilterPlugins(nullptr, &filtersRun);
+  CallFilterPlugins(&filtersRun);
 
   // If the DB was not open before, close our reference to it now.
   if (!wasCached && mDatabase) {
@@ -1201,13 +1197,12 @@ nsMsgNewsFolder::SetFilterList(nsIMsgFilterList* aFilterList) {
 }
 
 NS_IMETHODIMP
-nsMsgNewsFolder::GetFilterList(nsIMsgWindow* aMsgWindow,
-                               nsIMsgFilterList** aResult) {
+nsMsgNewsFolder::GetFilterList(nsIMsgFilterList** aResult) {
   if (mIsServer) {
     nsCOMPtr<nsIMsgIncomingServer> server;
     nsresult rv = GetServer(getter_AddRefs(server));
     NS_ENSURE_SUCCESS(rv, rv);
-    return server->GetFilterList(aMsgWindow, aResult);
+    return server->GetFilterList(aResult);
   }
 
   if (!mFilterList) {
@@ -1240,7 +1235,7 @@ nsMsgNewsFolder::GetFilterList(nsIMsgWindow* aMsgWindow,
 
     nsCOMPtr<nsIMsgFilterService> filterService =
         mozilla::components::Filter::Service();
-    rv = filterService->OpenFilterList(filterFile, this, aMsgWindow,
+    rv = filterService->OpenFilterList(filterFile, this,
                                        getter_AddRefs(mFilterList));
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1250,10 +1245,9 @@ nsMsgNewsFolder::GetFilterList(nsIMsgWindow* aMsgWindow,
 }
 
 NS_IMETHODIMP
-nsMsgNewsFolder::GetEditableFilterList(nsIMsgWindow* aMsgWindow,
-                                       nsIMsgFilterList** aResult) {
+nsMsgNewsFolder::GetEditableFilterList(nsIMsgFilterList** aResult) {
   // We don't support pluggable filter list types for news.
-  return GetFilterList(aMsgWindow, aResult);
+  return GetFilterList(aResult);
 }
 
 NS_IMETHODIMP

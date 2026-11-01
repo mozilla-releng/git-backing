@@ -91,7 +91,6 @@ async function streamMessage(message) {
     msgURI,
     streamListener,
     null,
-    null,
     true,
     "filter",
     false

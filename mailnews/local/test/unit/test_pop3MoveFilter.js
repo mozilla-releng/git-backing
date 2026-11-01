@@ -38,7 +38,7 @@ var gFilter; // the test filter
 var gFilterList;
 var gTestArray = [
   function createFilters() {
-    gFilterList = gPOP3Pump.fakeServer.getFilterList(null);
+    gFilterList = gPOP3Pump.fakeServer.getFilterList();
     gFilter = gFilterList.createFilter("MoveAll");
     const searchTerm = gFilter.createTerm();
     searchTerm.matchAll = true;
@@ -69,8 +69,7 @@ var gTestArray = [
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
     try {
       localAccountUtils.inboxFolder.getDatabaseWithReparse(
-        promiseUrlListener,
-        null
+        promiseUrlListener
       );
     } catch (ex) {
       await promiseUrlListener.promise;

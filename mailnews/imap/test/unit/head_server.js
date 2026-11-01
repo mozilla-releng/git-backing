@@ -215,7 +215,7 @@ async function moveImapMessages(source, headers, destination) {
     destination,
     true, // isMove
     listener,
-    null,
+    false,
     true // allowUndo, as for a user-initiated move
   );
   await listener.promise;
@@ -233,10 +233,10 @@ async function addImapMessagesAndSync(count) {
     added.push(addImapMessage());
   }
   let listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
   listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.downloadAllForOffline(listener, null);
+  IMAPPump.inbox.downloadAllForOffline(listener, false);
   await listener.promise;
   return added.map(message =>
     IMAPPump.inbox.msgDatabase.getMsgHdrForMessageID(message.messageId)
@@ -248,7 +248,7 @@ async function addImapMessagesAndSync(count) {
  * @returns {Promise<nsIMsgImapMailFolder>} A new folder on the same account.
  */
 async function createImapSubfolder(name) {
-  IMAPPump.incomingServer.rootFolder.createSubfolder(name, null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder(name);
   await PromiseTestUtils.promiseFolderAdded(name);
   return IMAPPump.incomingServer.rootFolder
     .getChildNamed(name)

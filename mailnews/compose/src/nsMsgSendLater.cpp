@@ -29,7 +29,6 @@
 #include "nsIMsgDatabase.h"
 #include "nsIInputStream.h"
 #include "nsIOutputStream.h"
-#include "nsIMsgWindow.h"
 #include "nsMsgMessageFlags.h"
 #include "mozilla/Components.h"
 #include "mozilla/dom/Promise.h"
@@ -599,8 +598,8 @@ nsresult nsMsgSendLater::StartNextMailFileSend(nsresult prevStatus) {
   PR_FREEIF(mLeftoverBuffer);
 
   nsCOMPtr<nsIURI> dummyNull;
-  rv = messageService->StreamMessage(messageURI, this, nullptr, nullptr, false,
-                                     ""_ns, false, getter_AddRefs(dummyNull));
+  rv = messageService->StreamMessage(messageURI, this, nullptr, false, ""_ns,
+                                     false, getter_AddRefs(dummyNull));
   return rv;
 }
 
@@ -703,8 +702,7 @@ nsresult nsMsgSendLater::ReparseDBIfNeeded(nsIUrlListener* aListener) {
   nsCOMPtr<nsIMsgLocalMailFolder> locFolder(
       do_QueryReferent(mMessageFolder, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
-  return locFolder->GetDatabaseWithReparse(aListener, nullptr,
-                                           getter_AddRefs(unsentDB));
+  return locFolder->GetDatabaseWithReparse(aListener, getter_AddRefs(unsentDB));
 }
 
 nsresult nsMsgSendLater::InternalSendMessages(bool aUserInitiated,
@@ -822,7 +820,7 @@ nsresult nsMsgSendLater::DeleteCurrentMessage() {
   nsresult rv;
   nsCOMPtr<nsIMsgFolder> folder = do_QueryReferent(mMessageFolder, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = folder->DeleteMessages({&*mMessage}, nullptr, true, false, nullptr,
+  rv = folder->DeleteMessages({&*mMessage}, false, true, false, nullptr,
                               false /*allowUndo*/);
   if (NS_FAILED(rv)) return NS_ERROR_FAILURE;
 
@@ -1395,8 +1393,7 @@ nsMsgSendLater::GetNeedsToRunTask(bool* aResult) {
 }
 
 NS_IMETHODIMP
-nsMsgSendLater::DoShutdownTask(nsIUrlListener* aListener, nsIMsgWindow* aWindow,
-                               bool* aResult) {
+nsMsgSendLater::DoShutdownTask(nsIUrlListener* aListener, bool* aResult) {
   if (mTimer) mTimer->Cancel();
   // If we're already sending messages, nothing to do, but save the shutdown
   // listener until we've finished.

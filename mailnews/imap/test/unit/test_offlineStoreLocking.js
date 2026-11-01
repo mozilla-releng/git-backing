@@ -70,14 +70,14 @@ add_setup(async function () {
   addGeneratedMessagesToServer(messages, IMAPPump.daemon.getMailbox("INBOX"));
   // ...and download for offline use.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
 add_task(async function downloadForOffline() {
   // ...and download for offline use.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.downloadAllForOffline(listener, null);
+  IMAPPump.inbox.downloadAllForOffline(listener, false);
   await listener.promise;
 });
 
@@ -87,7 +87,7 @@ add_task(async function deleteOneMsg() {
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
   IMAPPump.inbox.deleteMessages(
     [msgHdr],
-    null,
+    false,
     false,
     true,
     copyListener,
@@ -114,10 +114,9 @@ add_task(async function compactOneFolder() {
   const msgURI = msgHdr.folder.getUriForMsg(msgHdr);
   const msgServ = MailServices.messageServiceFromURI(msgURI);
   // UrlListener will get called when both expunge and offline store
-  //  compaction are finished. dummyMsgWindow is required to make the backend
-  //  compact the offline store.
+  //  compaction are finished.
   const compactUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.compact(compactUrlListener, null);
+  IMAPPump.inbox.compact(compactUrlListener, false);
   // Stream the message w/o a stream listener in an attempt to get the url
   //  started more quickly, while the compact is still going on.
   const urlListener = new PromiseTestUtils.PromiseUrlListener({});
@@ -125,7 +124,6 @@ add_task(async function compactOneFolder() {
   msgServ.streamMessage(
     msgURI,
     new PromiseTestUtils.PromiseStreamListener(),
-    null,
     urlListener,
     false,
     "",
@@ -146,7 +144,7 @@ add_task(async function deleteAnOtherMsg() {
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
   IMAPPump.inbox.deleteMessages(
     [msgHdr],
-    null,
+    false,
     false,
     true,
     copyListener,
@@ -161,14 +159,14 @@ add_task(async function updateTrash() {
     .QueryInterface(Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
   // hack to force uid validity to get initialized for trash.
-  gIMAPTrashFolder.updateFolderWithListener(null, listener);
+  gIMAPTrashFolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
 add_task(async function downloadTrashForOffline() {
   // ...and download for offline use.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gIMAPTrashFolder.downloadAllForOffline(listener, null);
+  gIMAPTrashFolder.downloadAllForOffline(listener, false);
   await listener.promise;
 });
 
@@ -194,7 +192,7 @@ add_task(async function testOfflineBodyCopy() {
     IMAPPump.inbox,
     true,
     copyListener,
-    null,
+    false,
     true
   );
   await copyListener.promise;

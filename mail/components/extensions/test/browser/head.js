@@ -240,7 +240,7 @@ class IMAPServer {
     });
 
     const listener = new MailPromiseTestUtils.PromiseUrlListener();
-    folder.updateFolderWithListener(null, listener);
+    folder.updateFolderWithListener(false, listener);
     return listener.promise;
   }
 }
@@ -314,7 +314,7 @@ function addIdentity(account, email = "mochitest@localhost") {
 
 async function createSubfolder(parent, name) {
   const promiseAdded = MailPromiseTestUtils.promiseFolderAdded(name);
-  parent.createSubfolder(name, null);
+  parent.createSubfolder(name);
   await promiseAdded;
   return parent.getChildNamed(name);
 }
@@ -366,7 +366,7 @@ async function addGeneratedMessage(folder, message) {
 
   folder.QueryInterface(Ci.nsIMsgLocalMailFolder);
   folder.addMessageBatch([message]);
-  folder.callFilterPlugins(null);
+  folder.callFilterPlugins();
 
   return new Promise(resolve =>
     mailTestUtils.updateFolderAndNotify(folder, resolve)
@@ -588,7 +588,7 @@ async function promiseMessageLoaded(browser, msgHdr) {
   let messageURI = msgHdr.folder.getUriForMsg(msgHdr);
   messageURI = MailServices.messageServiceFromURI(messageURI).getUrlForUri(
     messageURI,
-    null
+    false
   );
 
   await awaitBrowserLoaded(browser, uri => uri == messageURI.spec);

@@ -15,7 +15,6 @@
 #include "nsMsgDBFolder.h"
 #include "nsIMsgFolderCache.h"
 #include "nsIMsgPluggableStore.h"
-#include "nsIMsgWindow.h"
 #include "nsIMsgFilterService.h"
 #include "nsIMsgProtocolInfo.h"
 #include "nsIPrefService.h"
@@ -260,27 +259,26 @@ nsMsgIncomingServer::GetRootMsgFolder(nsIMsgFolder** aRootMsgFolder) {
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::PerformExpand(nsIMsgWindow* aMsgWindow) { return NS_OK; }
+nsMsgIncomingServer::PerformExpand(bool interactive) { return NS_OK; }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::VerifyLogon(nsIUrlListener* aUrlListener,
-                                 nsIMsgWindow* aMsgWindow, nsIURI** aURL) {
+nsMsgIncomingServer::VerifyLogon(nsIUrlListener* aUrlListener, bool interactive,
+                                 nsIURI** aURL) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::PerformBiff(nsIMsgWindow* aMsgWindow) {
+nsMsgIncomingServer::PerformBiff(bool interactive) {
   // This has to be implemented in the derived class, but in case someone
   // doesn't implement it just return not implemented.
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::GetNewMessages(nsIMsgFolder* aFolder,
-                                    nsIMsgWindow* aMsgWindow,
+nsMsgIncomingServer::GetNewMessages(nsIMsgFolder* aFolder, bool interactive,
                                     nsIUrlListener* aUrlListener) {
   NS_ENSURE_ARG_POINTER(aFolder);
-  return aFolder->GetNewMessages(aMsgWindow, aUrlListener);
+  return aFolder->GetNewMessages(interactive, aUrlListener);
 }
 
 NS_IMETHODIMP nsMsgIncomingServer::GetPerformingBiff(bool* aPerformingBiff) {
@@ -903,8 +901,7 @@ nsMsgIncomingServer::SetFilterList(nsIMsgFilterList* aFilterList) {
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::GetFilterList(nsIMsgWindow* aMsgWindow,
-                                   nsIMsgFilterList** aResult) {
+nsMsgIncomingServer::GetFilterList(nsIMsgFilterList** aResult) {
   NS_ENSURE_ARG_POINTER(aResult);
   if (!mFilterList) {
     nsCOMPtr<nsIMsgFolder> msgFolder;
@@ -962,7 +959,7 @@ nsMsgIncomingServer::GetFilterList(nsIMsgWindow* aMsgWindow,
     }
     nsCOMPtr<nsIMsgFilterService> filterService =
         mozilla::components::Filter::Service();
-    rv = filterService->OpenFilterList(mFilterFile, msgFolder, aMsgWindow,
+    rv = filterService->OpenFilterList(mFilterFile, msgFolder,
                                        getter_AddRefs(mFilterList));
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -979,14 +976,12 @@ nsMsgIncomingServer::SetEditableFilterList(
 }
 
 NS_IMETHODIMP
-nsMsgIncomingServer::GetEditableFilterList(nsIMsgWindow* aMsgWindow,
-                                           nsIMsgFilterList** aResult) {
+nsMsgIncomingServer::GetEditableFilterList(nsIMsgFilterList** aResult) {
   NS_ENSURE_ARG_POINTER(aResult);
   if (!mEditableFilterList) {
     bool editSeparate;
     nsresult rv = GetBoolValue("filter.editable.separate", &editSeparate);
-    if (NS_FAILED(rv) || !editSeparate)
-      return GetFilterList(aMsgWindow, aResult);
+    if (NS_FAILED(rv) || !editSeparate) return GetFilterList(aResult);
 
     nsCString filterType;
     rv = GetStringValue("filter.editable.type", filterType);
@@ -1560,7 +1555,7 @@ nsresult nsMsgIncomingServer::ConfigureTemporaryServerSpamFilters(
       mozilla::components::Filter::Service();
   nsCOMPtr<nsIMsgFilterList> serverFilterList;
 
-  rv = filterService->OpenFilterList(file, NULL, NULL,
+  rv = filterService->OpenFilterList(file, NULL,
                                      getter_AddRefs(serverFilterList));
   NS_ENSURE_SUCCESS(rv, rv);
 

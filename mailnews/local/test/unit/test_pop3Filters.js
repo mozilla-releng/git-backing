@@ -21,7 +21,7 @@ async function getNewMail() {
   daemon.setMessages(["message1.eml", "message3.eml"]);
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   MailServices.pop3.GetNewMail(
-    null,
+    false,
     urlListener,
     localAccountUtils.inboxFolder,
     incomingServer
@@ -37,7 +37,7 @@ add_task(async function testDeleteFromPop3Server() {
   incomingServer.leaveMessagesOnServer = true;
 
   // Create a DeleteFromPop3Server filter.
-  const filterList = incomingServer.getFilterList(null);
+  const filterList = incomingServer.getFilterList();
   const filter = filterList.createFilter("deleteFromServer");
 
   const searchTerm = filter.createTerm();
@@ -80,7 +80,7 @@ add_task(async function testFetchBodyFromPop3Server() {
   incomingServer.headersOnly = true;
 
   // Create a FetchBodyFromPop3Server filter.
-  const filterList = incomingServer.getFilterList(null);
+  const filterList = incomingServer.getFilterList();
   const filter = filterList.createFilter("fetchBodyFromServer");
 
   const searchTerm = filter.createTerm();

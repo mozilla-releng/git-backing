@@ -1128,13 +1128,13 @@ NS_IMPL_ISUPPORTS_INHERITED(nsParseNewMailState, nsParseMailMessageState,
 
 nsresult nsParseNewMailState::Init(nsIMsgFolder* serverFolder,
                                    nsIMsgFolder* downloadFolder,
-                                   nsIMsgWindow* aMsgWindow, nsIMsgDBHdr* aHdr,
+                                   bool aInteractive, nsIMsgDBHdr* aHdr,
                                    nsIOutputStream* aOutputStream) {
   NS_ENSURE_ARG_POINTER(serverFolder);
   nsresult rv;
   Clear();
   m_rootFolder = serverFolder;
-  m_msgWindow = aMsgWindow;
+  m_interactive = aInteractive;
   m_downloadFolder = downloadFolder;
 
   m_newMsgHdr = aHdr;
@@ -1157,7 +1157,7 @@ nsresult nsParseNewMailState::Init(nsIMsgFolder* serverFolder,
     MOZ_LOG(FILTERLOGMODULE, LogLevel::Info,
             ("(Local) Detected new local messages on account '%s'",
              serverName.get()));
-    rv = server->GetFilterList(aMsgWindow, getter_AddRefs(m_filterList));
+    rv = server->GetFilterList(getter_AddRefs(m_filterList));
 
     if (m_filterList) rv = server->ConfigureTemporaryFilters(m_filterList);
     // check if this server defers to another server, in which case
@@ -1169,7 +1169,7 @@ nsresult nsParseNewMailState::Init(nsIMsgFolder* serverFolder,
       deferredToRootFolder->GetServer(getter_AddRefs(deferredToServer));
       if (deferredToServer)
         deferredToServer->GetFilterList(
-            aMsgWindow, getter_AddRefs(m_deferredToServerFilterList));
+            getter_AddRefs(m_deferredToServerFilterList));
     }
   }
   m_disableFilters = false;
@@ -1181,20 +1181,14 @@ nsParseNewMailState::~nsParseNewMailState() {
   if (m_backupMailDB) m_backupMailDB->ForceClosed();
 }
 
-// not an IMETHOD so we don't need to do error checking or return an error.
-// We only have one caller.
-void nsParseNewMailState::GetMsgWindow(nsIMsgWindow** aMsgWindow) {
-  NS_IF_ADDREF(*aMsgWindow = m_msgWindow);
-}
-
 void nsParseNewMailState::DoneParsing() {
-  PublishMsgHeader(nullptr);
+  PublishMsgHeader(false);
   if (m_mailDB) {  // finished parsing, so flush db folder info
     UpdateDBFolderInfo();
   }
 }
 
-void nsParseNewMailState::PublishMsgHeader(nsIMsgWindow* msgWindow) {
+void nsParseNewMailState::PublishMsgHeader(bool interactive) {
   bool moved = false;
   FinishHeader();
 
@@ -1233,7 +1227,7 @@ void nsParseNewMailState::PublishMsgHeader(nsIMsgWindow* msgWindow) {
                 uint32_t newFlags;
                 m_newMsgHdr->AndFlags(~nsMsgMessageFlags::New, &newFlags);
                 rv = MoveIncorporatedMessage(m_newMsgHdr, m_mailDB, trash,
-                                             nullptr, msgWindow);
+                                             nullptr);
                 if (NS_FAILED(rv)) {
                   NS_WARNING("moveDupsToTrash failed for some reason.");
                 }
@@ -1252,7 +1246,7 @@ void nsParseNewMailState::PublishMsgHeader(nsIMsgWindow* msgWindow) {
         }
       }
 
-      ApplyFilters(&moved, msgWindow);
+      ApplyFilters(&moved, interactive);
     }
     if (!moved) {
       if (m_mailDB) {
@@ -1302,7 +1296,7 @@ nsresult nsParseNewMailState::GetTrashFolder(nsIMsgFolder** pTrashFolder) {
   return rv;
 }
 
-void nsParseNewMailState::ApplyFilters(bool* pMoved, nsIMsgWindow* msgWindow) {
+void nsParseNewMailState::ApplyFilters(bool* pMoved, bool interactive) {
   m_msgMovedByFilter = m_msgCopiedByFilter = false;
 
   if (!m_disableFilters) {
@@ -1324,7 +1318,7 @@ void nsParseNewMailState::ApplyFilters(bool* pMoved, nsIMsgWindow* msgWindow) {
                 ("(Local) Using filters from the original account"));
         (void)m_filterList->ApplyFiltersToHdr(
             nsMsgFilterType::InboxRule, msgHdr, downloadFolder, m_mailDB,
-            nsDependentCSubstring(headers, headersSize), this, msgWindow);
+            nsDependentCSubstring(headers, headersSize), this, interactive);
       }
       if (!m_msgMovedByFilter && m_deferredToServerFilterList) {
         MOZ_LOG(FILTERLOGMODULE, LogLevel::Info,
@@ -1333,7 +1327,7 @@ void nsParseNewMailState::ApplyFilters(bool* pMoved, nsIMsgWindow* msgWindow) {
                 ("(Local) Using filters from the deferred to account"));
         (void)m_deferredToServerFilterList->ApplyFiltersToHdr(
             nsMsgFilterType::InboxRule, msgHdr, downloadFolder, m_mailDB,
-            nsDependentCSubstring(headers, headersSize), this, msgWindow);
+            nsDependentCSubstring(headers, headersSize), this, interactive);
       }
     }
   }
@@ -1341,7 +1335,7 @@ void nsParseNewMailState::ApplyFilters(bool* pMoved, nsIMsgWindow* msgWindow) {
 }
 
 NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
-                                                  nsIMsgWindow* msgWindow,
+                                                  bool interactive,
                                                   bool* applyMore) {
   NS_ENSURE_ARG_POINTER(filter);
   NS_ENSURE_ARG_POINTER(applyMore);
@@ -1452,7 +1446,7 @@ NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
                 StringBeginsWith(actionTargetFolderUri, "imap:"_ns)) {
               if (!m_moveCoalescer)
                 m_moveCoalescer =
-                    new nsImapMoveCoalescer(m_downloadFolder, m_msgWindow);
+                    new nsImapMoveCoalescer(m_downloadFolder, m_interactive);
               NS_ENSURE_TRUE(m_moveCoalescer, NS_ERROR_OUT_OF_MEMORY);
               rv = m_moveCoalescer->AddMove(destIFolder, msgKey);
               msgIsNew = false;
@@ -1462,7 +1456,7 @@ NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
               msgHdr->GetFlags(&old_flags);
 
               rv = MoveIncorporatedMessage(msgHdr, m_mailDB, destIFolder,
-                                           filter, msgWindow);
+                                           filter);
               m_msgMovedByFilter = NS_SUCCEEDED(rv);
 
               if (m_msgMovedByFilter &&
@@ -1519,8 +1513,8 @@ NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
 
             copyService = mozilla::components::Copy::Service();
             rv = copyService->CopyMessages(m_downloadFolder, {&*msgHdr},
-                                           dstFolder, false, nullptr, msgWindow,
-                                           false);
+                                           dstFolder, false, nullptr,
+                                           interactive, false);
 
             if (NS_FAILED(rv)) {
               // XXX: Invoke MSG_LOG_TO_CONSOLE once bug 1135265 lands.
@@ -1658,7 +1652,7 @@ NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
           if (NS_FAILED(rv)) break;
 
           rv = customAction->ApplyAction({&*msgHdr}, value, nullptr,
-                                         nsMsgFilterType::InboxRule, msgWindow);
+                                         nsMsgFilterType::InboxRule);
         } break;
 
         default:
@@ -1697,8 +1691,7 @@ NS_IMETHODIMP nsParseNewMailState::ApplyFilterHit(nsIMsgFilter* filter,
 }
 
 // this gets run in a second pass, after apply filters to a header.
-nsresult nsParseNewMailState::ApplyForwardAndReplyFilter(
-    nsIMsgWindow* msgWindow) {
+nsresult nsParseNewMailState::ApplyForwardAndReplyFilter(bool interactive) {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMsgIncomingServer> server;
 
@@ -1723,7 +1716,7 @@ nsresult nsParseNewMailState::ApplyForwardAndReplyFilter(
         nsCOMPtr<nsIMsgComposeService> compService =
             mozilla::components::Compose::Service();
         rv = compService->ForwardMessage(
-            forwardStr, m_msgToForwardOrReply, msgWindow, server,
+            forwardStr, m_msgToForwardOrReply, interactive, server,
             nsIMsgComposeService::kForwardAsDefault);
         if (NS_FAILED(rv))
           MOZ_LOG(FILTERLOGMODULE, LogLevel::Error,
@@ -1749,8 +1742,8 @@ nsresult nsParseNewMailState::ApplyForwardAndReplyFilter(
       if (server) {
         nsCOMPtr<nsIMsgComposeService> compService =
             mozilla::components::Compose::Service();
-        rv = compService->ReplyWithTemplate(
-            m_msgToForwardOrReply, m_replyTemplateUri[i], msgWindow, server);
+        rv = compService->ReplyWithTemplate(m_msgToForwardOrReply,
+                                            m_replyTemplateUri[i], server);
         if (NS_FAILED(rv)) {
           NS_WARNING("ReplyWithTemplate failed");
           MOZ_LOG(FILTERLOGMODULE, LogLevel::Error,
@@ -1798,7 +1791,7 @@ nsresult nsParseNewMailState::EndMsgDownload() {
     folder->GetFlags(&folderFlags);
     if (!(folderFlags & (nsMsgFolderFlags::Trash | nsMsgFolderFlags::Inbox))) {
       bool filtersRun;
-      folder->CallFilterPlugins(nullptr, &filtersRun);
+      folder->CallFilterPlugins(&filtersRun);
       if (!filtersRun) folder->SetMsgDatabase(nullptr);
     }
   }
@@ -1851,7 +1844,6 @@ nsresult nsParseNewMailState::EndMsgDownload() {
  * @param sourceDB    The database of the download folder (used for cleanup).
  * @param destIFolder The target local folder.
  * @param filter      (Optional) The filter that triggered this move.
- * @param msgWindow   (Optional) Window for displaying error alerts.
  *
  * @note After a successful move, the physical source file and its database
  * entry are permanently destroyed. The passed `mailHdr` pointer becomes
@@ -1860,8 +1852,7 @@ nsresult nsParseNewMailState::EndMsgDownload() {
 nsresult nsParseNewMailState::MoveIncorporatedMessage(nsIMsgDBHdr* mailHdr,
                                                       nsIMsgDatabase* sourceDB,
                                                       nsIMsgFolder* destIFolder,
-                                                      nsIMsgFilter* filter,
-                                                      nsIMsgWindow* msgWindow) {
+                                                      nsIMsgFilter* filter) {
   NS_ENSURE_ARG_POINTER(destIFolder);
   nsresult rv = NS_OK;
 
@@ -1887,8 +1878,7 @@ nsresult nsParseNewMailState::MoveIncorporatedMessage(nsIMsgDBHdr* mailHdr,
   uint32_t messageLength;
   mailHdr->GetMessageSize(&messageLength);
   bool destFolderTooBig = true;
-  rv = localFolder->WarnIfLocalFileTooBig(msgWindow, messageLength,
-                                          &destFolderTooBig);
+  rv = localFolder->WarnIfLocalFileTooBig(messageLength, &destFolderTooBig);
   if (NS_FAILED(rv) || destFolderTooBig) {
     return NS_MSG_ERROR_WRITING_MAIL_FOLDER;
   }

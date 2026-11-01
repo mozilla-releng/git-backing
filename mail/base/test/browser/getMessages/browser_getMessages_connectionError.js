@@ -133,8 +133,7 @@ add_setup(async function () {
   nntpAccount.incomingServer.prettyName = "NNTP Account";
   nntpAccount.incomingServer.port = 10000;
   nntpAccount.incomingServer.rootFolder.createSubfolder(
-    "getmessages.newsgroup",
-    null
+    "getmessages.newsgroup"
   );
   allServers.push(nntpAccount.incomingServer);
 
@@ -215,7 +214,7 @@ add_task(async function testBackgroundConnectionRefusedIsSilent() {
   const { promise, resolve } = Promise.withResolvers();
 
   MailServices.pop3.GetNewMail(
-    null,
+    false,
     {
       OnStartRunningUrl() {},
       OnStopRunningUrl: resolve,

@@ -30,7 +30,7 @@ add_setup(async function () {
   if (typeof localAccountUtils.inboxFolder == "undefined") {
     localAccountUtils.loadLocalMailAccount();
   }
-  localAccountUtils.rootFolder.createSubfolder("target", null);
+  localAccountUtils.rootFolder.createSubfolder("target");
   gTargetFolder = localAccountUtils.rootFolder.getChildNamed("target");
 
   const copyListenerFile1 = new PromiseTestUtils.PromiseCopyListener();
@@ -42,7 +42,7 @@ add_setup(async function () {
     0,
     "",
     copyListenerFile1,
-    null
+    false
   );
   await copyListenerFile1.promise;
 
@@ -55,7 +55,7 @@ add_setup(async function () {
     0,
     "",
     copyListenerFile2,
-    null
+    false
   );
   await copyListenerFile2.promise;
 });
@@ -73,7 +73,7 @@ add_task(async function firstUpdate() {
     gTargetFolder,
     "FolderLoaded"
   );
-  gTargetFolder.updateFolder(null);
+  gTargetFolder.updateFolder(false);
   await folderAddedListener;
 });
 
@@ -84,6 +84,6 @@ add_task(async function secondUpdate() {
     gTargetFolder,
     "FolderLoaded"
   );
-  gTargetFolder.updateFolder(null);
+  gTargetFolder.updateFolder(false);
   await folderAddedListener;
 });

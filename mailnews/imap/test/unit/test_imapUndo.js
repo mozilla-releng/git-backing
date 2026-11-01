@@ -19,7 +19,6 @@ var { PromiseTestUtils } = ChromeUtils.importESModule(
 
 var gRootFolder;
 var gMessages = [];
-var gMsgWindow;
 
 var gMsgFile1 = do_get_file("../../../data/bugmail10");
 var gMsgFile2 = do_get_file("../../../data/bugmail11");
@@ -69,10 +68,6 @@ add_setup(function () {
   );
   Services.prefs.setBoolPref("mail.server.server1.offline_download", false);
 
-  gMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-    Ci.nsIMsgWindow
-  );
-
   gRootFolder = IMAPPump.incomingServer.rootFolder;
   // these hacks are required because we've created the inbox before
   // running initial folder discovery, and adding the folder bails
@@ -96,7 +91,7 @@ add_setup(function () {
 
 add_task(async function updateFolder() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -106,7 +101,7 @@ add_task(async function deleteMessage() {
   gMessages.push(msgToDelete);
   IMAPPump.inbox.deleteMessages(
     gMessages,
-    gMsgWindow,
+    true,
     false,
     true,
     copyListener,
@@ -117,7 +112,7 @@ add_task(async function deleteMessage() {
 
 add_task(async function expunge() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.expunge(listener, gMsgWindow);
+  IMAPPump.inbox.expunge(listener, true);
   await listener.promise;
 
   // Ensure that the message has been surely deleted.
@@ -133,13 +128,13 @@ add_task(async function undoDelete() {
   const trash = gRootFolder.getChildNamed("Trash");
   trash
     .QueryInterface(Ci.nsIMsgImapMailFolder)
-    .updateFolderWithListener(null, listener);
+    .updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
 add_task(async function goBackToInbox() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(gMsgWindow, listener);
+  IMAPPump.inbox.updateFolderWithListener(true, listener);
   await listener.promise;
 });
 
@@ -153,7 +148,6 @@ add_task(function endTest() {
   // Cleanup, null out everything, close all cached connections and stop the
   // server
   gMessages = [];
-  gMsgWindow = null;
   gRootFolder = null;
   teardownIMAPPump();
 });

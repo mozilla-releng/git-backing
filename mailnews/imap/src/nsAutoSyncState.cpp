@@ -395,9 +395,9 @@ NS_IMETHODIMP nsAutoSyncState::UpdateFolder() {
   folder->GetIncomingServerType(serverType);
   if (serverType.EqualsLiteral("imap")) {
     nsCOMPtr<nsIMsgImapMailFolder> imapFolder = do_QueryInterface(folder);
-    rv = imapFolder->UpdateFolderWithListener(nullptr, autoSyncMgrListener);
+    rv = imapFolder->UpdateFolderWithListener(false, autoSyncMgrListener);
   } else if (serverType.EqualsLiteral("ews")) {
-    rv = folder->GetNewMessages(nullptr, autoSyncMgrListener);
+    rv = folder->GetNewMessages(false, autoSyncMgrListener);
   } else {
     return NS_ERROR_UNEXPECTED;
   }
@@ -475,7 +475,7 @@ NS_IMETHODIMP nsAutoSyncState::OnStopRunningUrl(nsIURI* aUrl,
       }
       SetServerCounts(serverTotal, serverRecent, serverUnseen, serverNextUID);
       SetState(nsAutoSyncState::stUpdateIssued);
-      rv = imapFolder->UpdateFolderWithListener(nullptr, autoSyncMgrListener);
+      rv = imapFolder->UpdateFolderWithListener(false, autoSyncMgrListener);
     } else  // folderstatus detected no change
     {
       if (MOZ_LOG_TEST(gAutoSyncLog, LogLevel::Debug)) {
@@ -511,8 +511,7 @@ NS_IMETHODIMP nsAutoSyncState::OnStopRunningUrl(nsIURI* aUrl,
           SetServerCounts(serverTotal, serverRecent, serverUnseen,
                           serverNextUID);
           SetState(nsAutoSyncState::stUpdateIssued);
-          rv = imapFolder->UpdateFolderWithListener(nullptr,
-                                                    autoSyncMgrListener);
+          rv = imapFolder->UpdateFolderWithListener(false, autoSyncMgrListener);
         }
       }
       if (mSyncState == stStatusIssued) {
@@ -690,7 +689,7 @@ NS_IMETHODIMP nsAutoSyncState::DownloadMessagesForOffline(
     // So OnStopRunningUrl() is called when the download completes.
     nsCOMPtr<nsIImapService> imapService = mozilla::components::Imap::Service();
     rv = imapService->DownloadMessagesForOffline(messageIds, folder, this,
-                                                 nullptr);
+                                                 false);
     NS_ENSURE_SUCCESS(rv, rv);
   } else if (serverType.EqualsLiteral("ews") ||
              serverType.EqualsLiteral("graph")) {

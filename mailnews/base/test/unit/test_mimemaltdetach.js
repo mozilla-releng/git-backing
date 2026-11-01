@@ -56,7 +56,7 @@ add_task(async function startCopy() {
     0,
     "",
     listener,
-    null
+    false
   );
   await listener.promise;
 });
@@ -143,7 +143,6 @@ function getContentFromMessage(aMsgHdr) {
     MailServices.messageServiceFromURI(msgUri).streamMessage(
       msgUri,
       streamListener,
-      null,
       null,
       false,
       "",

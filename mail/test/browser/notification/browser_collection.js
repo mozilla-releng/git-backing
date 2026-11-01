@@ -103,7 +103,7 @@ add_setup(async function () {
  */
 add_task(async function testBiffUpdateIMAP() {
   await subtest(imapIncomingServer, inbox =>
-    inbox.server.performBiff(window.msgWindow)
+    inbox.server.performBiff(true)
   );
   await TestUtils.waitForCondition(
     () => imapIncomingServer.allConnectionsIdle,
@@ -127,7 +127,7 @@ add_task(async function testUserUpdateIMAP() {
  */
 add_task(async function testBiffUpdatePOP3() {
   await subtest(pop3IncomingServer, inbox =>
-    inbox.server.performBiff(window.msgWindow)
+    inbox.server.performBiff(true)
   );
   await TestUtils.waitForCondition(
     () => !pop3IncomingServer.wrappedJSObject.runningClient,
@@ -151,7 +151,7 @@ add_task(async function testUserUpdatePOP3() {
  */
 add_task(async function testBiffUpdateEWS() {
   await subtest(ewsIncomingServer, inbox =>
-    inbox.server.performBiff(window.msgWindow)
+    inbox.server.performBiff(true)
   );
 }).skip(); // See 1985881
 
@@ -160,7 +160,7 @@ add_task(async function testBiffUpdateEWS() {
  */
 add_task(async function testUserUpdateEWS() {
   await subtest(ewsIncomingServer, inbox =>
-    inbox.server.performBiff(window.msgWindow)
+    inbox.server.performBiff(true)
   );
 }).skip(); // See 1985881
 
@@ -171,7 +171,7 @@ add_task(async function testUserUpdateEWS() {
  * @param {nsIMsgFolder} folder
  */
 function createFilter(sender, folder) {
-  const filterList = folder.server.getFilterList(null);
+  const filterList = folder.server.getFilterList();
   if (filterList.getFilterNamed(sender)) {
     // Filter already exists, skip.
     return;
@@ -227,7 +227,7 @@ async function subtest(incomingServer, getMessagesCallback) {
   // Find all the folders and ensure they have no unread messages to begin with.
   // Also set up the filters.
 
-  incomingServer.performExpand(null);
+  incomingServer.performExpand(false);
   const inbox = await TestUtils.waitForCondition(
     () =>
       incomingServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox),
@@ -355,11 +355,11 @@ async function subtest(incomingServer, getMessagesCallback) {
     "trash should have 2 unread messages at the end"
   );
 
-  inbox.markAllMessagesRead(window.msgWindow);
-  inbox.getChildNamed("redFilter").markAllMessagesRead(window.msgWindow);
-  inbox.getChildNamed("greenFilter").markAllMessagesRead(window.msgWindow);
-  inbox.getChildNamed("blueFilter").markAllMessagesRead(window.msgWindow);
-  trash.markAllMessagesRead(window.msgWindow);
+  inbox.markAllMessagesRead();
+  inbox.getChildNamed("redFilter").markAllMessagesRead();
+  inbox.getChildNamed("greenFilter").markAllMessagesRead();
+  inbox.getChildNamed("blueFilter").markAllMessagesRead();
+  trash.markAllMessagesRead();
 }
 
 /**

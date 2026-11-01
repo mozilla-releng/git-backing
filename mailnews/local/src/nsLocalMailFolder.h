@@ -18,7 +18,6 @@
 #include "nsIMsgPluggableStore.h"
 #include "nsIMsgLocalMailFolder.h"
 #include "nsIMsgFolder.h"
-#include "nsIMsgWindow.h"
 #include "nsIMsgDatabase.h"
 #include "nsIMsgCopyServiceListener.h"
 #include "nsIInputStream.h"
@@ -46,7 +45,7 @@ struct nsLocalMailCopyState {
   nsMsgMessageFlagType m_flags;     // current copy message flags
   RefPtr<nsParseMailMessageState> m_parseMsgState;
   nsCOMPtr<nsIMsgCopyServiceListener> m_listener;
-  nsCOMPtr<nsIMsgWindow> m_msgWindow;
+  bool m_interactive;
   nsCOMPtr<nsIMsgDatabase> m_destDB;
 
   nsCOMPtr<nsIStringBundle> m_stringBundle;
@@ -101,22 +100,19 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
   NS_IMETHOD GetMsgDatabase(nsIMsgDatabase** aMsgDatabase) override;
 
   NS_IMETHOD OnAnnouncerGoingAway(nsIDBChangeAnnouncer* instigator) override;
-  NS_IMETHOD UpdateFolder(nsIMsgWindow* aWindow) override;
+  NS_IMETHOD UpdateFolder(bool interactive) override;
 
-  NS_IMETHOD CreateSubfolder(const nsACString& folderName,
-                             nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD CreateSubfolder(const nsACString& folderName) override;
   NS_IMETHOD CreateSubfolderWithListener(const nsACString&,
                                          nsIUrlListener*) override;
 
-  NS_IMETHOD Compact(nsIUrlListener* aListener,
-                     nsIMsgWindow* aMsgWindow) override;
-  NS_IMETHOD CompactAll(nsIUrlListener* aListener, nsIMsgWindow* aMsgWindow,
+  NS_IMETHOD Compact(nsIUrlListener* aListener, bool interactive) override;
+  NS_IMETHOD CompactAll(nsIUrlListener* aListener, bool interactive,
                         bool expunge) override;
   NS_IMETHOD EmptyTrash(nsIUrlListener* aListener) override;
-  NS_IMETHOD DeleteSelf(nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD DeleteSelf(bool interactive) override;
   NS_IMETHOD CreateStorageIfMissing(nsIUrlListener* urlListener) override;
-  NS_IMETHOD Rename(const nsACString& aNewName,
-                    nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD Rename(const nsACString& aNewName) override;
 
   NS_IMETHOD GetDeletable(bool* deletable) override;
   NS_IMETHOD GetSizeOnDisk(int64_t* size) override;
@@ -125,20 +121,20 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
                                   nsIMsgDatabase** db) override;
 
   NS_IMETHOD DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-                            nsIMsgWindow* msgWindow, bool deleteStorage,
-                            bool isMove, nsIMsgCopyServiceListener* listener,
+                            bool interactive, bool deleteStorage, bool isMove,
+                            nsIMsgCopyServiceListener* listener,
                             bool allowUndo) override;
   MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD CopyMessages(
       nsIMsgFolder* srcFolder, nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-      bool isMove, nsIMsgWindow* msgWindow, nsIMsgCopyServiceListener* listener,
+      bool isMove, bool interactive, nsIMsgCopyServiceListener* listener,
       bool isFolder, bool allowUndo) override;
   NS_IMETHOD CopyFolder(nsIMsgFolder* srcFolder, bool isMoveFolder,
-                        nsIMsgWindow* msgWindow,
+                        bool interactive,
                         nsIMsgCopyServiceListener* listener) override;
   NS_IMETHOD CopyFileMessage(nsIFile* aFile, nsIMsgDBHdr* msgToReplace,
                              bool isDraftOrTemplate, uint32_t newMsgFlags,
                              const nsACString& aNewMsgKeywords,
-                             nsIMsgWindow* msgWindow,
+                             bool interactive,
                              nsIMsgCopyServiceListener* listener) override;
 
   NS_IMETHOD AddMessageDispositionState(
@@ -147,8 +143,8 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
                               bool aMarkRead) override;
   NS_IMETHOD MarkMessagesFlagged(const nsTArray<RefPtr<nsIMsgDBHdr>>& aMessages,
                                  bool aMarkFlagged) override;
-  NS_IMETHOD MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) override;
-  NS_IMETHOD GetNewMessages(nsIMsgWindow* aWindow,
+  NS_IMETHOD MarkAllMessagesRead() override;
+  NS_IMETHOD GetNewMessages(bool interactive,
                             nsIUrlListener* aListener) override;
   NS_IMETHOD NotifyCompactCompleted() override;
   NS_IMETHOD Shutdown(bool shutdownChildren) override;
@@ -159,8 +155,7 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
 
   // Used when headers_only is TRUE
   NS_IMETHOD DownloadMessagesForOffline(
-      nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-      nsIMsgWindow* aWindow) override;
+      nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, bool interactive) override;
   NS_IMETHOD HasMsgOffline(nsMsgKey msgKey, bool* result) override;
   NS_IMETHOD FetchMsgPreviewText(nsTArray<nsMsgKey> const& aKeysToFetch,
                                  nsIUrlListener* aUrlListener,
@@ -175,15 +170,13 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
 
  protected:
   virtual ~nsMsgLocalMailFolder();
-  nsresult RenameSubFolders(nsIMsgWindow* msgWindow,
-                            nsIMsgFolder* oldFolder) override;
+  nsresult RenameSubFolders(nsIMsgFolder* oldFolder) override;
 #ifdef MOZ_PANORAMA
   nsresult AddMessageBatch2(const nsTArray<nsCString>& rawMessages,
                             nsTArray<RefPtr<nsIMsgDBHdr>>& addedHdrs);
 #endif
   nsresult UpdateMsgFlagsInStore(nsTArray<RefPtr<nsIMsgDBHdr>> const& msgs);
-  nsresult CopyFolderAcrossServer(nsIMsgFolder* srcFolder,
-                                  nsIMsgWindow* msgWindow,
+  nsresult CopyFolderAcrossServer(nsIMsgFolder* srcFolder, bool interactive,
                                   nsIMsgCopyServiceListener* listener,
                                   bool moveMsgs);
 
@@ -193,7 +186,6 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
 
   // CreateSubfolder, but without the nsIMsgFolderListener notification
   nsresult CreateSubfolderInternal(const nsACString& folderName,
-                                   nsIMsgWindow* msgWindow,
                                    nsIMsgFolder** aNewFolder);
 
   nsresult IsChildOfTrash(bool* result);
@@ -208,25 +200,22 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
   // copy message helper
   nsresult DisplayMoveCopyStatusMsg();
 
-  nsresult CopyMessageTo(nsISupports* message, nsIMsgWindow* msgWindow,
-                         bool isMove);
+  nsresult CopyMessageTo(nsISupports* message, bool interactive, bool isMove);
 
   /**
    * Checks if there's room in the target folder to copy message(s) into.
    * If not, handles alerting the user, and sending the copy notifications.
    */
-  bool CheckIfSpaceForCopy(nsIMsgWindow* msgWindow, nsIMsgFolder* srcFolder,
-                           nsISupports* srcSupports, bool isMove,
-                           int64_t totalMsgSize);
+  bool CheckIfSpaceForCopy(nsIMsgFolder* srcFolder, nsISupports* srcSupports,
+                           bool isMove, int64_t totalMsgSize);
 
   // copy multiple messages at a time from this folder
-  nsresult CopyMessagesTo(nsTArray<nsMsgKey>& keyArray,
-                          nsIMsgWindow* aMsgWindow, bool isMove);
+  nsresult CopyMessagesTo(nsTArray<nsMsgKey>& keyArray, bool interactive,
+                          bool isMove);
   nsresult InitCopyState(nsISupports* aSupport,
                          nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
                          bool isMove, nsIMsgCopyServiceListener* listener,
-                         nsIMsgWindow* msgWindow, bool isMoveFolder,
-                         bool allowUndo);
+                         bool interactive, bool isMoveFolder, bool allowUndo);
   nsresult InitCopyMsgHdrAndFileStream();
   // preserve message metadata when moving or copying messages
   void CopyPropertiesToMsgHdr(nsIMsgDBHdr* destHdr, nsIMsgDBHdr* srcHdr,
@@ -244,7 +233,6 @@ class nsMsgLocalMailFolder : public nsMsgDBFolder,
   nsCString mType;
   bool mHaveReadNameFromDB;
   bool mInitialized;
-  bool mCheckForNewMessagesAfterParsing;
   bool m_parsingFolder;
   nsCOMPtr<nsIUrlListener> mReparseListener;
   nsTArray<nsMsgKey> mSpamKeysToMove;

@@ -270,7 +270,7 @@ function folderPropsOnLoad() {
     try {
       gMsgFolder.msgDatabase;
     } catch (e) {
-      gMsgFolder.updateFolder(window.arguments[0].msgWindow);
+      gMsgFolder.updateFolder(true);
     }
 
     // Check the current folder name against known folder names to set the
@@ -448,7 +448,7 @@ function hideShowControls(serverType) {
 
 function onOfflineFolderDownload() {
   // we need to create a progress window and pass that in as the second parameter here.
-  gMsgFolder.downloadAllForOffline(null, window.arguments[0].msgWindow);
+  gMsgFolder.downloadAllForOffline(null, true);
 }
 
 /** Open the folder privileges management url. */

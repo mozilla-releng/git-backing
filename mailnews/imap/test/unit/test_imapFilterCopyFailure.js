@@ -54,7 +54,7 @@ add_setup(async function () {
   );
 
   const moveFolderAdded = PromiseTestUtils.promiseFolderAdded("Moved");
-  IMAPPump.incomingServer.rootFolder.createSubfolder("Moved", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("Moved");
   await moveFolderAdded;
   moveFolder = IMAPPump.incomingServer.rootFolder
     .getChildNamed("Moved")
@@ -66,13 +66,13 @@ add_setup(async function () {
   copyIncomingServer.maximumConnectionsNumber = 1;
 
   const copyFolderAdded = PromiseTestUtils.promiseFolderAdded("Copies");
-  copyIncomingServer.rootFolder.createSubfolder("Copies", null);
+  copyIncomingServer.rootFolder.createSubfolder("Copies");
   await copyFolderAdded;
   copyFolder = copyIncomingServer.rootFolder
     .getChildNamed("Copies")
     .QueryInterface(Ci.nsIMsgImapMailFolder);
 
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   const filter = filterList.createFilter("copy failure preserves source");
   const term = filter.createTerm();
   term.matchAll = true;
@@ -109,7 +109,7 @@ add_task(async function testFailedCopyPreventsMove() {
 
   copyDaemon.commandToFail = "APPEND";
   const updateListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, updateListener);
+  IMAPPump.inbox.updateFolderWithListener(false, updateListener);
   await updateListener.promise;
 
   await TestUtils.waitForCondition(() => {
@@ -158,7 +158,7 @@ add_task(async function testSuccessfulCopyAllowsMove() {
   addIncomingMessage(SUCCESS_MESSAGE_ID, "Filtered copy success", SUCCESS_BODY);
 
   const updateListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, updateListener);
+  IMAPPump.inbox.updateFolderWithListener(false, updateListener);
   await updateListener.promise;
 
   await TestUtils.waitForCondition(() => {
@@ -172,10 +172,10 @@ add_task(async function testSuccessfulCopyAllowsMove() {
   }, "the successful copy should finish before the move starts");
 
   const copyUpdateListener = new PromiseTestUtils.PromiseUrlListener();
-  copyFolder.updateFolderWithListener(null, copyUpdateListener);
+  copyFolder.updateFolderWithListener(false, copyUpdateListener);
   await copyUpdateListener.promise;
   const moveUpdateListener = new PromiseTestUtils.PromiseUrlListener();
-  moveFolder.updateFolderWithListener(null, moveUpdateListener);
+  moveFolder.updateFolderWithListener(false, moveUpdateListener);
   await moveUpdateListener.promise;
 
   const copiedHeader =
@@ -190,7 +190,6 @@ add_task(async function testSuccessfulCopyAllowsMove() {
   MailServices.messageServiceFromURI(copiedMessageUri).streamMessage(
     copiedMessageUri,
     streamListener,
-    null,
     null,
     false,
     "",

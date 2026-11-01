@@ -10,8 +10,6 @@ var { UIFontSize } = ChromeUtils.importESModule(
 );
 
 var gSynchronizeTree = null;
-var gParentMsgWindow;
-var gMsgWindow;
 
 var gInitialFolderStates = {};
 
@@ -20,8 +18,6 @@ window.addEventListener("DOMContentLoaded", onLoad);
 document.addEventListener("dialogaccept", syncOkButton);
 
 function onLoad() {
-  gParentMsgWindow = window.arguments?.[0]?.msgWindow;
-
   document.getElementById("syncMail").checked = Services.prefs.getBoolPref(
     "mailnews.offline_sync_mail"
   );
@@ -59,7 +55,7 @@ function syncOkButton() {
         syncMail,
         sendMessage,
         workOffline,
-        gParentMsgWindow
+        true
       );
     }
   }

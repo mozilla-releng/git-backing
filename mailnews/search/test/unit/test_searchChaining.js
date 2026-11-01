@@ -36,7 +36,7 @@ async function setupFolder() {
 
   // update folder to download header.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 }
 
@@ -57,7 +57,7 @@ async function searchTest() {
     searchSession,
     searchListener
   );
-  searchSession.search(null);
+  searchSession.search(false);
   await listener.promise;
 
   // After the search completes, there still seem to be active URLs, so we

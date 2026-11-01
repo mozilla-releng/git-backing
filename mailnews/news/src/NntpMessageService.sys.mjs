@@ -24,10 +24,10 @@ class BaseMessageService {
   _logger = lazy.NntpUtils.logger;
 
   /** @see nsIMsgMessageService */
-  loadMessage(messageURI, displayConsumer, msgWindow, urlListener) {
+  loadMessage(messageURI, displayConsumer, interactive, urlListener) {
     this._logger.debug("loadMessage", messageURI);
 
-    const uri = this.getUrlForUri(messageURI, msgWindow);
+    const uri = this.getUrlForUri(messageURI, interactive);
     if (urlListener) {
       uri.RegisterListener(urlListener);
     }
@@ -54,14 +54,14 @@ class BaseMessageService {
 
   /**
    * @param {string} messageURI - Message URI.
-   * @param {?nsIMsgWindow} [msgWindow] - Message window.
+   * @param {boolean} [interactive] - Whether the user is waiting on the url.
    * @returns {nsIURI}
    */
-  getUrlForUri(messageURI, msgWindow) {
+  getUrlForUri(messageURI, interactive) {
     const uri = Services.io
       .newURI(this._createMessageIdUrl(messageURI))
       .QueryInterface(Ci.nsIMsgMailNewsUrl);
-    uri.msgWindow = msgWindow;
+    uri.interactive = interactive;
     return uri;
   }
 
@@ -84,9 +84,9 @@ class BaseMessageService {
     return msgHdr;
   }
 
-  copyMessage(messageUri, copyListener, moveMessage, urlListener, msgWindow) {
+  copyMessage(messageUri, copyListener, moveMessage, urlListener, interactive) {
     this._logger.debug("copyMessage", messageUri);
-    this.loadMessage(messageUri, copyListener, msgWindow, urlListener, false);
+    this.loadMessage(messageUri, copyListener, interactive, urlListener);
   }
 
   saveMessageToDisk(
@@ -94,10 +94,10 @@ class BaseMessageService {
     file,
     urlListener,
     canonicalLineEnding,
-    msgWindow
+    interactive
   ) {
     this._logger.debug("saveMessageToDisk", messageUri);
-    const url = this.getUrlForUri(messageUri, msgWindow);
+    const url = this.getUrlForUri(messageUri, interactive);
     if (urlListener) {
       url.RegisterListener(urlListener);
     }
@@ -111,13 +111,12 @@ class BaseMessageService {
     this.loadMessage(
       messageUri,
       url.getSaveAsListener(file),
-      msgWindow,
-      urlListener,
-      false
+      interactive,
+      urlListener
     );
   }
 
-  Search(searchSession, msgWindow, msgFolder, searchUri) {
+  Search(searchSession, interactive, msgFolder, searchUri) {
     const slashIndex = searchUri.indexOf("/");
     const xpatLines = searchUri
       .slice(slashIndex + 1)
@@ -128,7 +127,7 @@ class BaseMessageService {
     server.wrappedJSObject.withClient(client => {
       client.startRunningUrl(
         searchSession.QueryInterface(Ci.nsIUrlListener),
-        msgWindow
+        interactive
       );
       client.onOpen = () => {
         client.search(msgFolder.name, xpatLines);
@@ -143,7 +142,6 @@ class BaseMessageService {
   streamMessage(
     messageUri,
     consumer,
-    msgWindow,
     urlListener,
     convertData,
     additionalHeader
@@ -151,7 +149,7 @@ class BaseMessageService {
     this._logger.debug("streamMessage", messageUri);
     const [folder, key] = this._decomposeNewsMessageURI(messageUri);
 
-    let uri = this.getUrlForUri(messageUri, msgWindow);
+    let uri = this.getUrlForUri(messageUri);
     if (additionalHeader) {
       // NOTE: jsmimeemitter relies on this.
       const url = new URL(uri.spec);
@@ -269,20 +267,13 @@ class BaseMessageService {
    * @param {nsIURI} uri - URL representing the message.
    * @param {string} messageUri - URI including the part to fetch.
    * @param {nsIStreamListener} streamListener - Stream listener.
-   * @param {nsIMsgWindow} msgWindow
+   * @param {boolean} _interactive
    * @param {nsIUrlListener} urlListener - URL listener.
    * @returns {nsIURI} the URL that gets run, if any.
    */
-  fetchMimePart(uri, messageUri, streamListener, msgWindow, urlListener) {
+  fetchMimePart(uri, messageUri, streamListener, _interactive, urlListener) {
     this._logger.debug("fetchMimePart", uri.spec);
-    return this.streamMessage(
-      uri.spec,
-      streamListener,
-      msgWindow,
-      urlListener,
-      false,
-      ""
-    );
+    return this.streamMessage(uri.spec, streamListener, urlListener, false, "");
   }
 }
 

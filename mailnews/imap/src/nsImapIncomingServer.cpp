@@ -19,7 +19,6 @@
 #include "prmem.h"
 #include "plstr.h"
 #include "nsIMsgFolder.h"
-#include "nsIMsgWindow.h"
 #include "nsIWindowMediator.h"
 #include "nsImapMailFolder.h"
 #include "nsIMsgMailNewsUrl.h"
@@ -353,7 +352,7 @@ nsImapIncomingServer::SetUsingSubscription(bool bVal) {
     // Applies the flip between "subscribed-only" (LSUB) and "all folders"
     // (LIST) immediately, so the folder pane updates without a restart.
     hostSession->SetHaveWeEverDiscoveredFoldersForHost(serverKey.get(), false);
-    PerformExpand(nullptr);
+    PerformExpand(false);
   }
   return NS_OK;
 }
@@ -917,7 +916,7 @@ NS_IMETHODIMP nsImapIncomingServer::ResetConnection(
 }
 
 NS_IMETHODIMP
-nsImapIncomingServer::PerformExpand(nsIMsgWindow* aMsgWindow) {
+nsImapIncomingServer::PerformExpand(bool interactive) {
   nsString password;
   nsresult rv;
   rv = GetPassword(password);
@@ -940,7 +939,7 @@ nsImapIncomingServer::PerformExpand(nsIMsgWindow* aMsgWindow) {
 
   nsCOMPtr<nsIImapService> imapService = mozilla::components::Imap::Service();
   nsCOMPtr<nsIThread> thread(do_GetCurrentThread());
-  rv = imapService->DiscoverAllFolders(rootMsgFolder, this, aMsgWindow);
+  rv = imapService->DiscoverAllFolders(rootMsgFolder, this, interactive);
   NS_ENSURE_SUCCESS(rv, rv);
   nsCOMPtr<nsIImapHostSessionList> hostSessionList =
       do_GetService("@mozilla.org/messenger/imaphostsessionlist;1", &rv);
@@ -955,7 +954,7 @@ nsImapIncomingServer::PerformExpand(nsIMsgWindow* aMsgWindow) {
 
 NS_IMETHODIMP
 nsImapIncomingServer::VerifyLogon(nsIUrlListener* aUrlListener,
-                                  nsIMsgWindow* aMsgWindow, nsIURI** aURL) {
+                                  bool interactive, nsIURI** aURL) {
   nsresult rv;
 
   nsCOMPtr<nsIImapService> imapService = mozilla::components::Imap::Service();
@@ -964,15 +963,15 @@ nsImapIncomingServer::VerifyLogon(nsIUrlListener* aUrlListener,
   // do anything on disk.
   rv = GetRootFolder(getter_AddRefs(rootFolder));
   NS_ENSURE_SUCCESS(rv, rv);
-  return imapService->VerifyLogon(rootFolder, aUrlListener, aMsgWindow, aURL);
+  return imapService->VerifyLogon(rootFolder, aUrlListener, interactive, aURL);
 }
 
-NS_IMETHODIMP nsImapIncomingServer::PerformBiff(nsIMsgWindow* aMsgWindow) {
+NS_IMETHODIMP nsImapIncomingServer::PerformBiff(bool interactive) {
   nsCOMPtr<nsIMsgFolder> rootMsgFolder;
   nsresult rv = GetRootMsgFolder(getter_AddRefs(rootMsgFolder));
   if (NS_SUCCEEDED(rv)) {
     SetPerformingBiff(true);
-    rv = rootMsgFolder->GetNewMessages(aMsgWindow, nullptr);
+    rv = rootMsgFolder->GetNewMessages(interactive, nullptr);
   }
   return rv;
 }
@@ -1283,8 +1282,7 @@ NS_IMETHODIMP nsImapIncomingServer::OnlineFolderCreateFailed(
 }
 
 NS_IMETHODIMP nsImapIncomingServer::OnlineFolderRename(
-    nsIMsgWindow* msgWindow, const nsACString& oldName,
-    const nsACString& newName) {
+    const nsACString& oldName, const nsACString& newName) {
   nsresult rv = NS_ERROR_FAILURE;
   if (!newName.IsEmpty()) {
     nsCOMPtr<nsIMsgFolder> me;
@@ -1318,7 +1316,7 @@ NS_IMETHODIMP nsImapIncomingServer::OnlineFolderRename(
 
         if (!parentImapFolder) return NS_ERROR_FAILURE;
 
-        rv = parentImapFolder->RenameClient(msgWindow, me, oldName, tmpNewName);
+        rv = parentImapFolder->RenameClient(me, oldName, tmpNewName);
         if (NS_FAILED(rv)) return rv;
 
         // RenameClient() built the new folder's URI from `tmpNewName` as it is,
@@ -1815,18 +1813,12 @@ nsresult nsImapIncomingServer::AlertUser(const nsAString& aString,
   nsCOMPtr<nsIMsgMailSession> mailSession =
       mozilla::components::MailSession::Service();
 
-  // If there's a message window on the URI, then we should alert the user.
-  // Otherwise (i.e. if the getter for `msgWindow` raised
-  // `NS_ERROR_NULL_POINTER`), this is a background operation and we should tell
-  // the mail session to only call the listeners but not alert.
-  bool silent = false;
-  nsCOMPtr<nsIMsgWindow> dummy;
-  nsresult rv = aUrl->GetMsgWindow(getter_AddRefs(dummy));
-  if (rv == NS_ERROR_NULL_POINTER) {
-    silent = true;
-  } else {
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
+  // A background operation has nobody to alert, so tell the mail session to
+  // only call the listeners.
+  bool interactive = false;
+  nsresult rv = aUrl->GetInteractive(&interactive);
+  NS_ENSURE_SUCCESS(rv, rv);
+  bool silent = !interactive;
 
   nsCOMPtr<nsIMsgIncomingServer> server;
   rv = aUrl->GetServer(getter_AddRefs(server));
@@ -2132,8 +2124,7 @@ nsImapIncomingServer::SyncGetPassword(nsAString& aPassword) {
 }
 
 NS_IMETHODIMP
-nsImapIncomingServer::PromptPassword(nsIMsgWindow* aMsgWindow,
-                                     nsAString& aPassword) {
+nsImapIncomingServer::PromptPassword(nsAString& password) {
   nsAutoCString userName;
   GetUsername(userName);
 
@@ -2160,7 +2151,7 @@ nsImapIncomingServer::PromptPassword(nsIMsgWindow* aMsgWindow,
                                             formatStrings2, passwordText);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = GetPasswordWithUI(passwordText, passwordTitle, aPassword);
+  rv = GetPasswordWithUI(passwordText, passwordTitle, password);
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
@@ -2194,7 +2185,7 @@ NS_IMETHODIMP nsImapIncomingServer::CommitNamespaces() {
 }
 
 NS_IMETHODIMP nsImapIncomingServer::PseudoInterruptMsgLoad(
-    nsIMsgFolder* aImapFolder, nsIMsgWindow* aMsgWindow, bool* interrupted) {
+    nsIMsgFolder* aImapFolder, bool* interrupted) {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIImapProtocol> connection;
   PR_CEnterMonitor(this);
@@ -2205,8 +2196,7 @@ NS_IMETHODIMP nsImapIncomingServer::PseudoInterruptMsgLoad(
   for (int32_t i = 0; i < cnt; ++i) {
     connection = m_connectionCache[i];
     if (connection)
-      rv = connection->PseudoInterruptMsgLoad(aImapFolder, aMsgWindow,
-                                              interrupted);
+      rv = connection->PseudoInterruptMsgLoad(aImapFolder, interrupted);
   }
 
   PR_CExitMonitor(this);
@@ -2262,7 +2252,7 @@ NS_IMETHODIMP nsImapIncomingServer::GetManageMailAccountUrl(
 }
 
 NS_IMETHODIMP
-nsImapIncomingServer::StartPopulating(nsIMsgWindow* aMsgWindow,
+nsImapIncomingServer::StartPopulating(bool interactive,
                                       bool aForceToServer /*ignored*/,
                                       bool aGetOnlyNew) {
   nsresult rv;
@@ -2270,7 +2260,7 @@ nsImapIncomingServer::StartPopulating(nsIMsgWindow* aMsgWindow,
 
   rv = EnsureInner();
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = mInner->StartPopulating(aMsgWindow, aForceToServer, aGetOnlyNew);
+  rv = mInner->StartPopulating(interactive, aForceToServer, aGetOnlyNew);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // imap always uses the canonical delimiter form of paths for subscribe ui.
@@ -2281,7 +2271,7 @@ nsImapIncomingServer::StartPopulating(nsIMsgWindow* aMsgWindow,
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIImapService> imapService = mozilla::components::Imap::Service();
-  return imapService->GetListOfFoldersOnServer(this, aMsgWindow);
+  return imapService->GetListOfFoldersOnServer(this, interactive);
 }
 
 NS_IMETHODIMP
@@ -2291,8 +2281,6 @@ NS_IMETHODIMP
 nsImapIncomingServer::OnStopRunningUrl(nsIURI* url, nsresult exitCode) {
   nsresult rv = exitCode;
 
-  // xxx todo get msgWindow from url
-  nsCOMPtr<nsIMsgWindow> msgWindow;
   nsCOMPtr<nsIImapUrl> imapUrl = do_QueryInterface(url);
   if (imapUrl) {
     nsImapAction imapAction = nsIImapUrl::nsImapTest;
@@ -2303,7 +2291,7 @@ nsImapIncomingServer::OnStopRunningUrl(nsIURI* url, nsresult exitCode) {
         rv = UpdateSubscribed();
         NS_ENSURE_SUCCESS(rv, rv);
         mDoingSubscribeDialog = false;
-        rv = StopPopulating(msgWindow);
+        rv = StopPopulating();
         NS_ENSURE_SUCCESS(rv, rv);
         break;
       case nsIImapUrl::nsImapDiscoverAllBoxesUrl:
@@ -2331,7 +2319,7 @@ nsImapIncomingServer::OnStopRunningUrl(nsIURI* url, nsresult exitCode) {
         if (NS_FAILED(exitCode) && exitCode != NS_MSG_ERROR_IMAP_COMMAND_FAILED)
           m_foldersToStat.Clear();
         if (m_foldersToStat.Count() > 0) {
-          m_foldersToStat[0]->UpdateStatus(this, nullptr);
+          m_foldersToStat[0]->UpdateStatus(this);
         }
         break;
       }
@@ -2395,10 +2383,10 @@ nsImapIncomingServer::AddTo(const nsACString& aName, bool addAsSubscribed,
 }
 
 NS_IMETHODIMP
-nsImapIncomingServer::StopPopulating(nsIMsgWindow* aMsgWindow) {
+nsImapIncomingServer::StopPopulating() {
   nsresult rv = EnsureInner();
   NS_ENSURE_SUCCESS(rv, rv);
-  return mInner->StopPopulating(aMsgWindow);
+  return mInner->StopPopulating();
 }
 
 NS_IMETHODIMP
@@ -2496,7 +2484,7 @@ nsImapIncomingServer::GetUtf8AcceptEnabled(bool* enabled) {
 }
 
 NS_IMETHODIMP
-nsImapIncomingServer::ReDiscoverAllFolders() { return PerformExpand(nullptr); }
+nsImapIncomingServer::ReDiscoverAllFolders() { return PerformExpand(false); }
 
 NS_IMETHODIMP
 nsImapIncomingServer::SetState(const nsACString& path, bool state,
@@ -2734,7 +2722,7 @@ nsImapIncomingServer::GetSearchScope(nsMsgSearchScopeValue* searchScope) {
 // mail.check_all_imap_folders_for_new. These prefs default to false.
 NS_IMETHODIMP
 nsImapIncomingServer::GetNewMessagesForNonInboxFolders(nsIMsgFolder* aFolder,
-                                                       nsIMsgWindow* aWindow,
+                                                       bool interactive,
                                                        bool forceAllFolders,
                                                        bool performingBiff) {
   NS_ENSURE_ARG_POINTER(aFolder);
@@ -2772,7 +2760,7 @@ nsImapIncomingServer::GetNewMessagesForNonInboxFolders(nsIMsgFolder* aFolder,
     } else {
       // This ONLY occurs when use_status_for_biff is false.
       // Do select URL for folder now.
-      imapFolder->UpdateFolderWithListener(aWindow, this);
+      imapFolder->UpdateFolderWithListener(interactive, this);
     }
   }
 
@@ -2781,14 +2769,14 @@ nsImapIncomingServer::GetNewMessagesForNonInboxFolders(nsIMsgFolder* aFolder,
   rv = aFolder->GetSubFolders(subFolders);
   NS_ENSURE_SUCCESS(rv, rv);
   for (nsIMsgFolder* msgFolder : subFolders) {
-    GetNewMessagesForNonInboxFolders(msgFolder, aWindow, forceAllFolders,
+    GetNewMessagesForNonInboxFolders(msgFolder, interactive, forceAllFolders,
                                      performingBiff);
   }
   if (isRootFolder && m_foldersToStat.Count() > 0) {
     // This occurs only on 1st call (for root folder) when list (which never
     // contains root folder) is not empty. UpdateStatus() for remaining folders
     // occurs sequentially in listener onStopRunningUrl().
-    m_foldersToStat[0]->UpdateStatus(this, nullptr);
+    m_foldersToStat[0]->UpdateStatus(this);
   }
   return NS_OK;
 }
@@ -2796,7 +2784,7 @@ nsImapIncomingServer::GetNewMessagesForNonInboxFolders(nsIMsgFolder* aFolder,
 NS_IMETHODIMP
 nsImapIncomingServer::GetArbitraryHeaders(nsACString& aResult) {
   nsCOMPtr<nsIMsgFilterList> filterList;
-  nsresult rv = GetFilterList(nullptr, getter_AddRefs(filterList));
+  nsresult rv = GetFilterList(getter_AddRefs(filterList));
   NS_ENSURE_SUCCESS(rv, rv);
   return filterList->GetArbitraryHeaders(aResult);
 }

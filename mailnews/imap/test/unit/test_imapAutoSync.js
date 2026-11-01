@@ -42,7 +42,7 @@ add_setup(function () {
 add_task(async function test_createTargetFolder() {
   gAutoSyncManager.addListener(gAutoSyncListener);
 
-  IMAPPump.incomingServer.rootFolder.createSubfolder("targetFolder", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("targetFolder");
   await PromiseTestUtils.promiseFolderAdded("targetFolder");
   gTargetFolder =
     IMAPPump.incomingServer.rootFolder.getChildNamed("targetFolder");
@@ -55,7 +55,7 @@ add_task(function test_checkForNewMessages() {
   addMessageToFolder(gTargetFolder);
   // This will update the INBOX and STATUS targetFolder. We only care about
   // the latter.
-  IMAPPump.inbox.getNewMessages(null, null);
+  IMAPPump.inbox.getNewMessages(false, null);
   IMAPPump.server.performTest("STATUS");
   // Now we'd like to make autosync update folders it knows about, to
   // get the initial autosync out of the way.
@@ -86,7 +86,7 @@ add_task(async function test_moveMessageToTargetFolder() {
     gTargetFolder,
     true,
     listener,
-    null,
+    false,
     false
   );
   await listener.promise;

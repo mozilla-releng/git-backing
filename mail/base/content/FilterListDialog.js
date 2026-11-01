@@ -24,7 +24,6 @@ window.addEventListener("close", event => {
   }
 });
 
-var gFilterListMsgWindow = null;
 var gCurrentFilterList;
 var gServerMenu = null;
 var gFilterListbox = null;
@@ -91,10 +90,6 @@ var filterEditorQuitObserver = {
 };
 
 function onLoad() {
-  gFilterListMsgWindow = Cc[
-    "@mozilla.org/messenger/msgwindow;1"
-  ].createInstance(Ci.nsIMsgWindow);
-
   gServerMenu = document.getElementById("serverMenu");
   gFilterListbox = document.getElementById("filterList");
   gEditButton = document.getElementById("editButton");
@@ -238,7 +233,7 @@ function setFilterFolder(msgFolder) {
 
   // Calling getEditableFilterList will detect any errors in msgFilterRules.dat,
   // backup the file, and alert the user.
-  gCurrentFilterList = msgFolder.getEditableFilterList(gFilterListMsgWindow);
+  gCurrentFilterList = msgFolder.getEditableFilterList();
   rebuildFilterList();
 
   // Select the first item in the list, if there is one.
@@ -749,7 +744,7 @@ function runSelectedFilters() {
   MailServices.filters.applyFiltersToFolders(
     filterList,
     [folder],
-    gFilterListMsgWindow,
+    true,
     {
       onStopOperation(status) {
         gRunningFilters = false;

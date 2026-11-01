@@ -39,7 +39,7 @@ add_setup(async function () {
   MailServices.imap.discoverAllFolders(
     incomingServer.rootFolder,
     listener,
-    null
+    false
   );
   await listener.promise;
 
@@ -47,7 +47,7 @@ add_setup(async function () {
     .getChildNamed("INBOX")
     .QueryInterface(Ci.nsIMsgImapMailFolder);
   const updateListener = new PromiseTestUtils.PromiseUrlListener();
-  inbox.updateFolderWithListener(null, updateListener);
+  inbox.updateFolderWithListener(false, updateListener);
   await updateListener.promise;
 
   registerCleanupFunction(() => {
@@ -78,7 +78,7 @@ async function waitForConnectionsToClose() {
 
 async function updateFolder(folder) {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  folder.updateFolderWithListener(null, listener);
+  folder.updateFolderWithListener(false, listener);
   await listener.promise;
 }
 
@@ -206,7 +206,7 @@ add_task(async function testStatusDefersBiffUntilFlagSync() {
   );
 
   const statusListener = new PromiseTestUtils.PromiseUrlListener();
-  inbox.updateStatus(statusListener, null);
+  inbox.updateStatus(statusListener);
   await statusListener.promise;
   await TestUtils.waitForCondition(
     () => inbox.getTotalMessages(false) == 7 && inbox.getNumUnread(false) == 4,

@@ -63,7 +63,7 @@ add_task(async function testMoveMessageToNamespaceRoot() {
     shared,
     true,
     listener,
-    null,
+    false,
     false
   );
   await listener.promise;
@@ -78,7 +78,7 @@ add_task(async function testMoveFolderToNamespaceRoot() {
     root.getChildNamed("shared"),
     true,
     listener,
-    null
+    false
   );
   await listener.promise;
   Assert.ok(gServer._daemon.getMailbox("shared/folder"));
@@ -115,7 +115,7 @@ add_task(async function testNamespaceRootIsSubscribable() {
     OnDonePopulating: resolve,
     QueryInterface: ChromeUtils.generateQI(["nsISubscribeListener"]),
   };
-  subscribableServer.startPopulating(null, true, false);
+  subscribableServer.startPopulating(false, true, false);
   await promise;
   Assert.ok(
     subscribableServer.isSubscribable("shared"),
@@ -131,7 +131,7 @@ async function updateFolder(folder) {
   const listener = new PromiseTestUtils.PromiseUrlListener();
   folder
     .QueryInterface(Ci.nsIMsgImapMailFolder)
-    .updateFolderWithListener(null, listener);
+    .updateFolderWithListener(false, listener);
   await listener.promise;
 }
 

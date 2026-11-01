@@ -24,12 +24,12 @@ add_setup(function () {
 });
 
 add_task(async function createSubfolder() {
-  IMAPPump.incomingServer.rootFolder.createSubfolder("Subfolder", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("Subfolder");
   await PromiseTestUtils.promiseFolderAdded("Subfolder");
   gSubfolder = IMAPPump.incomingServer.rootFolder.getChildNamed("Subfolder");
   Assert.ok(gSubfolder instanceof Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gSubfolder.updateFolderWithListener(null, listener);
+  gSubfolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -38,7 +38,7 @@ add_task(async function loadImapMessage() {
   IMAPPump.mailbox.addMessage(
     new ImapMessage(specForFileName(gMessage), IMAPPump.mailbox.uidnext++, [])
   );
-  IMAPPump.inbox.updateFolder(null);
+  IMAPPump.inbox.updateFolder(false);
   await PromiseTestUtils.promiseFolderNotification(IMAPPump.inbox, "msgAdded");
   Assert.equal(1, IMAPPump.inbox.getTotalMessages(false));
   const msgHdr = mailTestUtils.firstMsgHdr(IMAPPump.inbox);
@@ -57,8 +57,8 @@ add_task(async function moveMessageToSubfolder() {
     [msgHdr], // messages
     gSubfolder, // dstFolder
     true, // isMove
-    copyListener, // listener
-    null, // msgWindow
+    copyListener,
+    false, // interactive
     false // allowUndo
   );
   await copyListener.promise;
@@ -66,7 +66,7 @@ add_task(async function moveMessageToSubfolder() {
 
 add_task(async function testPropertyOnMove() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gSubfolder.updateFolderWithListener(null, listener);
+  gSubfolder.updateFolderWithListener(false, listener);
   await PromiseTestUtils.promiseFolderNotification(gSubfolder, "msgAdded");
   await listener.promise;
   const msgHdr = mailTestUtils.firstMsgHdr(gSubfolder);

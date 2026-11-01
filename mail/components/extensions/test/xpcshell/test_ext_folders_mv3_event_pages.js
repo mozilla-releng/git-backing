@@ -204,7 +204,7 @@ add_task(
           rootFolder.getChildNamed("SubFolder1"),
           false,
           null,
-          null
+          false
         );
       });
       const copyData = await extension.awaitMessage("onCopied received");
@@ -277,7 +277,7 @@ add_task(
           rootFolder.getChildNamed("SubFolder3"),
           true,
           null,
-          null
+          false
         );
       });
 
@@ -413,7 +413,7 @@ add_task(
 
     {
       const primedRenameData = await event_page_extension("onRenamed", () => {
-        rootFolder.getChildNamed("TestFolder").rename("TestFolder2", null);
+        rootFolder.getChildNamed("TestFolder").rename("TestFolder2");
       });
       const renameData = await extension.awaitMessage("onRenamed received");
       Assert.deepEqual(

@@ -26,6 +26,7 @@ NS_IMPL_ISUPPORTS(nsMsgProgress, nsIMsgProgress, nsIWebProgressListener,
 nsMsgProgress::nsMsgProgress() {
   m_closeProgress = false;
   m_processCanceled = false;
+  m_interactive = false;
   m_pendingStateFlags = -1;
   m_pendingStateValue = NS_OK;
 }
@@ -203,19 +204,14 @@ nsresult nsMsgProgress::ReleaseListeners() {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgProgress::SetMsgWindow(nsIMsgWindow* aMsgWindow) {
-  m_msgWindow = do_GetWeakReference(aMsgWindow);
+NS_IMETHODIMP nsMsgProgress::SetInteractive(bool aInteractive) {
+  m_interactive = aInteractive;
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgProgress::GetMsgWindow(nsIMsgWindow** aMsgWindow) {
-  NS_ENSURE_ARG_POINTER(aMsgWindow);
-
-  if (m_msgWindow)
-    CallQueryReferent(m_msgWindow.get(), aMsgWindow);
-  else
-    *aMsgWindow = nullptr;
-
+NS_IMETHODIMP nsMsgProgress::GetInteractive(bool* aInteractive) {
+  NS_ENSURE_ARG_POINTER(aInteractive);
+  *aInteractive = m_interactive;
   return NS_OK;
 }
 

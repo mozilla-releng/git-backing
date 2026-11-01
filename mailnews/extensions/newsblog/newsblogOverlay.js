@@ -259,7 +259,7 @@ function openComposeWindowForRSSArticle(
   aType,
   aFormat,
   aIdentity,
-  aMsgWindow
+  aInteractive
 ) {
   // Ensure right content is handled for web pages in window/tab.
   const tabmail = document.getElementById("tabmail");
@@ -282,7 +282,7 @@ function openComposeWindowForRSSArticle(
       aFormat,
       aIdentity,
       null,
-      aMsgWindow
+      aInteractive
     );
   } else {
     // Set up the compose message and get the feed message's web page link.
@@ -349,7 +349,7 @@ function openComposeWindowForRSSArticle(
               aFormat,
               aIdentity,
               null,
-              aMsgWindow
+              aInteractive
             );
           }
         },
@@ -366,7 +366,7 @@ function openComposeWindowForRSSArticle(
         aFormat,
         aIdentity,
         null,
-        aMsgWindow
+        aInteractive
       );
     }
   }

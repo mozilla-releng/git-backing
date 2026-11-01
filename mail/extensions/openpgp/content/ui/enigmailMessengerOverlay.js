@@ -1519,7 +1519,6 @@ Enigmail.msg = {
     msgSvc.streamMessage(
       msgUriSpec,
       streamListener,
-      top.msgWindow,
       null,
       false,
       null,

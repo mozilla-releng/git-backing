@@ -663,12 +663,12 @@ add_task(
           .QueryInterface(Ci.nsIMsgImapMailFolder);
 
         const listener = new PromiseTestUtils.PromiseUrlListener();
-        folder.updateFolderWithListener(null, listener);
+        folder.updateFolderWithListener(false, listener);
         await listener.promise;
 
         // ...and download for offline use.
         const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-        folder.downloadAllForOffline(promiseUrlListener, null);
+        folder.downloadAllForOffline(promiseUrlListener, false);
         await promiseUrlListener.promise;
       }
       extension.sendMessage();

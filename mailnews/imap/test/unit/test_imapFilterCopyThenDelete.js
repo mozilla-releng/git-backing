@@ -44,7 +44,7 @@ add_setup(async function () {
     localAccountUtils.rootFolder.createLocalSubfolder("Filtered copies");
   await copyFolderAdded;
 
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   const filter = filterList.createFilter("copy before delete");
   const term = filter.createTerm();
   term.matchAll = true;
@@ -88,7 +88,7 @@ add_task(async function testCopyFinishesBeforeDelete() {
   }
 
   const updateListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, updateListener);
+  IMAPPump.inbox.updateFolderWithListener(false, updateListener);
   await updateListener.promise;
 
   await TestUtils.waitForCondition(() => {

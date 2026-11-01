@@ -108,7 +108,7 @@ add_setup(async function () {
   nntpAccount.incomingServer.port = 119;
   nntpAccount.incomingServer.authMethod = Ci.nsMsgAuthMethod.passwordEncrypted;
   nntpRootFolder = nntpAccount.incomingServer.rootFolder;
-  nntpRootFolder.createSubfolder("getmessages.newsgroup", null);
+  nntpRootFolder.createSubfolder("getmessages.newsgroup");
   nntpFolder = nntpRootFolder.getChildNamed("getmessages.newsgroup");
   allInboxes.push(nntpFolder);
 
@@ -169,7 +169,7 @@ async function waitForMessages(inbox) {
   await promiseServerIdle(inbox.server);
   info(`${inbox.server.type} messages received`);
 
-  inbox.markAllMessagesRead(window.msgWindow);
+  inbox.markAllMessagesRead();
   await promiseServerIdle(inbox.server);
   await TestUtils.waitForCondition(
     () => inbox.getNumUnread(false) == 0 && inbox.numPendingUnread == 0,

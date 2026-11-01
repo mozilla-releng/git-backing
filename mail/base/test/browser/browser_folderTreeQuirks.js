@@ -60,15 +60,15 @@ add_setup(async function () {
   folderA.addMessageBatch(
     generator.makeMessages({}).map(message => message.toMessageString())
   );
-  folderA.markAllMessagesRead(null);
+  folderA.markAllMessagesRead();
   folderB.addMessageBatch(
     generator.makeMessages({}).map(message => message.toMessageString())
   );
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
   folderC.addMessageBatch(
     generator.makeMessages({}).map(message => message.toMessageString())
   );
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
 
   await SpecialPowers.pushPrefEnv({
     set: [["ui.prefersReducedMotion", 1]],
@@ -240,7 +240,7 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
   folderB1.addMessageBatch(
     generator.makeMessages({}).map(message => message.toMessageString())
   );
-  folderB1.markAllMessagesRead(null);
+  folderB1.markAllMessagesRead();
 
   const folderAMessages = [...folderA.messages];
   const folderBMessages = [...folderB.messages];
@@ -263,7 +263,7 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
 
   // Marking the selected folder read:
   await selectFolder(folderC, "unread");
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB, folderC],
@@ -272,7 +272,7 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
 
   // Marking an ancestor of the selected folder as read:
   folderA.markMessagesRead([folderAMessages[0]], false);
-  folderA.markAllMessagesRead(null);
+  folderA.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB, folderC],
@@ -282,35 +282,35 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
   // Marking a descendant of the selected folder as read:
   folderC.markMessagesRead([folderCMessages[0]], false);
   await selectFolder(folderA, "unread");
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   await checkModeListItems("unread", [rootFolder, folderA], "with selection");
 
   // Marking a descendant of the selected folder as read, but there's an intermediate unread folder.
   folderB.markMessagesRead([folderBMessages[0]], false);
   folderC.markMessagesRead([folderCMessages[0]], false);
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB],
     "with selection"
   );
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
 
   // Marking a descendant of the selected folder as read, but there's an unread sibling.
   folderB.markMessagesRead([folderBMessages[0]], false);
   folderB1.markMessagesRead([folderB1Messages[0]], false);
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB1],
     "with selection"
   );
-  folderB1.markAllMessagesRead(null);
+  folderB1.markAllMessagesRead();
 
   // Moving selection from a read folder to its descendant:
   folderB.markMessagesRead([folderBMessages[0]], false); // Can't select the folder if it's not in the view.
   await selectFolder(folderB, "unread");
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB],
@@ -325,7 +325,7 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
   folderB.markMessagesRead([folderBMessages[0]], false);
   folderB1.markMessagesRead([folderB1Messages[0]], false);
   await selectFolder(folderB1, "unread");
-  folderB1.markAllMessagesRead(null);
+  folderB1.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB, folderB1],
@@ -337,7 +337,7 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
     [rootFolder, folderA, folderB],
     "with selection"
   );
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
 
   // Moving selection from a read folder to its sibling, but the previously selected
   // folder has a child with unread messages
@@ -349,19 +349,19 @@ add_task(async function testUnreadFoldersAutoRemovalWithSelection() {
     "with selection"
   );
   await selectFolder(folderB1, "unread");
-  folderB1.markAllMessagesRead(null);
+  folderB1.markAllMessagesRead();
   await checkModeListItems(
     "unread",
     [rootFolder, folderA, folderB, folderC, folderB1],
     "with selection"
   );
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
 
   // Clean up.
   // Deselecting the folder should be enough to remove it from the unread list.
   await selectFolder(folderA, null);
   await checkModeListItems("unread", [], "with selection");
-  folderB1.deleteSelf(null);
+  folderB1.deleteSelf(false);
   rootFolder.emptyTrash(null, null);
 });
 
@@ -472,17 +472,17 @@ add_task(async function testCompactUnreadFoldersAutoRemovalWithSelection() {
 
   // Marking the selected folder read:
   await selectFolder(folderB, "unread");
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
   await checkModeListItems("unread", [folderB], "compact with selection");
 
   // Marking an ancestor of the selected folder as read:
   folderAMessages[0].markRead(false);
-  folderA.markAllMessagesRead(null);
+  folderA.markAllMessagesRead();
   await checkModeListItems("unread", [folderB], "compact with selection");
 
   // Marking a descendant of the selected folder as read:
   folderCMessages[0].markRead(false);
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   await checkModeListItems("unread", [folderB], "compact with selection");
 
   // Clean up.
@@ -714,9 +714,9 @@ add_task(async function testSmartFolders() {
   );
 
   // Delete the added folders.
-  folderX.deleteSelf(null);
-  folderY.deleteSelf(null);
-  folderZ.deleteSelf(null);
+  folderX.deleteSelf(false);
+  folderY.deleteSelf(false);
+  folderZ.deleteSelf(false);
   folderX = trashFolder.getChildNamed("folderTreeQuirksX");
   folderY = trashFolder.getChildNamed("folderTreeQuirksY");
   folderYY = folderY.getChildNamed("folderTreeQuirksYY");
@@ -824,7 +824,7 @@ add_task(async function testFolderMove() {
     newParentFolder,
     true,
     copyListener,
-    window.msgWindow
+    true
   );
   await copyListener.promise;
 
@@ -863,13 +863,7 @@ add_task(async function testFolderMove() {
   // Move `movedFolderB` from `newParentFolder` back to `folderA`.
 
   copyListener = new PromiseTestUtils.PromiseCopyListener();
-  MailServices.copy.copyFolder(
-    movedFolderB,
-    folderA,
-    true,
-    copyListener,
-    window.msgWindow
-  );
+  MailServices.copy.copyFolder(movedFolderB, folderA, true, copyListener, true);
   await copyListener.promise;
 
   folderB = folderA
@@ -894,9 +888,9 @@ add_task(async function testFolderMove() {
 
   // Clean up.
 
-  newParentFolder.deleteSelf(null);
+  newParentFolder.deleteSelf(false);
   rootFolder.emptyTrash(null, null);
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   folderC.clearFlag(Ci.nsMsgFolderFlags.Favorite);
   folderPane.isCompact = false;
 });
@@ -936,7 +930,7 @@ add_task(async function testFolderMoveSubfolder() {
     newParentFolder,
     true,
     copyListener,
-    window.msgWindow
+    true
   );
   await copyListener.promise;
 
@@ -964,13 +958,7 @@ add_task(async function testFolderMoveSubfolder() {
   // Move `movedFolderB` from `newParentFolder` back to `folderA`.
 
   copyListener = new PromiseTestUtils.PromiseCopyListener();
-  MailServices.copy.copyFolder(
-    movedFolderC,
-    folderB,
-    true,
-    copyListener,
-    window.msgWindow
-  );
+  MailServices.copy.copyFolder(movedFolderC, folderB, true, copyListener, true);
   await copyListener.promise;
 
   folderC = folderB
@@ -992,9 +980,9 @@ add_task(async function testFolderMoveSubfolder() {
 
   // Clean up.
 
-  newParentFolder.deleteSelf(null);
+  newParentFolder.deleteSelf(false);
   rootFolder.emptyTrash(null, null);
-  folderB.markAllMessagesRead(null);
+  folderB.markAllMessagesRead();
   folderB.clearFlag(Ci.nsMsgFolderFlags.Favorite);
   folderPane.isCompact = false;
 });
@@ -1053,7 +1041,7 @@ add_task(async function testFolderRename() {
 
   // Rename `folderA`.
 
-  folderA.rename("renamedA", window.msgWindow);
+  folderA.rename("renamedA");
   const renamedFolderA = rootFolder.getChildNamed("renamedA");
   const renamedFolderB = renamedFolderA.getChildNamed("folderTreeQuirksB");
   const renamedFolderC = renamedFolderB.getChildNamed("folderTreeQuirksC");
@@ -1107,7 +1095,7 @@ add_task(async function testFolderRename() {
 
   // Rename the folder back to its original name.
 
-  renamedFolderA.rename("folderTreeQuirksA", window.msgWindow);
+  renamedFolderA.rename("folderTreeQuirksA");
 
   folderA = rootFolder
     .getChildNamed("folderTreeQuirksA")
@@ -1146,11 +1134,11 @@ add_task(async function testFolderRename() {
 
   // Clean up.
 
-  extraFolders.aaa.deleteSelf(null);
-  extraFolders.ggg.deleteSelf(null);
-  extraFolders.zzz.deleteSelf(null);
+  extraFolders.aaa.deleteSelf(false);
+  extraFolders.ggg.deleteSelf(false);
+  extraFolders.zzz.deleteSelf(false);
   rootFolder.emptyTrash(null, null);
-  folderC.markAllMessagesRead(null);
+  folderC.markAllMessagesRead();
   folderC.clearFlag(Ci.nsMsgFolderFlags.Favorite);
   folderPane.isCompact = false;
 });
@@ -1346,7 +1334,7 @@ add_task(async function testGmailFolders() {
   gmailAccount.defaultIdentity = gmailIdentity;
 
   const gmailRootFolder = gmailServer.rootFolder;
-  gmailServer.performExpand(window.msgWindow);
+  gmailServer.performExpand(true);
   await TestUtils.waitForCondition(
     () => gmailRootFolder.subFolders.length == 2,
     "waiting for folders to be created"
@@ -1481,7 +1469,7 @@ add_task(async function testGmailFolderWithSpecialFlag() {
   gmailAccount.defaultIdentity = gmailIdentity;
 
   const gmailRootFolder = gmailServer.rootFolder;
-  gmailServer.performExpand(window.msgWindow);
+  gmailServer.performExpand(true);
   await TestUtils.waitForCondition(
     () => gmailRootFolder.subFolders.length == 2,
     "waiting for folders to be created"
@@ -1782,7 +1770,7 @@ add_task(async function testAccountOrder() {
   // Remove the other added account, folder flags, and the added folder.
 
   MailServices.accounts.removeAccount(bar, false);
-  folderA.markAllMessagesRead(null);
+  folderA.markAllMessagesRead();
   folderA.clearFlag(Ci.nsMsgFolderFlags.Favorite);
   rootFolder.emptyTrash(null);
 

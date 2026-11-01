@@ -50,7 +50,7 @@ async function withDownloadDialog(
   readSet = ""
 ) {
   const rootFolder = server.rootFolder;
-  rootFolder.createSubfolder(groupName, null);
+  rootFolder.createSubfolder(groupName);
   const folder = rootFolder
     .getChildNamed(groupName)
     .QueryInterface(Ci.nsIMsgNewsFolder);
@@ -89,7 +89,6 @@ async function withDownloadDialog(
   );
 
   const range = newsGroup.getArticlesRangeToFetch(
-    window.msgWindow,
     firstArticle,
     firstArticle + articleCount - 1
   );

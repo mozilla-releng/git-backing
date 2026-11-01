@@ -89,7 +89,7 @@ async function subtest(grantedScope, expectFailure) {
       });
       const abortController = new AbortController();
       const verifier = new ConfigVerifier(
-        window.msgWindow,
+        true,
         abortController.signal
       );
 
@@ -151,7 +151,7 @@ async function subtest(grantedScope, expectFailure) {
       // so no additional telemetry is recorded).
       info("IMAP probably timed out, retrying with the cached token...");
       configOut = await new ConfigVerifier(
-        window.msgWindow,
+        true,
         new AbortController().signal
       ).verifyConfig(config);
     }

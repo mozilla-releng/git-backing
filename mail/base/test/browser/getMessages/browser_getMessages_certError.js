@@ -174,7 +174,7 @@ async function subtest(
   const ewsRootFolder = ewsAccount.incomingServer.rootFolder;
   await subsubtest(
     ewsRootFolder,
-    async () => ewsAccount.incomingServer.performExpand(null),
+    async () => ewsAccount.incomingServer.performExpand(false),
     expectedAlertText,
     expectedDialogText,
     expectedErrorCategory,
@@ -201,7 +201,7 @@ async function subtest(
   const graphRootFolder = graphAccount.incomingServer.rootFolder;
   await subsubtest(
     graphRootFolder,
-    async () => graphAccount.incomingServer.performExpand(null),
+    async () => graphAccount.incomingServer.performExpand(false),
     expectedAlertText,
     expectedDialogText,
     expectedErrorCategory,
@@ -222,7 +222,7 @@ async function subtest(
   nntpAccount.incomingServer.socketType = Ci.nsMsgSocketType.SSL;
   nntpAccount.incomingServer.port = 563;
   const nntpRootFolder = nntpAccount.incomingServer.rootFolder;
-  nntpRootFolder.createSubfolder("test.nntpcerterror", null);
+  nntpRootFolder.createSubfolder("test.nntpcerterror");
   const nntpFolder = nntpRootFolder.getChildNamed("test.nntpcerterror");
 
   for (const inbox of [
@@ -498,19 +498,19 @@ async function subsubtest(
   if (folder.isServer) {
     // If folder is the root folder (EWS, Graph), we don't have an inbox yet,
     // so this is an additional operation to fetch it. Do that now.
-    server.performExpand(null);
+    server.performExpand(false);
     await TestUtils.waitForCondition(
       () => folder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox),
       "waiting for folders to sync"
     );
   } else {
     // Force update of inbox.
-    folder.getNewMessages(null, null);
+    folder.getNewMessages(false, null);
     await TestUtils.waitForCondition(
       () => folder.getNumUnread(false) - folder.numPendingUnread == 10,
       `waiting for new ${server.type} messages to be received`
     );
-    folder.markAllMessagesRead(window.msgWindow);
+    folder.markAllMessagesRead();
     await TestUtils.waitForCondition(
       () => folder.getNumUnread(false) == 0,
       `waiting for new ${server.type} messages to be marked read`

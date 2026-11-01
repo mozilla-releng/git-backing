@@ -21,10 +21,6 @@ var gMessage, gExpectedLength;
 
 var gCustomList = ["Custom1", "Custom2", "Custom3"];
 
-var gMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-  Ci.nsIMsgWindow
-);
-
 setupIMAPPump("CUSTOM1");
 
 add_setup(async function () {
@@ -42,7 +38,7 @@ add_setup(async function () {
   gMessage.xCustomList = [];
   IMAPPump.mailbox.addMessage(gMessage);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -52,7 +48,7 @@ add_task(async function testStoreCustomList() {
   const uri = IMAPPump.inbox.issueCommandOnMsgs(
     "STORE",
     msgHdr.messageKey + " X-CUSTOM-LIST (" + gCustomList.join(" ") + ")",
-    gMsgWindow
+    true
   );
   uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
   // Listens for response from customCommandResult request for X-CUSTOM-LIST.
@@ -76,7 +72,7 @@ add_task(async function testStoreMinusCustomList() {
   const uri = IMAPPump.inbox.issueCommandOnMsgs(
     "STORE",
     msgHdr.messageKey + " -X-CUSTOM-LIST (" + gCustomList[0] + ")",
-    gMsgWindow
+    true
   );
   uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
   // Listens for response from customCommandResult request for X-CUSTOM-LIST.
@@ -101,7 +97,7 @@ add_task(async function testStorePlusCustomList() {
   const uri = IMAPPump.inbox.issueCommandOnMsgs(
     "STORE",
     msgHdr.messageKey + ' +X-CUSTOM-LIST ("Custom4")',
-    gMsgWindow
+    true
   );
   uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
   const storeCustomListAddedListener = new PromiseTestUtils.PromiseUrlListener({

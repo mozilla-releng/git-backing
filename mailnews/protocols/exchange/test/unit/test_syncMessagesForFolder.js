@@ -807,7 +807,7 @@ async function testSyncRecipients(mockServer, incomingServer) {
 
   // Sync and wait for the message to show up.
   const rootFolder = incomingServer.rootFolder;
-  incomingServer.getNewMessages(rootFolder, null, null);
+  incomingServer.getNewMessages(rootFolder, false, null);
 
   const folder = await TestUtils.waitForCondition(
     () => rootFolder.getChildNamed(folderName),
@@ -862,7 +862,7 @@ async function testHeaderInjection(mockServer, incomingServer) {
   mockServer.addMessages(folderName, [msg]);
 
   const rootFolder = incomingServer.rootFolder;
-  incomingServer.getNewMessages(rootFolder, null, null);
+  incomingServer.getNewMessages(rootFolder, false, null);
 
   const folder = await TestUtils.waitForCondition(
     () => rootFolder.getChildNamed(folderName),

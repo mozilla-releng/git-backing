@@ -47,13 +47,13 @@ add_setup(async function () {
   IMAPPump.inbox.hierarchyDelimiter = "/";
   IMAPPump.inbox.verifiedAsOnlineFolder = true;
   const moveFolderAdded = PromiseTestUtils.promiseFolderAdded("Moved");
-  IMAPPump.incomingServer.rootFolder.createSubfolder("Moved", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("Moved");
   await moveFolderAdded;
   moveFolder = IMAPPump.incomingServer.rootFolder
     .getChildNamed("Moved")
     .QueryInterface(Ci.nsIMsgImapMailFolder);
 
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   const filter = filterList.createFilter("copy before move");
   const term = filter.createTerm();
   term.matchAll = true;
@@ -98,7 +98,7 @@ add_task(async function testCopyFinishesBeforeMove() {
   }
 
   const updateListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, updateListener);
+  IMAPPump.inbox.updateFolderWithListener(false, updateListener);
   await updateListener.promise;
 
   await TestUtils.waitForCondition(() => {
@@ -153,7 +153,7 @@ add_task(async function testCopyFinishesBeforeMove() {
     "the filtered move should finish"
   );
   const moveUpdateListener = new PromiseTestUtils.PromiseUrlListener();
-  moveFolder.updateFolderWithListener(null, moveUpdateListener);
+  moveFolder.updateFolderWithListener(false, moveUpdateListener);
   await moveUpdateListener.promise;
 
   Assert.equal(

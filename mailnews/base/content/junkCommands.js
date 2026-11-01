@@ -34,7 +34,7 @@ var { AppConstants } = ChromeUtils.importESModule(
  */
 async function performActionsOnJunkMsgs(aFolder, aJunkMsgHdrs, aGoodMsgHdrs) {
   let deferred = Promise.withResolvers();
-  aFolder.performActionsOnJunkMsgs(aJunkMsgHdrs, true, top.msgWindow, {
+  aFolder.performActionsOnJunkMsgs(aJunkMsgHdrs, true, true, {
     OnStopRunningUrl(url, status) {
       if (Components.isSuccessCode(status)) {
         deferred.resolve();
@@ -49,7 +49,7 @@ async function performActionsOnJunkMsgs(aFolder, aJunkMsgHdrs, aGoodMsgHdrs) {
   });
   await deferred.promise;
   deferred = Promise.withResolvers();
-  aFolder.performActionsOnJunkMsgs(aGoodMsgHdrs, false, top.msgWindow, {
+  aFolder.performActionsOnJunkMsgs(aGoodMsgHdrs, false, true, {
     OnStopRunningUrl(url, status) {
       if (Components.isSuccessCode(status)) {
         deferred.resolve();
@@ -123,7 +123,7 @@ MessageClassifier.prototype = {
     this.mMessages[messageURI] = aMsgHdr;
     if (this.firstMessage) {
       this.firstMessage = false;
-      MailServices.junk.classifyMessage(messageURI, top.msgWindow, this);
+      MailServices.junk.classifyMessage(messageURI, this);
     } else {
       this.mMessageQueue.push(messageURI);
     }
@@ -181,7 +181,7 @@ MessageClassifier.prototype = {
         );
         MailServices.feedback.reportStatus(status);
       }
-      MailServices.junk.classifyMessage(nextMsgURI, top.msgWindow, this);
+      MailServices.junk.classifyMessage(nextMsgURI, this);
     } else {
       const status = await document.l10n.formatValue("spam-processing-message");
       MailServices.feedback.reportStatus(status);
@@ -313,7 +313,7 @@ function deleteJunkInFolder(folder) {
   }
 
   if (junkMsgHdrs.length) {
-    folder.deleteMessages(junkMsgHdrs, top.msgWindow, false, false, null, true);
+    folder.deleteMessages(junkMsgHdrs, true, false, false, null, true);
   }
   return junkMsgHdrs.length;
 }

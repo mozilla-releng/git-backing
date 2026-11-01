@@ -53,7 +53,7 @@ async function goOnline() {
   offlineManager.goOnline(
     false, // sendUnsentMessages
     true, // playbackOfflineImapOperations
-    null // msgWindow
+    false // interactive
   );
   // No way to signal when offline IMAP operations are complete... so we
   // just blindly wait and cross our fingers :-(
@@ -71,7 +71,7 @@ async function loadTestMessage(folder) {
     0,
     "",
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 }
@@ -97,7 +97,7 @@ add_task(async function testOfflineMoveLocalToIMAP() {
     IMAPPump.inbox, // dest folder
     true, // move
     copyListener,
-    null,
+    false,
     false // undo?
   );
   await copyListener.promise;
@@ -108,7 +108,7 @@ add_task(async function testOfflineMoveLocalToIMAP() {
 
   const imapINBOX = IMAPPump.inbox.QueryInterface(Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  imapINBOX.updateFolderWithListener(null, listener);
+  imapINBOX.updateFolderWithListener(false, listener);
   await listener.promise;
 
   // Local folder should be empty, contents now in IMAP inbox.

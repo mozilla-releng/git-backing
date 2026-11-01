@@ -7,7 +7,6 @@
 #include "nsImapCore.h"
 #include "nsIMsgMailNewsUrl.h"
 #include "nsIMsgIncomingServer.h"
-#include "nsIMsgWindow.h"
 #include "nsIImapMailFolderSink.h"
 
 #include "mozilla/ClearOnShutdown.h"
@@ -335,8 +334,8 @@ NS_SYNCRUNNABLEMETHOD1(StreamListener, OnStartRequest, nsIRequest*)
 
 NS_SYNCRUNNABLEMETHOD2(StreamListener, OnStopRequest, nsIRequest*, nsresult)
 
-NS_SYNCRUNNABLEMETHOD2(ImapProtocolSink, GetUrlWindow, nsIMsgMailNewsUrl*,
-                       nsIMsgWindow**)
+NS_SYNCRUNNABLEMETHOD2(ImapProtocolSink, GetUrlInteractive, nsIMsgMailNewsUrl*,
+                       bool*)
 
 NS_SYNCRUNNABLEMETHOD0(ImapProtocolSink, CloseStreams)
 NS_SYNCRUNNABLEMETHOD0(ImapProtocolSink, SetupMainThreadProxies)
@@ -418,8 +417,8 @@ NS_SYNCRUNNABLEMETHOD0(ImapServerSink, DiscoveryDone)
 NS_SYNCRUNNABLEMETHOD1(ImapServerSink, OnlineFolderDelete, const nsACString&)
 NS_SYNCRUNNABLEMETHOD1(ImapServerSink, OnlineFolderCreateFailed,
                        const nsACString&)
-NS_SYNCRUNNABLEMETHOD3(ImapServerSink, OnlineFolderRename, nsIMsgWindow*,
-                       const nsACString&, const nsACString&)
+NS_SYNCRUNNABLEMETHOD2(ImapServerSink, OnlineFolderRename, const nsACString&,
+                       const nsACString&)
 NS_SYNCRUNNABLEMETHOD2(ImapServerSink, FolderIsNoSelect, const nsACString&,
                        bool*)
 NS_SYNCRUNNABLEMETHOD2(ImapServerSink, FolderVerifiedOnline, const nsACString&,

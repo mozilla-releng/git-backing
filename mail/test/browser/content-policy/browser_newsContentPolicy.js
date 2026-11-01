@@ -126,7 +126,7 @@ add_setup(async function () {
   mailFolder = await create_folder("newsContentPolicy");
 
   registerCleanupFunction(() => {
-    mailFolder.deleteSelf(null);
+    mailFolder.deleteSelf(false);
     MailServices.accounts.removeAccount(newsAccount, false);
     const stray = NntpUtils.findServer("tracker.test");
     if (stray) {
@@ -146,14 +146,10 @@ async function setupNewsFolder(group, message) {
   newsServer.addGroup(group);
   newsServer.addMessages(group, [message]);
   const rootFolder = newsAccount.incomingServer.rootFolder;
-  rootFolder.createSubfolder(group, null);
+  rootFolder.createSubfolder(group);
   const folder = rootFolder.getChildNamed(group);
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
-  newsAccount.incomingServer.getNewMessages(
-    folder,
-    window.msgWindow,
-    urlListener
-  );
+  newsAccount.incomingServer.getNewMessages(folder, true, urlListener);
   await urlListener.promise;
   return folder;
 }
@@ -303,7 +299,7 @@ add_task(async function testNewsLinkTargetsInMailMessage() {
     tabmail.closeTab(tabInfo);
   }
 
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
 });
 
 /**
@@ -375,7 +371,7 @@ add_task(async function testNntpLinkInMailMessage() {
   );
   tabmail.closeTab(tabInfo);
 
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
 });
 
 /**

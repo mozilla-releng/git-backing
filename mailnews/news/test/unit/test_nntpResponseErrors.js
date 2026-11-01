@@ -47,7 +47,7 @@ function request(action) {
         .newURI(`news://localhost:${incomingServer.port}/test.filter`)
         .QueryInterface(Ci.nsIMsgMailNewsUrl);
       let data = "";
-      client.startRunningUrl(null, null, url);
+      client.startRunningUrl(null, false, url);
       client.onOpen = () => action(client);
       client.onData = line => (data += line);
       client.onDone = status => resolve({ status, data });
@@ -212,7 +212,7 @@ add_task(async function test_unsupportedModeReaderContinues() {
 });
 
 add_task(async function test_unsupportedHeadersFallBackToHead() {
-  const filterList = folder.getFilterList(null);
+  const filterList = folder.getFilterList();
   const filter = filterList.createFilter("path");
   const term = filter.createTerm();
   term.attrib = Ci.nsMsgSearchAttrib.OtherHeader + 1;

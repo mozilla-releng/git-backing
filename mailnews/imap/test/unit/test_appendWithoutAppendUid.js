@@ -57,7 +57,7 @@ add_setup(async function () {
   incomingServer = createLocalIMAPServer(server.port);
 
   const folderAdded = PromiseTestUtils.promiseFolderAdded("Sent");
-  incomingServer.rootFolder.createSubfolder("Sent", null);
+  incomingServer.rootFolder.createSubfolder("Sent");
   await folderAdded;
   folder = incomingServer.rootFolder
     .getChildNamed("Sent")
@@ -118,7 +118,7 @@ async function appendMessage(
     0,
     "",
     copyListener,
-    null
+    false
   );
   const { messageKeys } = await copyListener.promise;
   return { keys: messageKeys, subject: `Message ${messageCount}` };
@@ -135,7 +135,7 @@ async function appendMessage(
  */
 async function assertAppendedMessageKey({ keys, subject }, message) {
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
-  folder.updateFolderWithListener(null, urlListener);
+  folder.updateFolderWithListener(false, urlListener);
   await urlListener.promise;
 
   const msgHdrs = [...folder.msgDatabase.enumerateMessages()].filter(

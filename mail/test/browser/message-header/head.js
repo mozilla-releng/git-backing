@@ -58,7 +58,7 @@ function createAccount(type = "none") {
 }
 
 async function createSubfolder(parent, name) {
-  parent.createSubfolder(name, null);
+  parent.createSubfolder(name);
   return parent.getChildNamed(name);
 }
 
@@ -122,7 +122,7 @@ async function promiseMessageLoaded(browser, msgHdr) {
   let messageURI = msgHdr.folder.getUriForMsg(msgHdr);
   messageURI = MailServices.messageServiceFromURI(messageURI).getUrlForUri(
     messageURI,
-    null
+    false
   );
 
   if (

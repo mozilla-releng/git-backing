@@ -540,8 +540,8 @@ async function doDeleteExternal(index, expectedLoad) {
     function () {
       const message = about3Pane.gDBView.getMsgHdrAt(index);
       message.folder.deleteMessages(
-        [message], // messages
-        null, // msgWindow
+        [message],
+        false, // interactive
         true, // deleteStorage
         false, // isMove
         null, // listener

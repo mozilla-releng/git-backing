@@ -7,7 +7,6 @@
 interface nsIFile;
 interface nsIMsgNewsFolder;
 interface nsIURI;
-interface nsIMsgWindow;
 
 [scriptable, uuid(077620ed-c6c4-4d4d-bed5-4d041f924002)]
 interface nsINntpIncomingServer : nsISupports {
@@ -77,7 +76,7 @@ interface nsINntpIncomingServer : nsISupports {
      * @param window   The standard message window object.
      * @param consumer A listener for the response data.
      */
-    void loadNewsUrl(in nsIURI uri, in nsIMsgWindow window,
+    void loadNewsUrl(in nsIURI uri, in boolean interactive,
                      in nsISupports consumer);
 
     /**

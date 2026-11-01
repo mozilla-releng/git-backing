@@ -71,7 +71,7 @@ add_task(async function testBasicFiltering() {
   const inbox = incomingServer.rootFolder.getChildNamed("Inbox");
 
   // Add Filter to mark messages with "TOP-SECRET" in the subject as read.
-  const filterList = incomingServer.getFilterList(null);
+  const filterList = incomingServer.getFilterList();
   const filter = filterList.createFilter("ALL");
 
   const searchTerm = filter.createTerm();
@@ -94,7 +94,7 @@ add_task(async function testBasicFiltering() {
 
   // Fetch messages from server.
   const l = new PromiseTestUtils.PromiseUrlListener();
-  inbox.getNewMessages(null, l);
+  inbox.getNewMessages(false, l);
   await l.promise;
 
   // Wait for the local messages to be updated after the server acks.

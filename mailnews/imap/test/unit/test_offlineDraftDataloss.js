@@ -29,12 +29,12 @@ add_setup(function () {
 });
 
 add_task(async function createDraftsFolder() {
-  IMAPPump.incomingServer.rootFolder.createSubfolder("Drafts", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("Drafts");
   await PromiseTestUtils.promiseFolderAdded("Drafts");
   gDraftsFolder = IMAPPump.incomingServer.rootFolder.getChildNamed("Drafts");
   Assert.ok(gDraftsFolder instanceof Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gDraftsFolder.updateFolderWithListener(null, listener);
+  gDraftsFolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -92,7 +92,7 @@ add_task(async function goOnline() {
 
   IMAPPump.server.start();
   offlineManager.inProgress = true;
-  offlineManager.goOnline(false, true, null);
+  offlineManager.goOnline(false, true, false);
   await TestUtils.waitForCondition(
     () => !offlineManager.inProgress,
     "wait for offlineManager not in progress"

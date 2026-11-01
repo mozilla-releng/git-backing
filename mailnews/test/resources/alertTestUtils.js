@@ -483,6 +483,3 @@ function registerAlertTestUtils() {
   Services.prompt = alertUtilsPromptService;
 }
 
-var gDummyMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-  Ci.nsIMsgWindow
-);

@@ -45,7 +45,7 @@ add_setup(async function () {
 
   // select the inbox to force folder discovery, etc.
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -99,10 +99,10 @@ add_task(async function testZimbraServerVersions() {
       '"USER" "user@domain.com" ' +
       '"SERVER" "14b63305-d002-4f1b-bcd9-23d402d4ef40")';
     IMAPPump.incomingServer.closeCachedConnections();
-    IMAPPump.incomingServer.performExpand(null);
+    IMAPPump.incomingServer.performExpand(false);
     // select inbox is just to wait on performExpand since performExpand does not have listener
     const listener = new PromiseTestUtils.PromiseUrlListener();
-    IMAPPump.inbox.updateFolderWithListener(null, listener);
+    IMAPPump.inbox.updateFolderWithListener(false, listener);
     await listener.promise;
     // if we send LSUB instead of LIST(SUBSCRIBED), then we should not have \NoSelect flag
     const rootFolder = IMAPPump.incomingServer.rootFolder;

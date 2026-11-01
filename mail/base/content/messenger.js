@@ -838,7 +838,7 @@ async function loadStartFolder(initialUri) {
       !defaultServer.isDeferredTo &&
       defaultServer.rootFolder == defaultServer.rootMsgFolder
     ) {
-      defaultServer.performBiff(msgWindow);
+      defaultServer.performBiff(true);
     }
     if (loadFolder) {
       const tab = document.getElementById("tabmail")?.tabInfo[0];
@@ -864,7 +864,7 @@ async function loadStartFolder(initialUri) {
     );
     if (playbackOfflineEvents) {
       Services.prefs.setBoolPref("mailnews.playback_offline", false);
-      MailOfflineMgr.offlineManager.goOnline(false, true, msgWindow);
+      MailOfflineMgr.offlineManager.goOnline(false, true, true);
     }
 
     // If appropriate, send unsent messages. This may end up prompting the user,

@@ -6,9 +6,7 @@
 #include "nsMsgMailNewsUrl.h"
 #include "nsIMsgAccountManager.h"
 #include "nsIFeedbackService.h"
-#include "nsIMsgWindow.h"
 #include "nsString.h"
-#include "nsILoadGroup.h"
 #include "nsIDocShell.h"
 #include "nsIWebProgressListener.h"
 #include "nsIIOService.h"
@@ -35,6 +33,7 @@ nsMsgMailNewsUrl::nsMsgMailNewsUrl() {
   m_msgIsInLocalCache = false;
   m_suppressErrorMsgs = false;
   m_hasNormalizedOrigin = false;  // SetSpecInternal() will set this correctly.
+  mInteractive = false;
   mMaxProgress = -1;
 }
 
@@ -58,13 +57,6 @@ nsMsgMailNewsUrl::~nsMsgMailNewsUrl() {
                          mMimeHeaders.forget());
   NS_ReleaseOnMainThread("nsMsgMailNewsUrl::m_searchSession",
                          m_searchSession.forget());
-
-  // Weak references hold a non-threadsafe nsWeakReference proxy that is created
-  // on and belongs to the main thread, so it must be released there too.
-  NS_ReleaseOnMainThread("nsMsgMailNewsUrl::m_msgWindowWeak",
-                         m_msgWindowWeak.forget());
-  NS_ReleaseOnMainThread("nsMsgMailNewsUrl::m_loadGroupWeak",
-                         m_loadGroupWeak.forget());
 
   nsTObserverArray<nsCOMPtr<nsIUrlListener>>::ForwardIterator iter(
       mUrlListeners);
@@ -311,17 +303,14 @@ NS_IMETHODIMP nsMsgMailNewsUrl::GetServer(
   return rv;
 }
 
-NS_IMETHODIMP nsMsgMailNewsUrl::GetMsgWindow(nsIMsgWindow** aMsgWindow) {
-  NS_ENSURE_ARG_POINTER(aMsgWindow);
-  *aMsgWindow = nullptr;
-
-  nsCOMPtr<nsIMsgWindow> msgWindow(do_QueryReferent(m_msgWindowWeak));
-  msgWindow.forget(aMsgWindow);
-  return *aMsgWindow ? NS_OK : NS_ERROR_NULL_POINTER;
+NS_IMETHODIMP nsMsgMailNewsUrl::GetInteractive(bool* interactive) {
+  NS_ENSURE_ARG_POINTER(interactive);
+  *interactive = mInteractive;
+  return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgMailNewsUrl::SetMsgWindow(nsIMsgWindow* aMsgWindow) {
-  m_msgWindowWeak = do_GetWeakReference(aMsgWindow);
+NS_IMETHODIMP nsMsgMailNewsUrl::SetInteractive(bool interactive) {
+  mInteractive = interactive;
   return NS_OK;
 }
 
@@ -333,11 +322,6 @@ NS_IMETHODIMP nsMsgMailNewsUrl::GetMaxProgress(int64_t* aMaxProgress) {
 NS_IMETHODIMP nsMsgMailNewsUrl::SetMaxProgress(int64_t aMaxProgress) {
   mMaxProgress = aMaxProgress;
   return NS_OK;
-}
-
-NS_IMETHODIMP nsMsgMailNewsUrl::GetLoadGroup(nsILoadGroup** aLoadGroup) {
-  *aLoadGroup = nullptr;
-  return NS_ERROR_NULL_POINTER;
 }
 
 NS_IMETHODIMP nsMsgMailNewsUrl::GetUpdatingFolder(bool* aResult) {
@@ -681,12 +665,11 @@ nsresult nsMsgMailNewsUrl::Clone(nsIURI** _retval) {
   rv = ioService->NewURI(urlSpec, nullptr, nullptr, getter_AddRefs(newUri));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // add the msg window to the cloned url
-  nsCOMPtr<nsIMsgWindow> msgWindow(do_QueryReferent(m_msgWindowWeak));
-  if (msgWindow) {
+  // Carry the interactivity of this url over to the clone.
+  if (mInteractive) {
     nsCOMPtr<nsIMsgMailNewsUrl> msgMailNewsUrl = do_QueryInterface(newUri, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
-    msgMailNewsUrl->SetMsgWindow(msgWindow);
+    msgMailNewsUrl->SetInteractive(true);
   }
 
   newUri.forget(_retval);

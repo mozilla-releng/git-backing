@@ -96,7 +96,7 @@ add_setup(async function () {
   ewsAccount.incomingServer.prettyName = "EWS Account";
   await addLoginInfo("ews://test.test", "user", "password");
   ewsRootFolder = ewsAccount.incomingServer.rootFolder;
-  ewsAccount.incomingServer.performExpand(null);
+  ewsAccount.incomingServer.performExpand(false);
   ewsInbox = await TestUtils.waitForCondition(
     () => ewsRootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox),
     "waiting for EWS folders to sync"
@@ -117,7 +117,7 @@ add_setup(async function () {
   graphAccount.incomingServer.prettyName = "Graph Account";
   await addLoginInfo("graph://test.test", "user", "password");
   graphRootFolder = graphAccount.incomingServer.rootFolder;
-  graphAccount.incomingServer.performExpand(null);
+  graphAccount.incomingServer.performExpand(false);
   graphInbox = await TestUtils.waitForCondition(
     () => graphRootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox),
     "waiting for Graph folders to sync"
@@ -133,7 +133,7 @@ add_setup(async function () {
   nntpAccount.incomingServer.prettyName = "NNTP Account";
   nntpAccount.incomingServer.port = 119;
   nntpRootFolder = nntpAccount.incomingServer.rootFolder;
-  nntpRootFolder.createSubfolder("getmessages.newsgroup", null);
+  nntpRootFolder.createSubfolder("getmessages.newsgroup");
   nntpFolder = nntpRootFolder.getChildNamed("getmessages.newsgroup");
   allInboxes.push(nntpFolder);
 
@@ -191,7 +191,7 @@ async function waitForMessages(inbox) {
   await promiseServerIdle(inbox.server);
   info(`${inbox.server.type} messages received`);
 
-  inbox.markAllMessagesRead(window.msgWindow);
+  inbox.markAllMessagesRead();
   await promiseServerIdle(inbox.server);
   await TestUtils.waitForCondition(
     () => inbox.getNumUnread(false) == 0 && inbox.numPendingUnread == 0,

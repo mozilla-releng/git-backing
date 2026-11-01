@@ -47,7 +47,7 @@ add_setup(async function () {
 
   imapAccount.addIdentity(imapIdentity);
   imapRootFolder = imapAccount.incomingServer.rootFolder;
-  imapAccount.incomingServer.performBiff(null);
+  imapAccount.incomingServer.performBiff(false);
   await TestUtils.waitForCondition(() =>
     imapRootFolder.containsChildNamed("Trash")
   );
@@ -276,10 +276,10 @@ async function removeFolder(folder) {
   const rootFolder = folder.rootFolder;
   if (folder.incomingServerType == "imap") {
     const deletedPromise = PromiseTestUtils.promiseFolderDeleted(folder);
-    folder.deleteSelf(null);
+    folder.deleteSelf(false);
     await deletedPromise;
   } else {
-    folder.deleteSelf(null);
+    folder.deleteSelf(false);
   }
 
   info("emptying the trash");
@@ -379,7 +379,7 @@ async function subtest(action, expectedParent, expectedName) {
   // Check that the message was saved to the folder.
 
   const expectedMessageCount = folderCountBeforeTest + 1;
-  folder.updateFolder(window.msgWindow);
+  folder.updateFolder(true);
   await TestUtils.waitForCondition(
     () =>
       folder.getTotalMessages(false) - folder.numPendingTotalMessages ==

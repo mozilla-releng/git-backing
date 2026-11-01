@@ -48,7 +48,7 @@ add_task(async function testSaveMessageToDisk() {
     MailServices.imap.discoverAllFolders(
       incomingServer.rootFolder,
       listener,
-      null
+      false
     );
     await listener.promise;
   }
@@ -72,7 +72,7 @@ add_task(async function testSaveMessageToDisk() {
   // Sync the message list.
   {
     const listener = new PromiseTestUtils.PromiseUrlListener();
-    inbox.updateFolderWithListener(null, listener);
+    inbox.updateFolderWithListener(false, listener);
     await listener.promise;
   }
 
@@ -103,7 +103,7 @@ add_task(async function testSaveMessageToDisk() {
     saveFile,
     saveListener,
     true /* canonicalLineEnding */,
-    null
+    false
   );
   await saveListener.promise;
 

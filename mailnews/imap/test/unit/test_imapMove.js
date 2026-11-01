@@ -27,17 +27,17 @@ function setupCUSTOM1() {
 }
 
 async function startTest() {
-  IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1");
   await PromiseTestUtils.promiseFolderAdded("folder 1");
 
   addImapMessage();
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 
   // ...and download for offline use.
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, null);
+  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, false);
   await promiseUrlListener.promise;
 }
 
@@ -57,7 +57,7 @@ async function doMove() {
     gFolder1,
     true,
     listener,
-    null,
+    false,
     false
   );
   IMAPPump.server.performTest("UID MOVE");
@@ -67,7 +67,7 @@ async function doMove() {
 async function testMove() {
   Assert.equal(IMAPPump.inbox.getTotalMessages(false), 0);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gFolder1.updateFolderWithListener(null, listener);
+  gFolder1.updateFolderWithListener(false, listener);
   await listener.promise;
   Assert.equal(gFolder1.getTotalMessages(false), 1);
 

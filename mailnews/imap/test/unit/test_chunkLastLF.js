@@ -72,7 +72,7 @@ add_task(async function verifyContentLength() {
     MailServices.imap.discoverAllFolders(
       incomingServer.rootFolder,
       listener,
-      null
+      false
     );
     await listener.promise;
   }
@@ -91,7 +91,7 @@ add_task(async function verifyContentLength() {
     .QueryInterface(Ci.nsIMsgImapMailFolder);
   {
     const listener = new PromiseTestUtils.PromiseUrlListener();
-    inbox.updateFolderWithListener(null, listener);
+    inbox.updateFolderWithListener(false, listener);
     await listener.promise;
   }
 

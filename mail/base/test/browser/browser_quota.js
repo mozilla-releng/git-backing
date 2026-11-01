@@ -147,7 +147,7 @@ async function updateQuota(usage, limit) {
   imapServer.setQuota(imapFolder, "STORAGE", usage, limit);
   // Force the folder to be updated from the server.
   await new Promise(resolve =>
-    imapFolder.updateFolderWithListener(window.msgWindow, {
+    imapFolder.updateFolderWithListener(true, {
       OnStartRunningUrl() {},
       OnStopRunningUrl() {
         resolve();

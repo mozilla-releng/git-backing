@@ -115,12 +115,12 @@ function copyFileMessage(file, destFolder, isDraftOrTemplate) {
     0,
     "",
     copyListener,
-    null
+    false
   );
 }
 
 function deleteMessages(srcFolder, items) {
-  srcFolder.deleteMessages(items, null, false, true, copyListener, true);
+  srcFolder.deleteMessages(items, false, false, true, copyListener, true);
 }
 
 /*
@@ -149,7 +149,7 @@ var gTestArray = [
     checkPersistentState(gLocalFolder2);
   },
   function compactFolder() {
-    gLocalFolder2.compact(urlListener, null);
+    gLocalFolder2.compact(urlListener, false);
   },
   function checkAfterCompact() {
     checkPersistentState(gLocalFolder2);

@@ -61,7 +61,7 @@ add_task(async function copyFolder1() {
     IMAPPump.inbox,
     false,
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 });
@@ -77,7 +77,7 @@ add_task(async function copyFolder2() {
     IMAPPump.inbox,
     false,
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 });
@@ -97,7 +97,7 @@ add_task(async function getLocalMessage1() {
     0,
     "",
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 });
@@ -118,7 +118,7 @@ add_task(async function getLocalMessage2() {
     0,
     "",
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 });
@@ -137,7 +137,7 @@ add_task(async function copyMessages() {
     folder1,
     false,
     copyListener,
-    null,
+    false,
     false
   );
   await copyListener.promise;
@@ -156,7 +156,7 @@ add_task(async function moveMessages() {
     folder2,
     true,
     copyListener,
-    null,
+    false,
     false
   );
   await copyListener.promise;
@@ -167,7 +167,7 @@ add_task(async function update1() {
     .getChildNamed("empty 1")
     .QueryInterface(Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  folder1.updateFolderWithListener(null, listener);
+  folder1.updateFolderWithListener(false, listener);
   await listener.promise;
   // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -178,7 +178,7 @@ add_task(async function update2() {
     .getChildNamed("empty 2")
     .QueryInterface(Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  folder2.updateFolderWithListener(null, listener);
+  folder2.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 

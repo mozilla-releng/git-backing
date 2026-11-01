@@ -81,7 +81,7 @@ function filterRunListener(folder) {
           "chrome://messenger/content/viewLog.xhtml",
           "FilterLog",
           "chrome,dependent,titlebar,resizable,centerscreen",
-          { filterList: folder.getFilterList(window.top.msgWindow) }
+          { filterList: folder.getFilterList() }
         );
       }
     },
@@ -127,7 +127,7 @@ var commandController = {
     cmd_cancel() {
       gFolder
         .QueryInterface(Ci.nsIMsgNewsFolder)
-        .cancelMessage(gDBView.hdrForFirstSelectedMessage, null, top.msgWindow);
+        .cancelMessage(gDBView.hdrForFirstSelectedMessage, null, true);
     },
     cmd_openConversation() {
       new ConversationOpener(window).openConversationForMessages(
@@ -274,11 +274,9 @@ var commandController = {
         const file = Services.io
           .newURI(window.gMessageURI)
           .QueryInterface(Ci.nsIFileURL).file;
-        await MailUtils.copyFileMessageAsync(
-          file,
-          destFolder,
-          top.msgWindow
-        ).catch(console.warn);
+        await MailUtils.copyFileMessageAsync(file, destFolder, true).catch(
+          console.warn
+        );
         await MailUtils.updateFolderAsync(destFolder).catch(console.warn);
       } else {
         gDBView.doCommandWithFolder(
@@ -301,9 +299,8 @@ var commandController = {
       }
       dbViewWrapperListener.threadPaneCommandUpdater.updateNextMessageAfterDelete();
       const archiver = new MessageArchiver();
-      // The instance of nsITransactionManager to use here is tied to msgWindow. Set
-      // this property so the operation can be undone if requested.
-      archiver.msgWindow = top.msgWindow;
+      // Set this property so the operation can be undone if requested.
+      archiver.interactive = true;
       // Archive the selected message(s).
       archiver.archiveMessages(gDBView.getSelectedMsgHdrs());
     },
@@ -364,10 +361,7 @@ var commandController = {
         : gDBView.getURIsForSelection();
       for (const uri of uris) {
         // Now, we need to get a URL from a URI
-        let url = MailServices.mailSession.ConvertMsgURIToMsgURL(
-          uri,
-          top.msgWindow
-        );
+        let url = MailServices.mailSession.ConvertMsgURIToMsgURL(uri, true);
 
         // Strip out the message-display parameter to ensure that attached emails
         // display the message source, not the processed HTML.
@@ -390,7 +384,7 @@ var commandController = {
       top.SaveAsTemplate(gDBView.getURIsForSelection()[0]);
     },
     cmd_applyFilters() {
-      const curFilterList = gFolder.getFilterList(top.msgWindow);
+      const curFilterList = gFolder.getFilterList();
       // Create a new filter list and copy over the enabled filters to it.
       // We do this instead of having the filter after the fact code ignore
       // disabled filters because the Filter Dialog filter after the fact
@@ -417,7 +411,7 @@ var commandController = {
       MailServices.filters.applyFiltersToFolders(
         tempFilterList,
         [gFolder],
-        top.msgWindow,
+        true,
         filterRunListener(gFolder)
       );
     },
@@ -429,7 +423,7 @@ var commandController = {
           selectedMessages,
           [],
           gFolder,
-          top.msgWindow,
+          true,
           filterRunListener(gFolder)
         );
       }
@@ -1091,7 +1085,7 @@ var dbViewWrapperListener = {
    */
   _nextViewIndexGeneration: 0,
 
-  msgWindow: top.msgWindow,
+  interactive: true,
   threadPaneCommandUpdater: {
     QueryInterface: ChromeUtils.generateQI([
       "nsIMsgDBViewCommandUpdater",

@@ -34,7 +34,7 @@ add_task(async function test_virtual_folder_not_reused_after_delete() {
   // created locally via addSubfolder (it has no server mailbox) and then
   // flagged Virtual. Keep the strong reference so that the folder lookup
   // service's weak reference still resolves after deletion.
-  rootFolder.createSubfolder("Label-A", null);
+  rootFolder.createSubfolder("Label-A");
   await PromiseTestUtils.promiseFolderAdded("Label-A");
   const parent = rootFolder.getChildNamed("Label-A");
 
@@ -43,7 +43,7 @@ add_task(async function test_virtual_folder_not_reused_after_delete() {
 
   // Delete the virtual folder. Virtual folders are deleted locally (no server
   // round trip), which removes them from the folder tree.
-  vf.deleteSelf(null);
+  vf.deleteSelf(false);
   Assert.equal(vf.parent, null, "deleted virtual folder should have no parent");
   Assert.equal(
     parent.getChildNamed("AB"),
@@ -54,7 +54,7 @@ add_task(async function test_virtual_folder_not_reused_after_delete() {
   // Recreate an ordinary folder with the same name. For IMAP this goes through
   // the server (CREATE followed by folder discovery), which ends up in
   // AddSubfolderWithPath -> GetOrCreateFolderForURL.
-  parent.createSubfolder("AB", null);
+  parent.createSubfolder("AB");
   const recreated = await PromiseTestUtils.promiseFolderAdded("AB");
 
   Assert.ok(

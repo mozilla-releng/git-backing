@@ -100,7 +100,7 @@ export class NntpClient {
     this._lineReader = new LineReader();
     this.runningUri = null;
     this.urlListener = null;
-    this._msgWindow = null;
+    this._interactive = false;
     this._newsFolder = null;
     this._newsGroup = null;
     this._nextAction = null;
@@ -143,22 +143,21 @@ export class NntpClient {
    * the current request is finished.
    *
    * @param {nsIUrlListener} urlListener - Callback for the request.
-   * @param {nsIMsgWindow} msgWindow - The associated msg window.
+   * @param {boolean} interactive - Whether the user is waiting on the request,
+   *   and so should be told about any failure.
    * @param {nsIMsgMailNewsUrl} [runningUri] - The url to run, if provided.
    * @returns {nsIMsgMailNewsUrl}
    */
-  startRunningUrl(urlListener, msgWindow, runningUri) {
+  startRunningUrl(urlListener, interactive, runningUri) {
     this.urlListener = urlListener;
-    this._msgWindow = msgWindow;
+    this._interactive = interactive;
     this.runningUri = runningUri;
     if (!this.runningUri) {
       this.runningUri = Services.io
         .newURI(`news://${this._server.hostname}:${this._server.port}`)
         .QueryInterface(Ci.nsIMsgMailNewsUrl);
     }
-    if (msgWindow) {
-      this.runningUri.msgWindow = msgWindow;
-    }
+    this.runningUri.interactive = interactive;
     this.urlListener?.OnStartRunningUrl(this.runningUri, Cr.NS_OK);
     this.runningUri.SetUrlState(true, Cr.NS_OK);
     return this.runningUri;
@@ -323,30 +322,14 @@ export class NntpClient {
         break;
     }
     if (errorName && this.runningUri && uri) {
-      // If there's a message window on the URI, then we should alert the user.
-      // Otherwise (i.e. if the getter for `msgWindow` raised
-      // `NS_ERROR_NULL_POINTER`), this is a background operation and we should
-      // tell the mail session to only call the listeners but not alert.
-      let silent = true;
-      try {
-        if (this.runningUri.msgWindow) {
-          silent = false;
-        }
-      } catch (ex) {
-        if (
-          !(ex instanceof Ci.nsIException) &&
-          ex.result != Cr.NS_ERROR_NULL_POINTER
-        ) {
-          throw ex;
-        }
-      }
-
       MailServices.mailSession.alertUser(
         lazy.messengerBundle.formatStringFromName(errorName, [
           this._server.hostname,
         ]),
         this.runningUri,
-        silent
+        // A background operation has nobody to alert, so tell the mail session
+        // to only call the listeners.
+        !this.runningUri.interactive
       );
 
       // If we were going to display an article, instead show an error page.
@@ -556,10 +539,10 @@ export class NntpClient {
    * Load a news uri directly, see rfc5538 about supported news uri.
    *
    * @param {string} uri - The news uri to load.
-   * @param {nsIMsgWindow} msgWindow - The associated msg window.
+   * @param {boolean} interactive - Whether the user is waiting on the request.
    * @param {nsIStreamListener} streamListener - The listener for the request.
    */
-  loadNewsUrl(uri, msgWindow, streamListener) {
+  loadNewsUrl(uri, interactive, streamListener) {
     this._logger.debug(`Loading ${uri}`);
     const url = new URL(uri);
     const path = url.pathname.slice(1);
@@ -577,7 +560,7 @@ export class NntpClient {
     if (!action) {
       return;
     }
-    this._msgWindow = msgWindow;
+    this._interactive = interactive;
     const pipe = Cc["@mozilla.org/pipe;1"].createInstance(Ci.nsIPipe);
     pipe.init(true, true, 0, 0);
     const inputStream = pipe.inputStream;
@@ -787,7 +770,6 @@ export class NntpClient {
     const [count, low, high] = res.statusText.split(" ");
     this._newsFolder.updateSummaryFromNNTPInfo(low, high, count);
     const [start, end] = this._newsGroup.getArticlesRangeToFetch(
-      this._msgWindow,
       Number(low),
       Number(high)
     );
@@ -1172,7 +1154,7 @@ export class NntpClient {
         this._actionAuthPassword();
         return;
       case AUTH_FAILED: {
-        const action = this._authenticator.promptAuthFailed(this._msgWindow);
+        const action = this._authenticator.promptAuthFailed();
         if (action == 1) {
           // Cancel button pressed.
           this._actionDone();
@@ -1294,9 +1276,9 @@ export class NntpClient {
     this._logger.error(
       `Got an error, the server said: ${status} ${statusText}`
     );
-    if (this._msgWindow) {
+    if (this._interactive) {
       Services.prompt.alert(
-        this._msgWindow.domWindow,
+        Services.wm.getMostRecentWindow("mail:3pane"),
         null,
         lazy.messengerBundle.formatStringFromName("statusMessage", [
           this._server.prettyName,

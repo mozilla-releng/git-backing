@@ -103,7 +103,7 @@ async function createAccount(type = "none", options = {}) {
     );
     account.incomingServer.getNewMessages(
       account.incomingServer.rootFolder,
-      null,
+      false,
       null
     );
 
@@ -175,7 +175,7 @@ async function createSubfolder(parent, name) {
   }
 
   const promiseAdded = MailPromiseTestUtils.promiseFolderAdded(name);
-  parent.createSubfolder(name, null);
+  parent.createSubfolder(name);
   await promiseAdded;
   return parent.getChildNamed(name);
 }
@@ -222,7 +222,7 @@ async function addGeneratedMessages(folder, messages) {
   const messageStrings = messages.map(message => message.toMessageString());
   folder.QueryInterface(Ci.nsIMsgLocalMailFolder);
   folder.addMessageBatch(messageStrings);
-  folder.callFilterPlugins(null);
+  folder.callFilterPlugins();
 
   return new Promise(resolve =>
     mailTestUtils.updateFolderAndNotify(folder, resolve)
@@ -286,7 +286,7 @@ class IMAPServer {
     });
 
     const listener = new MailPromiseTestUtils.PromiseUrlListener();
-    folder.updateFolderWithListener(null, listener);
+    folder.updateFolderWithListener(false, listener);
     return listener.promise;
   }
 }

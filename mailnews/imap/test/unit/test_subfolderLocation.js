@@ -28,7 +28,7 @@ add_task(async function loadImapMessage() {
     new ImapMessage(specForFileName(gMessage), IMAPPump.mailbox.uidnext++, [])
   );
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(gDummyMsgWindow, promiseUrlListener);
+  IMAPPump.inbox.updateFolderWithListener(true, promiseUrlListener);
   await promiseUrlListener.promise;
 
   Assert.equal(1, IMAPPump.inbox.getTotalMessages(false));
@@ -39,7 +39,7 @@ add_task(async function loadImapMessage() {
 add_task(async function downloadOffline() {
   // ...and download for offline use.
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, null);
+  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, false);
   await promiseUrlListener.promise;
 });
 
@@ -49,7 +49,7 @@ var folderName2 = "sub2";
 // use a folder method to add a subfolder
 add_task(async function addSubfolder() {
   const promiseFolder1 = PromiseTestUtils.promiseFolderAdded(folderName1);
-  IMAPPump.inbox.createSubfolder(folderName1, null);
+  IMAPPump.inbox.createSubfolder(folderName1);
   await promiseFolder1;
 });
 

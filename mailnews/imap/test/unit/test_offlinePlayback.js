@@ -64,7 +64,7 @@ var tests = [
       gSecondFolder,
       true,
       promiseCopyListener1,
-      null,
+      false,
       true
     );
     const promiseCopyListener2 = new PromiseTestUtils.PromiseCopyListener();
@@ -74,7 +74,7 @@ var tests = [
       gThirdFolder,
       true,
       promiseCopyListener2,
-      null,
+      false,
       true
     );
     var file = do_get_file("../../../data/bugmail10");
@@ -87,7 +87,7 @@ var tests = [
       0,
       "",
       promiseCopyListener3,
-      null
+      false
     );
     await Promise.all([
       promiseCopyListener1.promise,
@@ -103,22 +103,22 @@ var tests = [
     Services.io.offline = false;
 
     IMAPPump.server.start();
-    gOfflineManager.goOnline(false, true, null);
+    gOfflineManager.goOnline(false, true, false);
     await PromiseTestUtils.promiseDelay(2000);
   },
   async function updateSecondFolder() {
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    gSecondFolder.updateFolderWithListener(null, promiseUrlListener);
+    gSecondFolder.updateFolderWithListener(false, promiseUrlListener);
     await promiseUrlListener.promise;
   },
   async function updateThirdFolder() {
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    gThirdFolder.updateFolderWithListener(null, promiseUrlListener);
+    gThirdFolder.updateFolderWithListener(false, promiseUrlListener);
     await promiseUrlListener.promise;
   },
   async function updateInbox() {
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+    IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
     await promiseUrlListener.promise;
   },
   function checkDone() {
@@ -171,7 +171,7 @@ async function setup() {
 
   // update folder to download header.
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+  IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
   await promiseUrlListener.promise;
 }
 

@@ -157,7 +157,7 @@ export class MessageInjection {
       // Note: Inbox is not created automatically when there is no deferred server,
       // so we need to create it.
       this._mis.rootFolder = this._mis.incomingServer.rootMsgFolder;
-      this._mis.rootFolder.createSubfolder("Inbox", null);
+      this._mis.rootFolder.createSubfolder("Inbox");
       this._mis.inboxFolder = this._mis.rootFolder.getChildNamed("Inbox");
       // a local inbox should have a Mail flag!
       this._mis.inboxFolder.setFlag(Ci.nsMsgFolderFlags.Mail);
@@ -387,7 +387,7 @@ export class MessageInjection {
             }
           },
         },
-        null
+        false
       );
     });
   }
@@ -506,7 +506,7 @@ export class MessageInjection {
     const msgFolder = this.getRealInjectionFolder(folderHandle);
     msgFolder.setFlag(Ci.nsMsgFolderFlags.Offline);
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    msgFolder.downloadAllForOffline(promiseUrlListener, null);
+    msgFolder.downloadAllForOffline(promiseUrlListener, false);
     await promiseUrlListener.promise;
   }
 
@@ -709,7 +709,7 @@ export class MessageInjection {
       //  although since filters really want to be run on the inbox, there
       //  are separate potential semantic issues involved.
       for (const folder of msgFolders) {
-        folder.callFilterPlugins(null);
+        folder.callFilterPlugins();
       }
 
       if (doNotForceUpdate) {
@@ -778,7 +778,7 @@ export class MessageInjection {
         // compel download of the messages if appropriate
         if (realFolder.flags & Ci.nsMsgFolderFlags.Offline) {
           const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-          realFolder.downloadAllForOffline(promiseUrlListener, null);
+          realFolder.downloadAllForOffline(promiseUrlListener, false);
           await promiseUrlListener.promise;
         }
       }
@@ -834,7 +834,7 @@ export class MessageInjection {
         realDestFolder,
         /* move */ true,
         promiseCopyListener,
-        null,
+        false,
         Boolean(allowUndo)
       );
       await promiseCopyListener.promise;
@@ -856,7 +856,7 @@ export class MessageInjection {
         // compel download of messages in dest folder if appropriate
         if (realDestFolder.flags & Ci.nsMsgFolderFlags.Offline) {
           const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-          realDestFolder.downloadAllForOffline(promiseUrlListener, null);
+          realDestFolder.downloadAllForOffline(promiseUrlListener, false);
           await promiseUrlListener.promise;
         }
       }
@@ -880,7 +880,7 @@ export class MessageInjection {
       const promiseCopyListener = new PromiseTestUtils.PromiseCopyListener();
       folder.deleteMessages(
         msgs,
-        null,
+        false,
         false,
         true,
         promiseCopyListener,
@@ -909,7 +909,7 @@ export class MessageInjection {
         // compel download of messages in dest folder if appropriate
         if (trashFolder.flags & Ci.nsMsgFolderFlags.Offline) {
           const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-          trashFolder.downloadAllForOffline(promiseUrlListener, null);
+          trashFolder.downloadAllForOffline(promiseUrlListener, false);
           await promiseUrlListener.promise;
         }
       }
@@ -928,7 +928,7 @@ export class MessageInjection {
       const promiseCopyListener = new PromiseTestUtils.PromiseCopyListener();
       folder.deleteMessages(
         msgs,
-        null,
+        false,
         /* delete storage */ true,
         /* is move? */ false,
         promiseCopyListener,

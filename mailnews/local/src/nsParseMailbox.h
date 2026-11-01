@@ -13,7 +13,6 @@
 #include "nsCOMPtr.h"
 #include "nsCOMArray.h"
 #include "nsIDBChangeListener.h"
-#include "nsIMsgWindow.h"
 #include "nsImapMoveCoalescer.h"
 #include "nsIMsgFilterList.h"
 #include "nsIMsgFilter.h"
@@ -126,7 +125,7 @@ class nsParseNewMailState : public nsParseMailMessageState,
   NS_DECL_ISUPPORTS_INHERITED
 
   nsresult Init(nsIMsgFolder* rootFolder, nsIMsgFolder* downloadFolder,
-                nsIMsgWindow* aMsgWindow, nsIMsgDBHdr* aHdr,
+                bool aInteractive, nsIMsgDBHdr* aHdr,
                 nsIOutputStream* aOutputStream);
 
   void DoneParsing();
@@ -135,12 +134,11 @@ class nsParseNewMailState : public nsParseMailMessageState,
 
   NS_DECL_NSIMSGFILTERHITNOTIFY
 
-  virtual void PublishMsgHeader(nsIMsgWindow* msgWindow);
-  void GetMsgWindow(nsIMsgWindow** aMsgWindow);
+  virtual void PublishMsgHeader(bool interactive);
   nsresult EndMsgDownload();
 
-  void ApplyFilters(bool* pMoved, nsIMsgWindow* msgWindow);
-  nsresult ApplyForwardAndReplyFilter(nsIMsgWindow* msgWindow);
+  void ApplyFilters(bool* pMoved, bool interactive);
+  nsresult ApplyForwardAndReplyFilter(bool interactive);
 
   // These three vars are public because they need to be carried between
   // messages.
@@ -165,15 +163,14 @@ class nsParseNewMailState : public nsParseMailMessageState,
   virtual nsresult MoveIncorporatedMessage(nsIMsgDBHdr* mailHdr,
                                            nsIMsgDatabase* sourceDB,
                                            nsIMsgFolder* destIFolder,
-                                           nsIMsgFilter* filter,
-                                           nsIMsgWindow* msgWindow);
+                                           nsIMsgFilter* filter);
   virtual void MarkFilteredMessageRead(nsIMsgDBHdr* msgHdr);
   virtual void MarkFilteredMessageUnread(nsIMsgDBHdr* msgHdr);
 
   nsCOMPtr<nsIMsgFilterList> m_filterList;
   nsCOMPtr<nsIMsgFilterList> m_deferredToServerFilterList;
   nsCOMPtr<nsIMsgFolder> m_rootFolder;
-  nsCOMPtr<nsIMsgWindow> m_msgWindow;
+  bool m_interactive;
   nsCOMPtr<nsIMsgFolder> m_downloadFolder;
   nsCOMPtr<nsIOutputStream> m_outputStream;
   nsCOMArray<nsIMsgFolder> m_filterTargetFolders;

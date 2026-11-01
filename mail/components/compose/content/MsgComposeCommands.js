@@ -127,7 +127,6 @@ ChromeUtils.defineLazyGetter(lazy, "taskbarProgress", () => {
  * stuff in the future and instead pass this object as parameter when needed by
  * functions in the other js file.
  */
-var msgWindow;
 
 /**
  * Global variables, need to be re-initialized every time mostly because
@@ -440,11 +439,6 @@ function InitializeGlobalVariables() {
   gAttachVCardOptionChanged = false;
   gNumUploadingAttachments = 0;
 
-  msgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-    Ci.nsIMsgWindow
-  );
-  MailServices.mailSession.AddMsgWindow(msgWindow);
-
   // Add the observer.
   Services.obs.addObserver(inputObserver, "autocomplete-did-enter-text");
   Services.obs.addObserver(keyObserver, "openpgp-key-change");
@@ -458,9 +452,6 @@ function ReleaseGlobalVariables() {
   gOriginalMsgURI = null;
   gRecipientObserver = null;
   gDisableAttachmentReminder = false;
-  MailServices.mailSession.RemoveMsgWindow(msgWindow);
-
-  msgWindow = null;
 
   gLastKnownComposeStates = null;
 
@@ -1682,7 +1673,7 @@ function goOpenNewMessage(aEvent) {
     msgCompFormat,
     gCurrentIdentity,
     null,
-    null
+    false
   );
 }
 
@@ -6581,7 +6572,7 @@ async function CompleteGenericSendMessage(msgType) {
       }
     }
     window.browsingContext.docShell.allowAuth = true;
-    progress.msgWindow = msgWindow;
+    progress.interactive = true;
     await gMsgCompose.sendMsg(
       msgType,
       gCurrentIdentity,
@@ -8125,7 +8116,7 @@ function RemoveDraft() {
         if (!msgHdr) {
           throw new Error(`No draft for key=${msgKey}`);
         }
-        folder.deleteMessages([msgHdr], null, true, false, null, false);
+        folder.deleteMessages([msgHdr], false, true, false, null, false);
       }
     } catch (ex) {
       // couldn't find header - perhaps an imap folder.
@@ -8287,8 +8278,7 @@ async function messageAttachmentToFile(attachment) {
 
     service.streamMessage(
       attachment.url,
-      streamlistener,
-      null, // aMsgWindow
+      streamlistener, // aStreamlistener
       null, // aUrlListener
       false, // aConvertData
       "" //aAdditionalHeader

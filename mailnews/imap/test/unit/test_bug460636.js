@@ -35,7 +35,7 @@ async function setup() {
     new ImapMessage(msgfileuri.spec, IMAPPump.mailbox.uidnext++, [])
   );
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+  IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
   await promiseUrlListener.promise;
 
   // Save the message to a local file. IMapMD corresponds to
@@ -59,8 +59,8 @@ async function setup() {
     IMAPPump.inbox.getUriForMsg(msg),
     gSavedMsgFile,
     promiseUrlListener2,
-    true, // Enforcing canonicalLineEnding (i.e., CRLF).
-    null
+    true,
+    false
   );
   await promiseUrlListener2.promise;
 }

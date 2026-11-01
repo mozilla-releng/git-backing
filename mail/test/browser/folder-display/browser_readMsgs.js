@@ -47,7 +47,7 @@ add_task(async function testMarkedAsRead() {
     0,
     "",
     promiseCopyListener,
-    null
+    false
   );
   await promiseCopyListener.promise;
   await be_in_folder(folder);
@@ -61,6 +61,6 @@ add_task(async function testMarkedAsRead() {
     "should get marked as read"
   );
   await be_in_folder(inboxFolder);
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
   await SpecialPowers.popPrefEnv();
 });

@@ -16,7 +16,6 @@
 #include "nsIWindowWatcher.h"
 #include "mozIDOMWindow.h"
 #include "nsIDocumentViewer.h"
-#include "nsIMsgWindow.h"
 #include "nsIDocShell.h"
 #include "nsPIDOMWindow.h"
 #include "mozilla/dom/Document.h"
@@ -176,8 +175,7 @@ nsMsgComposeService::OpenComposeWindow(
     const nsACString& msgComposeWindowURL, nsIMsgDBHdr* origMsgHdr,
     const nsACString& originalMsgURI, MSG_ComposeType type,
     MSG_ComposeFormat format, nsIMsgIdentity* aIdentity, const nsACString& from,
-    nsIMsgWindow* aMsgWindow, const nsACString& selectionHTML,
-    bool autodetectCharset) {
+    bool interactive, const nsACString& selectionHTML, bool autodetectCharset) {
   nsresult rv;
 
   nsCOMPtr<nsIMsgIdentity> identity = aIdentity;
@@ -227,7 +225,7 @@ nsMsgComposeService::OpenComposeWindow(
     return RunMessageThroughMimeDraft(
         uriToOpen, outputType, identity, originalMsgURI, origMsgHdr,
         forwardInline, EmptyString(), /* aForwardTo */
-        overrideComposeFormat, aMsgWindow, autodetectCharset);
+        overrideComposeFormat, interactive, autodetectCharset);
   }
 
   nsCOMPtr<nsIMsgComposeParams> pMsgComposeParams(
@@ -640,7 +638,6 @@ class nsMsgTemplateReplyHelper final : public nsIStreamListener,
 
   nsCOMPtr<nsIMsgDBHdr> mHdrToReplyTo;
   nsCOMPtr<nsIMsgDBHdr> mTemplateHdr;
-  nsCOMPtr<nsIMsgWindow> mMsgWindow;
   nsCOMPtr<nsIMsgIdentity> mIdentity;
   nsCString mTemplateBody;
   bool mInMsgBody;
@@ -800,7 +797,7 @@ nsMsgTemplateReplyHelper::OnDataAvailable(nsIRequest* request,
 
 NS_IMETHODIMP nsMsgComposeService::ReplyWithTemplate(
     nsIMsgDBHdr* aMsgHdr, const nsACString& templateUri,
-    nsIMsgWindow* aMsgWindow, nsIMsgIncomingServer* aServer) {
+    nsIMsgIncomingServer* aServer) {
   // To reply with template, we need the message body of the template.
   // I think we're going to need to stream the template message to ourselves,
   // and construct the body, and call setBody on the compFields.
@@ -842,7 +839,6 @@ NS_IMETHODIMP nsMsgComposeService::ReplyWithTemplate(
   RefPtr<nsMsgTemplateReplyHelper> helper = new nsMsgTemplateReplyHelper;
 
   helper->mHdrToReplyTo = aMsgHdr;
-  helper->mMsgWindow = aMsgWindow;
   helper->mIdentity = identity;
 
   nsAutoCString replyTo;
@@ -888,7 +884,7 @@ NS_IMETHODIMP nsMsgComposeService::ReplyWithTemplate(
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIURI> dummyNull;
-  rv = msgService->StreamMessage(templateMsgHdrUri, helper, aMsgWindow, helper,
+  rv = msgService->StreamMessage(templateMsgHdrUri, helper, helper,
                                  false,  // convert data
                                  ""_ns, false, getter_AddRefs(dummyNull));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -905,8 +901,7 @@ NS_IMETHODIMP nsMsgComposeService::ReplyWithTemplate(
 
 NS_IMETHODIMP
 nsMsgComposeService::ForwardMessage(const nsAString& forwardTo,
-                                    nsIMsgDBHdr* aMsgHdr,
-                                    nsIMsgWindow* aMsgWindow,
+                                    nsIMsgDBHdr* aMsgHdr, bool interactive,
                                     nsIMsgIncomingServer* aServer,
                                     uint32_t aForwardType) {
   NS_ENSURE_ARG_POINTER(aMsgHdr);
@@ -951,7 +946,7 @@ nsMsgComposeService::ForwardMessage(const nsAString& forwardTo,
   if (aForwardType == nsIMsgComposeService::kForwardInline)
     return RunMessageThroughMimeDraft(
         uriToOpen, nsMimeOutput::nsMimeMessageDraftOrTemplate, identity,
-        uriToOpen, aMsgHdr, true, forwardTo, false, aMsgWindow, false);
+        uriToOpen, aMsgHdr, true, forwardTo, false, interactive, false);
 
   // create the compose params object
   nsCOMPtr<nsIMsgComposeParams> pMsgComposeParams(
@@ -1067,14 +1062,13 @@ nsMsgComposeService::GetMsgComposeForDocShell(nsIDocShell* aDocShell,
                                  doing a command that opens the compose window,
  *                               which means we switch the compose window used
  *                               from the default.
- * @param aMsgWindow msgWindow to pass into LoadMessage.
+ * @param aInteractive whether the user is waiting on the message.
  */
 nsresult nsMsgComposeService::RunMessageThroughMimeDraft(
     const nsACString& aMsgURI, nsMimeOutputType aOutType,
     nsIMsgIdentity* aIdentity, const nsACString& aOriginalMsgURI,
     nsIMsgDBHdr* aOrigMsgHdr, bool aForwardInline, const nsAString& aForwardTo,
-    bool aOverrideComposeFormat, nsIMsgWindow* aMsgWindow,
-    bool autodetectCharset) {
+    bool aOverrideComposeFormat, bool aInteractive, bool autodetectCharset) {
   nsCOMPtr<nsIMsgMessageService> messageService;
   nsresult rv =
       GetMessageServiceFromURI(aMsgURI, getter_AddRefs(messageService));
@@ -1113,7 +1107,8 @@ nsresult nsMsgComposeService::RunMessageThroughMimeDraft(
                      "&type=application/x-message-display") >= 0)
     rv = NS_NewURI(getter_AddRefs(url), mailboxUri);
   else
-    rv = messageService->GetUrlForUri(aMsgURI, aMsgWindow, getter_AddRefs(url));
+    rv = messageService->GetUrlForUri(aMsgURI, aInteractive,
+                                      getter_AddRefs(url));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIMsgMailNewsUrl> mailnewsurl = do_QueryInterface(url);
@@ -1147,7 +1142,6 @@ nsresult nsMsgComposeService::RunMessageThroughMimeDraft(
   // Now, just plug the two together and get the hell out of the way!
   nsCOMPtr<nsIStreamListener> streamListener = do_QueryInterface(mimeConverter);
   nsCOMPtr<nsIURI> dummyNull;
-  return messageService->StreamMessage(aMsgURI, streamListener, aMsgWindow,
-                                       nullptr, false, ""_ns, false,
-                                       getter_AddRefs(dummyNull));
+  return messageService->StreamMessage(aMsgURI, streamListener, nullptr, false,
+                                       ""_ns, false, getter_AddRefs(dummyNull));
 }

@@ -55,7 +55,7 @@ var tests = [
     setupIMAPPump();
 
     const promiseFolderAdded = PromiseTestUtils.promiseFolderAdded("folder 1");
-    IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1", null);
+    IMAPPump.incomingServer.rootFolder.createSubfolder("folder 1");
     await promiseFolderAdded;
 
     gFolder1 = IMAPPump.incomingServer.rootFolder.getChildNamed("folder 1");
@@ -80,12 +80,12 @@ var tests = [
   },
   async function updateFolder() {
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+    IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
     await promiseUrlListener.promise;
   },
   async function downloadAllForOffline() {
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, null);
+    IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, false);
     await promiseUrlListener.promise;
   },
   async function copyMessagesToInbox() {
@@ -98,7 +98,7 @@ var tests = [
       0,
       "",
       promiseCopyListener,
-      null
+      false
     );
     await promiseCopyListener.promise;
 
@@ -111,12 +111,12 @@ var tests = [
       0,
       "",
       promiseCopyListener,
-      null
+      false
     );
     await promiseCopyListener.promise;
 
     const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-    IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+    IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
     await promiseUrlListener.promise;
 
     const db = IMAPPump.inbox.msgDatabase;
@@ -149,7 +149,7 @@ var tests = [
       gFolder1,
       false,
       null,
-      null,
+      false,
       true
     );
 
@@ -162,7 +162,7 @@ var tests = [
       gFolder1,
       false,
       null,
-      null,
+      false,
       true
     );
 
@@ -210,7 +210,7 @@ var tests = [
       gFolder1,
       true,
       null,
-      null,
+      false,
       true
     );
 

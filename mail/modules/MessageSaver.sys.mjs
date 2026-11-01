@@ -146,7 +146,7 @@ export class MessageSaver {
               },
             },
             true,
-            null
+            false
           );
           await promise;
           break;
@@ -291,7 +291,6 @@ export class MessageSaver {
         // The MIME converter determines the output format from this URI.
         Services.io.newURI(saveAsUri)
       ),
-      null,
       null,
       false,
       ""

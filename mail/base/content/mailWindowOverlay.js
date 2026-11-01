@@ -1048,7 +1048,7 @@ function MsgGetMessagesForAllServers(defaultServer) {
           pop3Server = server.QueryInterface(Ci.nsIPop3IncomingServer);
         } else {
           // Check to see if there are new messages on the server
-          server.performBiff(msgWindow);
+          server.performBiff(true);
         }
       }
     }
@@ -1057,7 +1057,7 @@ function MsgGetMessagesForAllServers(defaultServer) {
       // to download from.
       pop3Server.downloadMailFromServers(
         pop3DownloadServersArray[i],
-        msgWindow,
+        true,
         localFoldersToDownloadTo[i],
         null
       );
@@ -1206,7 +1206,7 @@ function MsgDisplayMessageInFolderTab(aMsgHdr) {
 
 function MsgMarkAllRead(folders) {
   for (let i = 0; i < folders.length; i++) {
-    folders[i].markAllMessagesRead(msgWindow);
+    folders[i].markAllMessagesRead();
   }
 }
 
@@ -1235,7 +1235,7 @@ function MsgMarkAllFoldersRead(selectedFolders) {
 
   selectedServers.forEach(function (server) {
     for (const folder of server.rootFolder.descendants) {
-      folder.markAllMessagesRead(msgWindow);
+      folder.markAllMessagesRead();
     }
   });
 }
@@ -1284,7 +1284,7 @@ function MsgFilters(emailAddress, folder, fieldName) {
     // We have to do prefill filter so we are going to launch the filterEditor
     // dialog and prefill that with the emailAddress.
     args = {
-      filterList: folder.getEditableFilterList(msgWindow),
+      filterList: folder.getEditableFilterList(),
       filterName: emailAddress,
     };
     // Set the field name to prefill in the filter, if one was specified.
@@ -1399,8 +1399,7 @@ function MsgSynchronizeOffline() {
   window.openDialog(
     "chrome://messenger/content/msgSynchronize.xhtml",
     "",
-    "centerscreen,chrome,modal,titlebar,resizable=yes",
-    { msgWindow }
+    "centerscreen,chrome,modal,titlebar,resizable=yes"
   );
 }
 
@@ -1444,7 +1443,7 @@ function GetFolderMessages(selectedFolders = GetSelectedMsgFolders()) {
       // If we're doing "get msgs" on a news server, get new messages for all
       // subscribed groups.
       for (const group of folders[i].server.rootFolder.subFolders) {
-        group.getNewMessages(msgWindow, null);
+        group.getNewMessages(true, null);
       }
     } else if (folders[i].isServer && serverType == "imap") {
       GetMessagesForInboxOnServer(folders[i].server);
@@ -1482,7 +1481,7 @@ function GetNewMsgs(server, folder) {
   // Whenever we do get new messages, clear the old new messages.
   folder.biffState = Ci.nsIMsgFolder.nsMsgBiffState_NoMail;
   folder.clearNewMessages();
-  server.getNewMessages(folder, msgWindow, new TransportErrorUrlListener());
+  server.getNewMessages(folder, true, new TransportErrorUrlListener());
 }
 
 function SendUnsentMessages() {
@@ -1561,7 +1560,7 @@ function GetMessagesForAllAuthenticatedAccounts() {
       // any ol' pop3Server will do - the serversArray specifies which servers to download from
       pop3Server.downloadMailFromServers(
         pop3DownloadServersArray[i],
-        msgWindow,
+        true,
         localFoldersToDownloadTo[i],
         null
       );

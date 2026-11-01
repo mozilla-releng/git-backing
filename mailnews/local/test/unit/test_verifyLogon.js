@@ -19,9 +19,9 @@ var kValidPassword = "testpop3";
 function verifyPop3Logon(validPassword) {
   incomingServer.password = validPassword ? kValidPassword : kInvalidPassword;
   urlListener.expectSuccess = validPassword;
-  const uri = incomingServer.verifyLogon(urlListener, gDummyMsgWindow);
-  // clear msgWindow so url won't prompt for passwords.
-  uri.QueryInterface(Ci.nsIMsgMailNewsUrl).msgWindow = null;
+  const uri = incomingServer.verifyLogon(urlListener, true);
+  // Make the url non-interactive so it won't prompt for passwords.
+  uri.QueryInterface(Ci.nsIMsgMailNewsUrl).interactive = false;
 
   server.performTest();
   return false;

@@ -95,7 +95,7 @@ nsImapMoveCopyMsgTxn::UndoTransaction(void) {
       // ** make sure we are in the selected state; use lite select
       // folder so we won't hit performance hard
       nsCOMPtr<nsIURI> outUri;
-      rv = imapService->LiteSelectFolder(srcFolder, srcListener, nullptr,
+      rv = imapService->LiteSelectFolder(srcFolder, srcListener,
                                          getter_AddRefs(outUri));
       if (NS_FAILED(rv)) return rv;
       bool deletedMsgs = true;  // default is true unless imapDelete model
@@ -142,7 +142,7 @@ nsImapMoveCopyMsgTxn::UndoTransaction(void) {
     // ** make sure we are in the selected state; use lite select folder
     // so we won't potentially download a bunch of headers.
     nsCOMPtr<nsIURI> outUri;
-    rv = imapService->LiteSelectFolder(dstFolder, dstListener, nullptr,
+    rv = imapService->LiteSelectFolder(dstFolder, dstListener,
                                        getter_AddRefs(outUri));
     NS_ENSURE_SUCCESS(rv, rv);
     rv = imapService->AddMessageFlags(dstFolder, dstListener, m_dstMsgIdString,
@@ -182,7 +182,7 @@ nsImapMoveCopyMsgTxn::RedoTransaction(void) {
       // Make sure we are in the selected state; use lite select
       // folder so performance won't suffer.
       nsCOMPtr<nsIURI> outUri;
-      rv = imapService->LiteSelectFolder(srcFolder, srcListener, nullptr,
+      rv = imapService->LiteSelectFolder(srcFolder, srcListener,
                                          getter_AddRefs(outUri));
       NS_ENSURE_SUCCESS(rv, rv);
       if (deletedMsgs) {
@@ -207,7 +207,7 @@ nsImapMoveCopyMsgTxn::RedoTransaction(void) {
     // ** make sure we are in the selected state; use lite select
     // folder so we won't hit performance hard
     nsCOMPtr<nsIURI> outUri;
-    rv = imapService->LiteSelectFolder(dstFolder, dstListener, nullptr,
+    rv = imapService->LiteSelectFolder(dstFolder, dstListener,
                                        getter_AddRefs(outUri));
     NS_ENSURE_SUCCESS(rv, rv);
     rv = imapService->SubtractMessageFlags(dstFolder, dstListener,
@@ -342,14 +342,14 @@ NS_IMETHODIMP nsImapMoveCopyMsgTxn::OnStopRunningUrl(nsIURI* aUrl,
         if (!m_dstMsgIdString.IsEmpty())
           imapService->OnlineMessageCopy(dstFolder, m_dstMsgIdString, srcFolder,
                                          true, true, nullptr, /* listener */
-                                         nullptr, nullptr, nullptr);
+                                         nullptr, nullptr, false);
         else {
           // server doesn't support COPYUID, so we're going to update the dest
           // folder, and when that's done, use the db to find the messages
           // to move back, looking them up by message-id.
           nsCOMPtr<nsIMsgImapMailFolder> imapDest =
               do_QueryInterface(dstFolder);
-          if (imapDest) imapDest->UpdateFolderWithListener(nullptr, this);
+          if (imapDest) imapDest->UpdateFolderWithListener(false, this);
         }
       } else if (!m_dstMsgIdString.IsEmpty()) {
         nsCOMPtr<nsIUrlListener> dstListener;
@@ -359,7 +359,7 @@ NS_IMETHODIMP nsImapMoveCopyMsgTxn::OnStopRunningUrl(nsIURI* aUrl,
         // ** make sure we are in the selected state; use lite select folder
         // so we won't potentially download a bunch of headers.
         nsCOMPtr<nsIURI> outUri;
-        rv = imapService->LiteSelectFolder(dstFolder, dstListener, nullptr,
+        rv = imapService->LiteSelectFolder(dstFolder, dstListener,
                                            getter_AddRefs(outUri));
         NS_ENSURE_SUCCESS(rv, rv);
         rv = imapService->AddMessageFlags(dstFolder, dstListener,
@@ -390,7 +390,7 @@ NS_IMETHODIMP nsImapMoveCopyMsgTxn::OnStopRunningUrl(nsIURI* aUrl,
         nsAutoCString uids;
         rv = imapService->OnlineMessageCopy(dstFolder, UidSetFromUids(dstUids),
                                             srcFolder, true, true, nullptr,
-                                            nullptr, nullptr, nullptr);
+                                            nullptr, nullptr, false);
       }
     }
   }

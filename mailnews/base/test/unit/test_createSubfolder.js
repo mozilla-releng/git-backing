@@ -18,7 +18,7 @@ const { TestUtils } = ChromeUtils.importESModule(
 add_task(async function testLocal() {
   const localAccount = MailServices.accounts.createLocalMailAccount();
   const localRoot = localAccount.incomingServer.rootFolder;
-  localRoot.createSubfolder("exists", null);
+  localRoot.createSubfolder("exists");
 
   await checkSucceeds(localRoot, "test Ϟ");
   await checkFails(localRoot, "", /NS_MSG_ERROR_INVALID_FOLDER_NAME/);
@@ -100,7 +100,7 @@ add_task(async function testEWS() {
     "ews_url",
     `http://localhost:${mockServer.port}/EWS/Exchange.asmx`
   );
-  ewsServer.performExpand(null);
+  ewsServer.performExpand(false);
   await TestUtils.waitForCondition(
     () => ewsServer.rootFolder.getChildNamed("Drafts"),
     "waiting for folder sync to finish"
@@ -153,7 +153,7 @@ add_task(async function testGraph() {
   graphServer.port = mockServer.port;
   graphServer.password = "password";
   graphServer.setStringValue("ews_url", `http://localhost:${mockServer.port}/`);
-  graphServer.performExpand(null);
+  graphServer.performExpand(false);
   await TestUtils.waitForCondition(
     () => graphServer.rootFolder.getChildNamed("Drafts"),
     "waiting for folder sync to finish"
@@ -262,7 +262,7 @@ async function checkSucceedsSync(
   info(`synchronously creating "${name}" as a child of ${parent.URI}`);
 
   const folderAddedPromise = PromiseTestUtils.promiseFolderAdded(name);
-  parent.createSubfolder(name, null);
+  parent.createSubfolder(name);
   const testFolder = await folderAddedPromise;
   Assert.ok(testFolder, "the call should return the created folder");
   Assert.equal(
@@ -290,7 +290,7 @@ async function checkThrowsSync(parent, name, errorRegExp) {
   info(`synchronously creating "${name}" as a child of ${parent.URI}`);
 
   Assert.throws(
-    () => parent.createSubfolder(name, null),
+    () => parent.createSubfolder(name),
     errorRegExp,
     errorRegExp.source
   );
@@ -309,6 +309,6 @@ async function checkFailsSync(parent, name) {
     parent,
     "FolderCreateFailed"
   );
-  parent.createSubfolder(name, null);
+  parent.createSubfolder(name);
   await folderEventPromise;
 }

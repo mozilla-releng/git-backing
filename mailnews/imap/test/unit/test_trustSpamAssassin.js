@@ -44,12 +44,12 @@ add_setup(function () {
 });
 
 add_task(async function createJunkFolder() {
-  IMAPPump.incomingServer.rootFolder.createSubfolder("Junk", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("Junk");
   await PromiseTestUtils.promiseFolderAdded("Junk");
   gJunkFolder = IMAPPump.incomingServer.rootFolder.getChildNamed("Junk");
   Assert.ok(gJunkFolder instanceof Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gJunkFolder.updateFolderWithListener(null, listener);
+  gJunkFolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -65,13 +65,13 @@ add_task(async function loadImapMessage() {
    * The message matched the SpamAssassin header, so it moved
    *  to the junk folder
    */
-  IMAPPump.inbox.updateFolder(null);
+  IMAPPump.inbox.updateFolder(false);
   await PromiseTestUtils.promiseFolderNotification(
     gJunkFolder,
     "msgsMoveCopyCompleted"
   );
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gJunkFolder.updateFolderWithListener(null, listener);
+  gJunkFolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -103,8 +103,8 @@ add_task(async function markMessageAsGood() {
     [msgHdr], // messages
     IMAPPump.inbox, // dstFolder
     true, // isMove
-    null, // listener
-    null, // msgWindow
+    null,
+    false, // interactive
     false // allowUndo
   );
   await PromiseTestUtils.promiseFolderNotification(
@@ -115,10 +115,10 @@ add_task(async function markMessageAsGood() {
 
 add_task(async function updateFoldersAndCheck() {
   const inboxUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, inboxUrlListener);
+  IMAPPump.inbox.updateFolderWithListener(false, inboxUrlListener);
   await inboxUrlListener.promise;
   const junkUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  gJunkFolder.updateFolderWithListener(null, junkUrlListener);
+  gJunkFolder.updateFolderWithListener(false, junkUrlListener);
   await junkUrlListener.promise;
   // bug 540385 causes this test to fail
   Assert.equal(1, IMAPPump.inbox.getTotalMessages(false));

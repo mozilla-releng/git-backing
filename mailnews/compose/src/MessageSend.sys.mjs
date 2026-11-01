@@ -1191,13 +1191,12 @@ export class MessageSend {
       this.onStopOperation(Cr.NS_OK);
       return null;
     }
-    const msgWindow = this._sendProgress?.msgWindow;
     return MailServices.filters.applyFilters(
       Ci.nsMsgFilterType.PostOutgoing,
       [msgHdr],
       [],
       folder,
-      msgWindow,
+      !!this._sendProgress?.interactive,
       this
     );
   }
@@ -1305,20 +1304,14 @@ export class MessageSend {
 
     const deliveryListener = new NewsDeliveryListener(this);
 
-    let msgWindow;
-    try {
-      msgWindow =
-        this._sendProgress?.msgWindow ||
-        MailServices.mailSession.topmostMsgWindow;
-    } catch (e) {}
+    const interactive = !!this._sendProgress?.interactive;
 
     MailServices.nntp.postMessage(
       this._deliveryFile,
       this._compFields.newsgroups,
       this._accountKey,
       deliveryListener,
-      msgWindow,
-      null
+      interactive
     );
 
     await deliveryListener.requestPromise;

@@ -4,7 +4,6 @@
 
 #include "nsISupports.idl"
 interface nsIUrlListener;
-interface nsIMsgWindow;
 interface nsIWebProgressListener;
 
 [scriptable, uuid(D1B43428-B631-4629-B691-AB0E01A2DB4B)]
@@ -22,11 +21,10 @@ interface nsIMsgShutdownTask : nsISupports
    * Shutdown will be temporarily postponed until |OnStopRequest()| has been called
    * on the passed in url-listener.
    * @param inUrlListener The URL listener to report events to.
-   * @param inMsgWindow The current message window to allow for posing dialogs.
    * @return If the shutdown URL was run or not. If the URL is running, the task
    *         will be responsible for notifying |inUrlListener| when the task is completed.
    */
-  boolean doShutdownTask(in nsIUrlListener inUrlListener, in nsIMsgWindow inMsgWindow);
+  boolean doShutdownTask(in nsIUrlListener inUrlListener);
 
   /**
    * Get the displayable name of the current task. This textual information will be

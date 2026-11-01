@@ -60,7 +60,6 @@ async function readMessageContent(msgHdr) {
     msgURI,
     streamListener,
     null,
-    null,
     false,
     "",
     false
@@ -128,7 +127,7 @@ add_task(async function test_fetchPartialMessage() {
     Ci.nsMsgFolderFlags.Inbox
   );
   MailServices.pop3.GetNewMail(
-    null,
+    false,
     urlListener,
     localAccountUtils.inboxFolder,
     incomingServer

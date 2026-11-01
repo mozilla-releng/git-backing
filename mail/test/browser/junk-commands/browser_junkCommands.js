@@ -54,12 +54,12 @@ add_setup(async function () {
   await make_message_sets_in_folders([folderE], [{ count: 7 }]);
 
   registerCleanupFunction(async () => {
-    virtualFolder.deleteSelf(null);
-    folderA.deleteSelf(null);
-    folderB.deleteSelf(null);
-    folderC.deleteSelf(null);
-    folderD.deleteSelf(null);
-    folderE.deleteSelf(null);
+    virtualFolder.deleteSelf(false);
+    folderA.deleteSelf(false);
+    folderB.deleteSelf(false);
+    folderC.deleteSelf(false);
+    folderD.deleteSelf(false);
+    folderE.deleteSelf(false);
     MailServices.junk.resetTrainingData();
   });
 });
@@ -344,7 +344,6 @@ async function trainJunkFilter(message) {
     uri.spec,
     null,
     message.startsWith("ham") ? MailServices.junk.GOOD : MailServices.junk.JUNK,
-    null,
     { onMessageClassified: deferred.resolve }
   );
   return deferred.promise;

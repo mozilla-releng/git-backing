@@ -24,7 +24,7 @@ function subtest_folder_deletion(root) {
   Assert.ok(path.exists());
 
   // Delete "folder" into Trash.
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
   Assert.ok(!path.exists());
   Assert.equal(trash.numSubFolders, 1);
   trash.getChildNamed("folder");
@@ -32,7 +32,7 @@ function subtest_folder_deletion(root) {
   // Create another "folder" in root.
   folder = root.createLocalSubfolder("folder");
   // Delete "folder" into Trash again.
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
   Assert.equal(trash.numSubFolders, 2);
   // The folder should be automatically renamed as the same name already is in Trash.
   trash.getChildNamed("folder(2)");
@@ -46,7 +46,7 @@ function subtest_folder_deletion(root) {
     .createLocalSubfolder("subfolder");
 
   // Delete folder into Trash again
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
   Assert.equal(trash.numSubFolders, 3);
   // The folder should be automatically renamed as the same name already is in Trash
   // but the subfolder should be untouched.
@@ -151,7 +151,7 @@ function subtest_folder_operations(root) {
   const hdr = folder1Local.addMessage(message.toMessageString());
   Assert.equal(message.messageId, hdr.messageId);
 
-  folder3Local.copyFolderLocal(folder, true, null, null);
+  folder3Local.copyFolderLocal(folder, true, null);
 
   // Test - Get the new folders, make sure the old ones don't exist
 
@@ -179,18 +179,18 @@ function subtest_folder_operations(root) {
 
   // Move folders back, get them
   var rootLocal = root.QueryInterface(Ci.nsIMsgLocalMailFolder);
-  rootLocal.copyFolderLocal(folder1Moved, true, null, null);
+  rootLocal.copyFolderLocal(folder1Moved, true, null);
   folder = root.getChildNamed("folder1");
   folder2 = folder.getChildNamed("folder2");
 
   // Test - Rename (test that .msf file is renamed as well)
-  folder.rename("folder1-newname", null);
+  folder.rename("folder1-newname");
   // make sure getting the db doesn't throw an exception, and is valid
   folder = rootLocal.getChildNamed("folder1-newname");
   db = folder.msgDatabase;
   Assert.ok(db.summaryValid);
 
-  folder.rename("folder1", null);
+  folder.rename("folder1");
   folder = rootLocal.getChildNamed("folder1");
 
   // Test - propagateDelete (this tests recursiveDelete as well)
@@ -283,11 +283,11 @@ function test_store_rename(root) {
   Assert.ok(!folder2.hasSubFolders);
   Assert.ok(folder3.hasSubFolders);
 
-  folder1.rename("folder1", null);
+  folder1.rename("folder1");
   Assert.ok(root.containsChildNamed("folder1"));
   folder1 = root.getChildNamed("folder1");
 
-  folder1.rename("newfolder1", null);
+  folder1.rename("newfolder1");
   Assert.ok(root.containsChildNamed("newfolder1"));
   folder1 = root.getChildNamed("newfolder1");
   folder2 = folder1.getChildNamed("newfolder1-sub");
@@ -302,7 +302,7 @@ function test_store_rename(root) {
     .createLocalSubfolder("newfolder3")
     .QueryInterface(Ci.nsIMsgLocalMailFolder);
   folder3.createLocalSubfolder("newfolder3-sub");
-  folder3.rename("folder3", null);
+  folder3.rename("folder3");
 
   Assert.ok(root.containsChildNamed("folder3"));
   Assert.ok(!root.containsChildNamed("newfolder3"));
@@ -311,7 +311,7 @@ function test_store_rename(root) {
 function test_unsafe_characters(root) {
   // Create α, β, and γ.
 
-  root.createSubfolder("folder α", null);
+  root.createSubfolder("folder α");
   const folderAlpha = root.getChildNamed("folder α");
   const folderBeta = root.createLocalSubfolder("folder β");
   folderBeta.QueryInterface(Ci.nsIMsgLocalMailFolder);
@@ -341,7 +341,7 @@ function test_unsafe_characters(root) {
 
   // Rename β to δ.
 
-  folderBeta.rename("folder δ", null);
+  folderBeta.rename("folder δ");
   Assert.ok(!root.containsChildNamed("folder β"));
   Assert.ok(root.containsChildNamed("folder δ"));
 
@@ -363,7 +363,7 @@ function test_unsafe_characters(root) {
 
   // Note: this operation is synchronous and even if we passed a listener it
   // wouldn't get called anyway. Such consistency!
-  folderDelta.copyFolderLocal(folderAlpha, false, null, null);
+  folderDelta.copyFolderLocal(folderAlpha, false, null);
 
   Assert.ok(root.containsChildNamed("folder α"));
   Assert.ok(folderDelta.containsChildNamed("folder α"));
@@ -382,7 +382,7 @@ function test_filtered_message_return_values(root, server) {
     .createLocalSubfolder("filter source")
     .QueryInterface(Ci.nsIMsgLocalMailFolder);
   const destination = root.createLocalSubfolder("filter destination");
-  const filterList = server.getFilterList(null);
+  const filterList = server.getFilterList();
   const filter = filterList.createFilter("Move matching messages");
   const term = filter.createTerm();
   term.attrib = Ci.nsMsgSearchAttrib.Subject;

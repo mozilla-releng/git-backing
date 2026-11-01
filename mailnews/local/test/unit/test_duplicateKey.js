@@ -33,7 +33,7 @@ add_task(async function runPump() {
   // but it should!
   localAccountUtils.inboxFolder.deleteMessages(
     deletes,
-    null, // in nsIMsgWindow msgWindow,
+    false, // in boolean interactive,
     true, // in boolean deleteStorage,
     true, // in boolean isMove,
     null, // in nsIMsgCopyServiceListener,
@@ -46,7 +46,7 @@ add_task(async function runPump() {
 
   // compact
   var listener = new PromiseTestUtils.PromiseUrlListener();
-  localAccountUtils.inboxFolder.compact(listener, null);
+  localAccountUtils.inboxFolder.compact(listener, false);
   await listener.promise;
 
   dump("Messages after compact\n");

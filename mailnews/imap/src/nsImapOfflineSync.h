@@ -7,7 +7,6 @@
 
 #include "nsIUrlListener.h"
 #include "nsIMsgOfflineImapOperation.h"
-#include "nsIMsgWindow.h"
 #include "nsIMsgFolder.h"
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
@@ -31,7 +30,7 @@ class nsImapOfflineSync : public nsIUrlListener,
   // folders on the same server. An "offline" copy is performed first to
   // instantly copy the messages, then nsImapOfflineSync is used to perform the
   // corresponding IMAP operations.
-  nsresult Init(nsIMsgWindow* window, nsIUrlListener* listener,
+  nsresult Init(bool interactive, nsIUrlListener* listener,
                 nsIMsgFolder* folder, bool isPseudoOffline);
 
   virtual nsresult ProcessNextOperation();
@@ -45,7 +44,7 @@ class nsImapOfflineSync : public nsIUrlListener,
     return m_singleFolderToUpdate != nullptr;
   }
 
-  void SetWindow(nsIMsgWindow* window);
+  void SetInteractive(bool interactive);
 
  protected:
   virtual ~nsImapOfflineSync();
@@ -68,7 +67,7 @@ class nsImapOfflineSync : public nsIUrlListener,
 
   nsCOMPtr<nsIMsgFolder> m_currentFolder;
   nsCOMPtr<nsIMsgFolder> m_singleFolderToUpdate;
-  nsCOMPtr<nsIMsgWindow> m_window;
+  bool m_interactive;
   nsTArray<RefPtr<nsIMsgIncomingServer>> m_allServers;
   nsCOMPtr<nsIMsgIncomingServer> m_currentServer;
   // Folders left to consider on m_currentServer.

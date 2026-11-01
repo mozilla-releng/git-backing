@@ -88,19 +88,19 @@ add_setup(async () => {
     "nntp"
   );
   nntpRootFolder = nntpAccount.incomingServer.rootFolder;
-  nntpRootFolder.createSubfolder("offline.first", null);
+  nntpRootFolder.createSubfolder("offline.first");
   nntpRootFolder
     .getChildNamed("offline.first")
     .setFlag(Ci.nsMsgFolderFlags.Offline);
-  nntpRootFolder.createSubfolder("offline.second", null);
+  nntpRootFolder.createSubfolder("offline.second");
   nntpRootFolder
     .getChildNamed("offline.second")
     .setFlag(Ci.nsMsgFolderFlags.Offline);
-  nntpRootFolder.createSubfolder("offline.third", null);
+  nntpRootFolder.createSubfolder("offline.third");
   nntpRootFolder
     .getChildNamed("offline.third")
     .clearFlag(Ci.nsMsgFolderFlags.Offline);
-  nntpRootFolder.createSubfolder("offline.third.fourth", null);
+  nntpRootFolder.createSubfolder("offline.third.fourth");
   nntpRootFolder
     .getChildNamed("offline.third.fourth")
     .clearFlag(Ci.nsMsgFolderFlags.Offline);
@@ -119,7 +119,7 @@ add_setup(async () => {
   imapAccount.incomingServer.prettyName = "IMAP Account";
   imapRootFolder = imapAccount.incomingServer.rootFolder;
 
-  imapAccount.incomingServer.performExpand(null);
+  imapAccount.incomingServer.performExpand(false);
   await TestUtils.waitForCondition(
     () =>
       imapRootFolder.numSubFolders == 5 &&
@@ -154,7 +154,7 @@ add_setup(async () => {
   ewsAccount.incomingServer.password = "password";
   ewsRootFolder = ewsAccount.incomingServer.rootFolder;
 
-  ewsAccount.incomingServer.performExpand(null);
+  ewsAccount.incomingServer.performExpand(false);
   await TestUtils.waitForCondition(
     () =>
       ewsRootFolder.numSubFolders == 4 &&

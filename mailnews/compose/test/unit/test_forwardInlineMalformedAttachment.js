@@ -76,14 +76,14 @@ add_task(async function testForwardInlineKeepsMalformedAttachmentData() {
     0,
     "",
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 
   MailServices.compose.forwardMessage(
     "to@local.invalid",
     mailTestUtils.firstMsgHdr(localAccountUtils.inboxFolder),
-    null,
+    false,
     localAccountUtils.incomingServer,
     Ci.nsIMsgComposeService.kForwardInline
   );

@@ -59,7 +59,7 @@ add_setup(async function () {
   aliceIdentity.email = "alice@openpgp.example";
   aliceAcct.addIdentity(aliceIdentity);
 
-  aliceAcct.incomingServer.rootFolder.createSubfolder("decrypted", null);
+  aliceAcct.incomingServer.rootFolder.createSubfolder("decrypted");
 
   gDecFolder = aliceAcct.incomingServer.rootFolder.getChildNamed("decrypted");
 
@@ -108,7 +108,7 @@ add_task(async function testPermanentDecrypt() {
     0,
     "",
     copyListener,
-    null
+    false
   );
   await copyListener.promise;
 

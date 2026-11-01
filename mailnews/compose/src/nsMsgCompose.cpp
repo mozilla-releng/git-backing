@@ -44,7 +44,6 @@
 #include "nsMsgMessageFlags.h"
 #include "nsIMsgDatabase.h"
 #include "nsArrayUtils.h"
-#include "nsIMsgWindow.h"
 #include "nsITextToSubURI.h"
 #include "nsIAbManager.h"
 #include "nsCRT.h"
@@ -343,7 +342,7 @@ nsresult nsMsgCompose::TagEmbeddedObjects(nsIEditor* aEditor) {
   nsCOMPtr<nsIMsgMessageService> msgService;
   rv = GetMessageServiceFromURI(mOriginalMsgURI, getter_AddRefs(msgService));
   if (NS_SUCCEEDED(rv)) {
-    rv = msgService->GetUrlForUri(mOriginalMsgURI, nullptr,
+    rv = msgService->GetUrlForUri(mOriginalMsgURI, false,
                                   getter_AddRefs(originalUrl));
     if (NS_SUCCEEDED(rv) && originalUrl) {
       originalUrl->GetScheme(originalScheme);
@@ -3220,8 +3219,8 @@ nsresult nsMsgComposeSendListener::RemoveDraftOrTemplate(nsIMsgCompose* compObj,
       if (!containsKey) break;
 
       // Ready to delete the msg.
-      rv = msgFolder->DeleteMessages({&*msgDBHdr}, nullptr, true, false,
-                                     nullptr, false /*allowUndo*/);
+      rv = msgFolder->DeleteMessages({&*msgDBHdr}, false, true, false, nullptr,
+                                     false /*allowUndo*/);
       NS_ASSERTION(NS_SUCCEEDED(rv),
                    "RemoveDraftOrTemplate can't delete message");
     } while (false);

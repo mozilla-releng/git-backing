@@ -4,7 +4,6 @@
 
 /* import-globals-from utilityOverlay.js */
 
-/* globals msgWindow */ // From mailWindow.js
 /* globals openComposeWindowForRSSArticle */ // From newsblogOverlay.js
 
 var { MailServices } = ChromeUtils.importESModule(
@@ -26,7 +25,7 @@ function GetNextNMessages(folder) {
   if (folder) {
     var newsFolder = folder.QueryInterface(Ci.nsIMsgNewsFolder);
     if (newsFolder) {
-      newsFolder.getNextNMessages(msgWindow);
+      newsFolder.getNextNMessages(true);
     }
   }
 }
@@ -187,7 +186,7 @@ async function ComposeMessage(
         format,
         identity,
         null,
-        msgWindow
+        true
       );
       return;
     case Ci.nsIMsgCompType.NewsPost:
@@ -200,7 +199,7 @@ async function ComposeMessage(
         format,
         identity,
         null,
-        msgWindow
+        true
       );
       return;
     case Ci.nsIMsgCompType.ForwardAsAttachment:
@@ -222,7 +221,7 @@ async function ComposeMessage(
           format,
           identity,
           null,
-          msgWindow
+          true
         );
       }
       return;
@@ -318,7 +317,7 @@ async function ComposeMessage(
             type,
             format,
             identity,
-            msgWindow
+            true
           );
         } else {
           // Replies come here.
@@ -411,7 +410,7 @@ async function ComposeMessage(
                   format,
                   hdrIdentity,
                   matchingHint.toString(),
-                  msgWindow,
+                  true,
                   selection,
                   autodetectCharset
                 );
@@ -448,7 +447,7 @@ async function ComposeMessage(
               format,
               bestIdentity,
               null,
-              msgWindow,
+              true,
               selection,
               autodetectCharset
             );
@@ -552,7 +551,7 @@ async function SaveAsTemplate(uri) {
     templatesFolder,
     false,
     null,
-    msgWindow,
+    true,
     false
   );
 }
@@ -589,7 +588,7 @@ async function msgOpenMessageFromString(data) {
  * @param {string} msgURI - Message URI spec.
  */
 async function viewEncryptedPart(msgURI) {
-  let url = MailServices.mailSession.ConvertMsgURIToMsgURL(msgURI, msgWindow);
+  let url = MailServices.mailSession.ConvertMsgURIToMsgURL(msgURI, true);
 
   // Strip out the message-display parameter to ensure that attached emails
   // display the message source, not the processed HTML.
@@ -623,7 +622,7 @@ async function viewEncryptedPart(msgURI) {
  * @param {string} msgURI - Message URI spec.
  */
 async function viewSignedPart(msgURI) {
-  let url = MailServices.mailSession.ConvertMsgURIToMsgURL(msgURI, msgWindow);
+  let url = MailServices.mailSession.ConvertMsgURIToMsgURL(msgURI, true);
 
   // Strip out the message-display parameter to ensure that attached emails
   // display the message source, not the processed HTML.

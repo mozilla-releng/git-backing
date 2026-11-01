@@ -9,7 +9,6 @@
 // Globals
 let gMsg1;
 let gMessages = [];
-let gMsgWindow;
 let gCurTestNum;
 let gMsgId1;
 let gTestFolder;
@@ -27,9 +26,6 @@ var { PromiseTestUtils } = ChromeUtils.importESModule(
 var messageInjection = new MessageInjection({ mode: "local" });
 
 add_setup(async function () {
-  gMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-    Ci.nsIMsgWindow
-  );
 
   var messageGenerator = new MessageGenerator();
   gMsg1 = messageGenerator.makeMessage();
@@ -47,14 +43,7 @@ add_task(async function deleteMessage() {
   gMsgId1 = msgToDelete.messageId;
   gMessages.push(msgToDelete);
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
-  gTestFolder.deleteMessages(
-    gMessages,
-    gMsgWindow,
-    false,
-    true,
-    copyListener,
-    true
-  );
+  gTestFolder.deleteMessages(gMessages, true, false, true, copyListener, true);
   await copyListener.promise;
 });
 
@@ -73,7 +62,6 @@ add_task(function verifyFolders() {
 add_task(function endTest() {
   // Cleanup, null out everything.
   gMessages = [];
-  gMsgWindow = null;
   localAccountUtils.inboxFolder = null;
   localAccountUtils.incomingServer = null;
 });

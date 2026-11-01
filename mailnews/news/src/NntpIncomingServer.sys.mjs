@@ -122,21 +122,21 @@ export class NntpIncomingServer extends MsgIncomingServer {
   }
 
   /**
-   * @param {nsIMsgWindow} msgWindow
+   * @param {boolean} interactive
    * @param {boolean} forceToServer
    * @param {boolean} getOnlyNew
    */
-  startPopulating(msgWindow, forceToServer, getOnlyNew) {
-    this._startPopulating(msgWindow, forceToServer, getOnlyNew);
+  startPopulating(interactive, forceToServer, getOnlyNew) {
+    this._startPopulating(interactive, forceToServer, getOnlyNew);
   }
 
-  stopPopulating(msgWindow) {
+  stopPopulating() {
     // Calling nsISubscribableServer.setAsSubscribed with a path that does not
     // exist in the tree will add a new node. This must be done before
     // nsISubscribableServer.stopPopulating, as only then will the internal row
     // list be updated accordingly.
     this.updateSubscribed();
-    this._subscribable.stopPopulating(msgWindow);
+    this._subscribable.stopPopulating();
     if (!this._hostInfoLoaded) {
       this._saveHostInfo();
     }
@@ -228,7 +228,7 @@ export class NntpIncomingServer extends MsgIncomingServer {
    * @see {nsIUrlListener}
    */
   OnStopRunningUrl(_url, _exitCode) {
-    this.stopPopulating(this._msgWindow);
+    this.stopPopulating();
   }
 
   /** @see {nsIMsgIncomingServer} */
@@ -255,18 +255,18 @@ export class NntpIncomingServer extends MsgIncomingServer {
       : OFFLINE_SUPPORT_LEVEL_EXTENDED;
   }
 
-  performExpand(msgWindow) {
+  performExpand(interactive) {
     if (!Services.prefs.getBoolPref("news.update_unread_on_expand", false)) {
       return;
     }
 
     for (const folder of this.rootFolder.subFolders) {
-      folder.getNewMessages(msgWindow, null);
+      folder.getNewMessages(interactive, null);
     }
   }
 
-  performBiff(msgWindow) {
-    this.performExpand(msgWindow);
+  performBiff(interactive) {
+    this.performExpand(interactive);
   }
 
   closeCachedConnections() {
@@ -389,7 +389,7 @@ export class NntpIncomingServer extends MsgIncomingServer {
     if (this.containsNewsgroup(name)) {
       return;
     }
-    this.rootMsgFolder.createSubfolder(name, null);
+    this.rootMsgFolder.createSubfolder(name);
   }
 
   writeNewsrcFile() {
@@ -414,10 +414,10 @@ export class NntpIncomingServer extends MsgIncomingServer {
       .QueryInterface(Ci.nsIMsgNewsFolder);
   }
 
-  loadNewsUrl(uri, msgWindow, consumer) {
+  loadNewsUrl(uri, interactive, consumer) {
     if (consumer instanceof Ci.nsIStreamListener) {
       this.withClient(client => {
-        client.loadNewsUrl(uri.spec, msgWindow, consumer);
+        client.loadNewsUrl(uri.spec, interactive, consumer);
       });
     }
   }
@@ -471,21 +471,20 @@ export class NntpIncomingServer extends MsgIncomingServer {
    *
    * @see startPopulating
    */
-  async _startPopulating(msgWindow, forceToServer, getOnlyNew) {
-    this._msgWindow = msgWindow;
-    this._subscribable.startPopulating(msgWindow, forceToServer, getOnlyNew);
+  async _startPopulating(interactive, forceToServer, getOnlyNew) {
+    this._subscribable.startPopulating(interactive, forceToServer, getOnlyNew);
     this._groups = [];
 
     this._hostInfoLoaded = false;
     if (!forceToServer) {
       this._hostInfoLoaded = await this._loadHostInfo();
       if (this._hostInfoLoaded) {
-        this.stopPopulating(msgWindow);
+        this.stopPopulating();
         return;
       }
     }
     this._hostInfoChanged = !getOnlyNew;
-    MailServices.nntp.getListOfGroupsOnServer(this, msgWindow, getOnlyNew);
+    MailServices.nntp.getListOfGroupsOnServer(this, interactive, getOnlyNew);
   }
 
   /**
@@ -602,7 +601,7 @@ export class NntpIncomingServer extends MsgIncomingServer {
         const runningUri = Services.io
           .newURI(`news://${this.hostname}:${this.port}/${groupName}`)
           .QueryInterface(Ci.nsIMsgMailNewsUrl);
-        client.startRunningUrl(null, null, runningUri);
+        client.startRunningUrl(null, false, runningUri);
 
         client.onOpen = () => {
           client.listgroup(groupName);

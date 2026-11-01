@@ -74,7 +74,7 @@ add_task(async function appendSmallMessage() {
     0 /* message flags */,
     "" /* keywords */,
     copyListener,
-    null /* window */
+    false
   );
   await copyListener.promise;
 
@@ -98,7 +98,7 @@ add_task(async function copyHugeMessage() {
     trash /* destFolder */,
     false,
     copyListener,
-    null,
+    false,
     false
   );
   await copyListener.promise;
@@ -112,7 +112,7 @@ add_task(async function verifySmallMessage() {
   const msgServ = MailServices.messageServiceFromURI(msgURI);
 
   const streamListener = new PromiseTestUtils.PromiseStreamListener();
-  msgServ.streamMessage(msgURI, streamListener, null, null, false, "", true);
+  msgServ.streamMessage(msgURI, streamListener, null, false, "", true);
   const got = await streamListener.promise;
 
   const expected = await IOUtils.readUTF8(gSmallMsgFile.path);

@@ -36,7 +36,7 @@ function run_test() {
     0,
     "",
     copyListener,
-    null
+    false
   );
   return true;
 }
@@ -63,7 +63,7 @@ var copyListener = {
         0,
         "",
         copyListener,
-        null
+        false
       );
     } else {
       try {
@@ -126,7 +126,7 @@ function setupVirtualFolder() {
   searchSession.appendTerm(searchTerm, false);
   searchSession.registerListener(searchListener);
   dump("starting search of vf\n");
-  searchSession.search(null);
+  searchSession.search(false);
 }
 
 // partially based on gSearchNotificationListener in searchBar.js

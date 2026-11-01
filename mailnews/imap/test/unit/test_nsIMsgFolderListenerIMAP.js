@@ -48,17 +48,13 @@ var gMsgId2 = "200804111417.m3BEHTk4030129@mrapp51.mozilla.org";
 var gMsgId3 = "4849BF7B.2030800@example.com";
 var gMsgId4 = "bugmail7.m47LtAEf007542@mrapp51.mozilla.org";
 var gMsgId5 = "bugmail6.m47LtAEf007542@mrapp51.mozilla.org";
-var gMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-  Ci.nsIMsgWindow
-);
-
 function addFolder(parent, folderName, storeIn) {
   gExpectedEvents = [
     [MailServices.mfn.folderAdded, parent, folderName, storeIn],
   ];
   // No copy listener notification for this
   gCurrStatus |= kStatus.onStopCopyDone;
-  parent.createSubfolder(folderName, null);
+  parent.createSubfolder(folderName);
   gCurrStatus |= kStatus.functionCallDone;
   gServer.performTest("LIST");
   if (gCurrStatus == kStatus.everythingDone) {
@@ -84,7 +80,7 @@ function copyFileMessage(file, messageId, destFolder) {
     [MailServices.mfn.msgAdded, { expectedMessageId: messageId }],
     [MailServices.mfn.msgsClassified, [messageId], false, false],
   ];
-  destFolder.updateFolder(null);
+  destFolder.updateFolder(false);
   MailServices.copy.copyFileMessage(
     file,
     destFolder,
@@ -93,7 +89,7 @@ function copyFileMessage(file, messageId, destFolder) {
     0,
     "",
     copyListener,
-    null
+    false
   );
   gCurrStatus |= kStatus.functionCallDone;
   gServer.performTest("APPEND");
@@ -110,7 +106,7 @@ function doUpdateFolder(test) {
     return;
   }
 
-  gFolderBeingUpdated.updateFolder(null);
+  gFolderBeingUpdated.updateFolder(false);
 
   if (gCurrStatus == kStatus.everythingDone) {
     resetStatusAndProceed();
@@ -186,7 +182,7 @@ function copyMessages(messages, isMove, srcFolder, destFolder) {
     destFolder,
     isMove,
     copyListener,
-    gMsgWindow,
+    true,
     true
   );
   gCurrStatus |= kStatus.functionCallDone;
@@ -300,7 +296,7 @@ function run_test() {
   MailServices.mfn.addListener(gMFListener, allTestedEvents);
 
   // Get the server list...
-  gIMAPIncomingServer.performExpand(null);
+  gIMAPIncomingServer.performExpand(false);
 
   // We get these notifications on initial discovery
   gRootFolder = gIMAPIncomingServer.rootFolder;

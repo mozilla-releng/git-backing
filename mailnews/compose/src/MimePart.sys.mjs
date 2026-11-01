@@ -245,8 +245,7 @@ export class MimePart {
 
       msgService.streamMessage(
         this._bodyAttachment.url,
-        streamListener,
-        null, // msgWindow
+        streamListener, // streamListener
         null, // urlListener
         false, // convertData
         "" // additionalHeader

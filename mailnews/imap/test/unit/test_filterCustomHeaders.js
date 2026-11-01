@@ -24,7 +24,7 @@ var { IMAPPump, setupIMAPPump, teardownIMAPPump } = ChromeUtils.importESModule(
 add_setup(async function () {
   setupIMAPPump();
   // Create a test filter.
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   const filter = filterList.createFilter("test list-id");
   const searchTerm = filter.createTerm();
   searchTerm.attrib = Ci.nsMsgSearchAttrib.OtherHeader + 1;
@@ -54,7 +54,7 @@ add_setup(async function () {
     new ImapMessage(msgfileuri.spec, IMAPPump.mailbox.uidnext++, [])
   );
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 

@@ -16,20 +16,12 @@ var incomingServer;
  */
 var ewsServer;
 
-/**
- * @type {nsIMsgWindow}
- */
-var msgWindow;
-
 var rootFolder;
 
 const ewsIdPropertyName = "ewsId";
 
 add_setup(async function () {
   [ewsServer, incomingServer] = setupBasicEwsTestServer({});
-  msgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-    Ci.nsIMsgWindow
-  );
   rootFolder = incomingServer.rootFolder;
   await syncFolder(incomingServer, rootFolder);
 });
@@ -57,7 +49,7 @@ async function setupCopyMoveTest(srcFolder, dstFolder, isMove) {
     srcFolder,
     headers,
     isMove,
-    msgWindow,
+    true,
     listener,
     false,
     true
@@ -214,14 +206,7 @@ add_task(async function test_undo_delete() {
   Assert.equal(messagesToDelete.length, 1, "Should have a message to delete.");
 
   const listener = new PromiseTestUtils.PromiseCopyListener();
-  folder.deleteMessages(
-    messagesToDelete,
-    msgWindow,
-    false,
-    false,
-    listener,
-    true
-  );
+  folder.deleteMessages(messagesToDelete, true, false, false, listener, true);
   await listener.promise;
 
   checkFolders([

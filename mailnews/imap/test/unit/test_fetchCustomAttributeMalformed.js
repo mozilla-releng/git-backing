@@ -7,10 +7,6 @@
  * custom attribute has no value before the end of the line.
  */
 
-var gMsgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-  Ci.nsIMsgWindow
-);
-
 add_setup(async function () {
   setupIMAPPump("CUSTOM1");
   Services.prefs.setBoolPref(
@@ -27,7 +23,7 @@ add_setup(async function () {
   message.xCustomValue = "\r\n";
   IMAPPump.mailbox.addMessage(message);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -36,7 +32,7 @@ add_task(async function testFetchMissingCustomValue() {
   const uri = IMAPPump.inbox.fetchCustomMsgAttribute(
     "X-CUSTOM-VALUE",
     msgHdr.messageKey,
-    gMsgWindow
+    true
   );
   uri.QueryInterface(Ci.nsIMsgMailNewsUrl);
   const listener = new PromiseTestUtils.PromiseUrlListener({

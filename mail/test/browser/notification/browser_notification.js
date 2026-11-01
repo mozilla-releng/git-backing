@@ -100,7 +100,7 @@ add_setup(async function () {
       Ci.nsMsgFolderFlags.Trash
     );
     be_in_folder(gFolder.rootFolder);
-    gFolder.deleteSelf(null);
+    gFolder.deleteSelf(false);
     trash.emptyTrash(null);
 
     MailServices.accounts.removeAccount(account, false);
@@ -125,7 +125,7 @@ registerCleanupFunction(function () {
 });
 
 function setupTest() {
-  gFolder.markAllMessagesRead(null);
+  gFolder.markAllMessagesRead();
   MockAlertsService.reset();
   MockSound.reset();
   gFolder.biffState = Ci.nsIMsgFolder.nsMsgBiffState_NoMail;
@@ -554,7 +554,7 @@ add_task(async function test_no_notification_for_uninteresting_folders() {
   await TestUtils.waitForTick();
 
   be_in_folder(gFolder);
-  someFolder.deleteSelf(null);
+  someFolder.deleteSelf(false);
 });
 
 /**

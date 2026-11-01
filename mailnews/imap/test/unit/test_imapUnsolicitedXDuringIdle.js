@@ -22,7 +22,7 @@ let inbox;
 
 async function updateInbox() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  inbox.updateFolderWithListener(null, listener);
+  inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 }
 
@@ -45,7 +45,7 @@ add_setup(async function () {
   MailServices.imap.discoverAllFolders(
     incomingServer.rootFolder,
     listener,
-    null
+    false
   );
   await listener.promise;
 

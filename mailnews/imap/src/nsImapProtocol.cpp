@@ -112,27 +112,6 @@ static int32_t gPromoteNoopToCheckCount = 0;
 static const uint32_t kFlagChangesBeforeCheck = 10;
 static const int32_t kMaxSecondsBeforeCheck = 600;
 
-class AutoProxyReleaseMsgWindow {
- public:
-  AutoProxyReleaseMsgWindow() : mMsgWindow() {}
-  ~AutoProxyReleaseMsgWindow() {
-    NS_ReleaseOnMainThread("AutoProxyReleaseMsgWindow::mMsgWindow",
-                           dont_AddRef(mMsgWindow));
-  }
-  nsIMsgWindow** StartAssignment() {
-    MOZ_ASSERT(!mMsgWindow);
-    return &mMsgWindow;
-  }
-  operator nsIMsgWindow*() { return mMsgWindow; }
-
- private:
-  nsIMsgWindow* mMsgWindow;
-};
-
-nsIMsgWindow** getter_AddRefs(AutoProxyReleaseMsgWindow& aSmartPtr) {
-  return aSmartPtr.StartAssignment();
-}
-
 class MOZ_RAII AutoNoErrorReporting {
  public:
   explicit AutoNoErrorReporting(nsImapServerResponseParser& aParser)
@@ -892,17 +871,6 @@ nsresult nsImapProtocol::SetupWithUrl(nsIURI* aURL, nsISupports* aConsumer) {
       m_mockChannel = do_QueryInterface(channel);
       NS_ASSERTION(m_mockChannel,
                    "failed to get a mock channel in nsImapProtocol");
-
-      // Certain imap operations (not initiated by the IO Service via AsyncOpen)
-      // can be interrupted by  the stop button on the toolbar. We do this by
-      // using the loadgroup of the docshell for the message pane. We really
-      // shouldn't be doing this.. See the comment in
-      // nsMsgMailNewsUrl::GetLoadGroup.
-      nsCOMPtr<nsILoadGroup> loadGroup;
-      mailnewsUrl->GetLoadGroup(
-          getter_AddRefs(loadGroup));  // get the message pane load group
-      if (loadGroup)
-        loadGroup->AddRequest(m_mockChannel, nullptr /* context isupports */);
     }
 
     if (m_mockChannel) {
@@ -1254,11 +1222,11 @@ NS_IMETHODIMP nsImapProtocol::CloseStreams() {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsImapProtocol::GetUrlWindow(nsIMsgMailNewsUrl* aUrl,
-                                           nsIMsgWindow** aMsgWindow) {
-  NS_ENSURE_ARG_POINTER(aUrl);
-  NS_ENSURE_ARG_POINTER(aMsgWindow);
-  return aUrl->GetMsgWindow(aMsgWindow);
+NS_IMETHODIMP nsImapProtocol::GetUrlInteractive(nsIMsgMailNewsUrl* url,
+                                                bool* interactive) {
+  NS_ENSURE_ARG_POINTER(url);
+  NS_ENSURE_ARG_POINTER(interactive);
+  return url->GetInteractive(interactive);
 }
 
 NS_IMETHODIMP nsImapProtocol::SetupMainThreadProxies() {
@@ -1456,7 +1424,6 @@ nsImapProtocol::GetLastActiveTimeStamp(PRTime* aTimeStamp) {
 static void DoomCacheEntry(nsIMsgMailNewsUrl* url);
 NS_IMETHODIMP
 nsImapProtocol::PseudoInterruptMsgLoad(nsIMsgFolder* aImapFolder,
-                                       nsIMsgWindow* aMsgWindow,
                                        bool* interrupted) {
   NS_ENSURE_ARG(interrupted);
 
@@ -1475,12 +1442,10 @@ nsImapProtocol::PseudoInterruptMsgLoad(nsIMsgFolder* aImapFolder,
       rv = GetRunningImapURL(getter_AddRefs(runningImapURL));
       if (NS_SUCCEEDED(rv) && runningImapURL) {
         nsCOMPtr<nsIMsgFolder> runningImapFolder;
-        nsCOMPtr<nsIMsgWindow> msgWindow;
         nsCOMPtr<nsIMsgMailNewsUrl> mailnewsUrl =
             do_QueryInterface(runningImapURL);
-        mailnewsUrl->GetMsgWindow(getter_AddRefs(msgWindow));
         mailnewsUrl->GetFolder(getter_AddRefs(runningImapFolder));
-        if (aImapFolder == runningImapFolder && msgWindow == aMsgWindow) {
+        if (aImapFolder == runningImapFolder) {
           MOZ_LOG(IMAPCache, LogLevel::Debug,
                   ("%s: Set PseudoInterrupt", __func__));
           PseudoInterrupt(true);
@@ -2414,9 +2379,6 @@ bool nsImapProtocol::TryToRunUrlLocally(nsIURI* aURL, nsISupports* aConsumer) {
 
   nsCOMPtr<nsILoadGroup> loadGroup;
   imapChannel->GetLoadGroup(getter_AddRefs(loadGroup));
-  if (!loadGroup)  // if we don't have one, the url will snag one from the msg
-                   // window...
-    mailnewsUrl->GetLoadGroup(getter_AddRefs(loadGroup));
 
   if (loadGroup)
     loadGroup->RemoveRequest((nsIRequest*)mockChannel,
@@ -7270,10 +7232,7 @@ void nsImapProtocol::FolderRenamed(const char* oldName, const char* newName) {
                                         onlineDelimiter, canonicalOldName);
     m_runningUrl->AllocateCanonicalPath(nsDependentCString(newName),
                                         onlineDelimiter, canonicalNewName);
-    AutoProxyReleaseMsgWindow msgWindow;
-    GetMsgWindow(getter_AddRefs(msgWindow));
-    m_imapServerSink->OnlineFolderRename(msgWindow, canonicalOldName,
-                                         canonicalNewName);
+    m_imapServerSink->OnlineFolderRename(canonicalOldName, canonicalNewName);
   }
 }
 
@@ -8394,14 +8353,15 @@ void nsImapProtocol::Check() {
   }
 }
 
-nsresult nsImapProtocol::GetMsgWindow(nsIMsgWindow** aMsgWindow) {
-  nsresult rv;
-  *aMsgWindow = nullptr;
-  nsCOMPtr<nsIMsgMailNewsUrl> mailnewsUrl =
-      do_QueryInterface(m_runningUrl, &rv);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!m_imapProtocolSink) return NS_ERROR_FAILURE;
-  return m_imapProtocolSink->GetUrlWindow(mailnewsUrl, aMsgWindow);
+bool nsImapProtocol::IsInteractive() {
+  nsCOMPtr<nsIMsgMailNewsUrl> mailnewsUrl = do_QueryInterface(m_runningUrl);
+  if (!mailnewsUrl || !m_imapProtocolSink) {
+    return false;
+  }
+  bool interactive = false;
+  nsresult rv =
+      m_imapProtocolSink->GetUrlInteractive(mailnewsUrl, &interactive);
+  return NS_SUCCEEDED(rv) && interactive;
 }
 
 /**
@@ -8421,11 +8381,9 @@ nsresult nsImapProtocol::GetPassword(nsString& password,
   // Get the password already stored in mem
   rv = m_imapServerSink->GetServerPassword(password);
   if (NS_FAILED(rv) || password.IsEmpty()) {
-    // First see if there's an associated window. We don't want to produce a
-    // password prompt if there is no window, e.g., during biff.
-    AutoProxyReleaseMsgWindow msgWindow;
-    GetMsgWindow(getter_AddRefs(msgWindow));
-    if (msgWindow) {
+    // We don't want to produce a password prompt when nobody is waiting on
+    // the url to be able to answer it, e.g., during biff.
+    if (IsInteractive()) {
       m_passwordStatus = NS_OK;
       m_passwordObtained = false;
 
@@ -8468,7 +8426,7 @@ nsresult nsImapProtocol::GetPassword(nsString& password,
         }  // end while
       }
     } else {
-      // If no msgWindow (i.e., unattended operation like biff, filtering or
+      // If not interactive (i.e., unattended operation like biff, filtering or
       // autosync) try to get the password directly from login mgr. If it's not
       // there, will return NS_ERROR_NOT_AVAILABLE and the connection will fail
       // with only the IMAP log message: `password prompt failed or user
@@ -8493,12 +8451,10 @@ nsImapProtocol::OnPromptStart(bool* aResult) {
   nsresult rv;
   nsCOMPtr<nsIImapIncomingServer> imapServer = do_QueryReferent(m_server, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
-  nsCOMPtr<nsIMsgWindow> msgWindow;
 
   *aResult = false;
-  GetMsgWindow(getter_AddRefs(msgWindow));
   nsString password = m_lastPasswordSent;
-  rv = imapServer->PromptPassword(msgWindow, password);
+  rv = imapServer->PromptPassword(password);
 
   ReentrantMonitorAutoEnter passwordMon(m_passwordReadyMonitor);
 
@@ -8671,11 +8627,11 @@ bool nsImapProtocol::TryToLogon() {
   // clang-format on
 
   bool newPasswordRequested = false;
-  // remember the msgWindow before we start trying to logon, because if the
-  // server drops the connection on errors, TellThreadToDie will null out the
-  // protocolsink and we won't be able to get the msgWindow.
-  AutoProxyReleaseMsgWindow msgWindow;
-  GetMsgWindow(getter_AddRefs(msgWindow));
+  // Remember whether anybody is waiting on this before we start trying to
+  // logon, because if the server drops the connection on errors,
+  // TellThreadToDie will null out the protocolsink and we won't be able to ask
+  // the url any more.
+  const bool interactive = IsInteractive();
 
   // This loops over 1) auth methods (only one per loop) and 2) password tries
   // (with UI)
@@ -8742,8 +8698,8 @@ bool nsImapProtocol::TryToLogon() {
                 ("IMAP: ask user what to do (after login failed): new "
                  "password, retry, cancel"));
         if (!m_imapServerSink) break;
-        // if there's no msg window, don't forget the password
-        if (!msgWindow) break;
+        // Nobody is waiting to answer the prompt, so don't forget the password.
+        if (!interactive) break;
         int32_t buttonPressed = 1;
         rv = m_imapServerSink->PromptLoginFailed(&buttonPressed);
         if (NS_FAILED(rv)) break;
@@ -9184,9 +9140,6 @@ NS_IMETHODIMP nsImapMockChannel::Close() {
       // remove the channel from the load group
       nsCOMPtr<nsILoadGroup> loadGroup;
       GetLoadGroup(getter_AddRefs(loadGroup));
-      // if the mock channel wasn't initialized with a load group then
-      // use our load group (they may differ)
-      if (!loadGroup) mailnewsUrl->GetLoadGroup(getter_AddRefs(loadGroup));
       if (loadGroup)
         loadGroup->RemoveRequest((nsIRequest*)this, nullptr, NS_OK);
     }
@@ -9724,9 +9677,6 @@ NS_IMETHODIMP nsImapMockChannel::ReadFromImapConnection() {
 
   nsCOMPtr<nsILoadGroup> loadGroup;
   GetLoadGroup(getter_AddRefs(loadGroup));
-  if (!loadGroup)  // if we don't have one, the url will snag one from the msg
-                   // window...
-    mailnewsUrl->GetLoadGroup(getter_AddRefs(loadGroup));
 
   // okay, add the mock channel to the load group..
   if (loadGroup)

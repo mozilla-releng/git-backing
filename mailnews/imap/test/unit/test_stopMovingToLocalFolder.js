@@ -43,7 +43,7 @@ add_setup(async function () {
   IMAPPump.mailbox.addMessage(imapMsg);
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, listener);
+  IMAPPump.inbox.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
@@ -60,7 +60,7 @@ add_task(async function move_messages() {
     localAccountUtils.inboxFolder,
     true,
     copyListener,
-    null,
+    false,
     false
   );
   await copyListener.promise;

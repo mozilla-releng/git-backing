@@ -7,7 +7,6 @@
 interface nsIURI;
 interface nsIUrlListener;
 interface nsIStreamListener;
-interface nsIMsgWindow;
 interface nsIFile;
 interface nsIMsgFolder;
 interface nsIMsgSearchSession;
@@ -48,10 +47,10 @@ interface nsIMsgMessageService : nsISupports {
    * @param aMoveMessage  TRUE if you want the message to be moved.
    *                      FALSE leaves it as just a copy.
    * @param aUrlListener
-   * @param aMsgWindow
+   * @param interactive   Whether the user is waiting on the copy.
    */
   void copyMessage(in AUTF8String aSrcURI, in nsIStreamListener aCopyListener, in boolean aMoveMessage,
-                   in nsIUrlListener aUrlListener, in nsIMsgWindow aMsgWindow);
+                   in nsIUrlListener aUrlListener, in boolean interactive);
 
   /**
    * Copy multiple messages at a time.
@@ -61,7 +60,7 @@ interface nsIMsgMessageService : nsISupports {
    * @param aCopyListener
    * @param aMoveMessage
    * @param aUrlListener
-   * @param aMsgWindow
+   * @param interactive   Whether the user is waiting on the copy.
    * @returns URI that's run to perform the copy
    */
   nsIURI CopyMessages(in Array<nsMsgKey> aKeys,
@@ -69,7 +68,7 @@ interface nsIMsgMessageService : nsISupports {
                       in nsIStreamListener aCopyListener,
                       in boolean aMoveMessage,
                       in nsIUrlListener aUrlListener,
-                      in nsIMsgWindow aMsgWindow);
+                      in boolean interactive);
 
   /**
    * When you want a message displayed... this loads it into the docshell
@@ -77,14 +76,14 @@ interface nsIMsgMessageService : nsISupports {
    *
    * @param aMessageURI - A uri representing the message to display.
    * @param aDocShell - A nsIDocShell which we'll use to load the message into.
-   * @param aMsgWindow
+   * @param interactive - Whether the user is waiting on the message.
    * @param aUrlListener
    * @param aAutodetectCharset Whether the characterset should be auto-detected.
    */
   [can_run_script]
   void loadMessage(in AUTF8String aMessageURI,
                    in nsIDocShell aDocShell,
-                   in nsIMsgWindow aMsgWindow,
+                   in boolean interactive,
                    in nsIUrlListener aUrlListener,
                    in boolean aAutodetectCharset);
 
@@ -97,11 +96,11 @@ interface nsIMsgMessageService : nsISupports {
    * @param aFile The file you want the message saved to
    * @param aUrlListener
    * @param canonicalLineEnding
-   * @param aMsgWindow
+   * @param interactive Whether the user is waiting on the save.
    */
   void saveMessageToDisk(in AUTF8String aMessageURI, in nsIFile aFile,
                          in nsIUrlListener aUrlListener,
-                         in boolean canonicalLineEnding, in nsIMsgWindow aMsgWindow);
+                         in boolean canonicalLineEnding, in boolean interactive);
 
   /**
    * When you have a uri and you would like to convert that
@@ -109,21 +108,21 @@ interface nsIMsgMessageService : nsISupports {
    * the Uri MUST refer to a message and not a folder!
    *
    * @param aMessageURI A message uri to convert.
-   * @param aMsgWindow
+   * @param interactive Whether the user is waiting on the url.
    *
    * @return a URL which can be run through necko
    */
-  nsIURI getUrlForUri(in AUTF8String aMessageURI, [optional] in nsIMsgWindow aMsgWindow);
+  nsIURI getUrlForUri(in AUTF8String aMessageURI, [optional] in boolean interactive);
 
   /**
-   *
+   * Run a protocol-specific search for aSearchSession.
    *
    * @param aSearchSession
-   * @param aMsgWindow
+   * @param interactive  Whether the user is waiting on the search.
    * @param aMsgFolder
    * @param aSearchUri
    */
-  void Search(in nsIMsgSearchSession aSearchSession, in nsIMsgWindow aMsgWindow, in nsIMsgFolder aMsgFolder, in AUTF8String aSearchUri);
+  void Search(in nsIMsgSearchSession aSearchSession, in boolean interactive, in nsIMsgFolder aMsgFolder, in AUTF8String aSearchUri);
 
   /**
    * This method streams a message to the passed in consumer. If aConvertData is true, it
@@ -132,7 +131,6 @@ interface nsIMsgMessageService : nsISupports {
    *
    * @param aMessageURI - The uri of message to stream.
    * @param aStreamlistener - A streamlistener listening to the message.
-   * @param aMsgWindow - msgWindow for progress and status feedback.
    * @param aUrlListener - Gets notified when url starts and stops.
    * @param aConvertData - Whether to send data through a stream converter.
    * @param aAdditionalHeader - Added to URI, e.g., "header=filter".
@@ -146,7 +144,6 @@ interface nsIMsgMessageService : nsISupports {
    */
   nsIURI streamMessage(in AUTF8String aMessageURI,
                        in nsIStreamListener aStreamlistener,
-                       in nsIMsgWindow aMsgWindow,
                        in nsIUrlListener aUrlListener,
                        in boolean aConvertData,
                        in AUTF8String aAdditionalHeader,
@@ -212,13 +209,13 @@ interface nsIMsgMessageFetchPartService : nsISupports
    * @param aURI url representing the message
    * @param aMessageURI RDF URI including the part to fetch
    * @param aStreamListener
-   * @param aMsgWindow
+   * @param interactive
    * @param aUrlListener
    *
    * @return
    */
   nsIURI fetchMimePart(in nsIURI aURI, in AUTF8String aMessageUri,
                        in nsIStreamListener aStreamListener,
-                       in nsIMsgWindow aMsgWindow,
+                       in boolean interactive,
                        in nsIUrlListener aUrlListener);
 };

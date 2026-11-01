@@ -53,7 +53,7 @@ add_task(async function testSynchronizeForOffline() {
   // Sync message list with the server (without downloading them in full).
   {
     const listener = new PromiseTestUtils.PromiseUrlListener();
-    inbox.updateFolderWithListener(null, listener);
+    inbox.updateFolderWithListener(false, listener);
     await listener.promise;
   }
 
@@ -78,7 +78,7 @@ add_task(async function testSynchronizeForOffline() {
       true /* downloadMail */,
       false /* sendUnsentMessages */,
       false /* goOfflineWhenDone */,
-      null /* window */
+      false /* interactive */
     );
 
     await TestUtils.waitForCondition(

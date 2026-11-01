@@ -57,7 +57,7 @@ add_setup(async function () {
   imapAccount.incomingServer.port = imapServer.port;
   imapAccount.incomingServer.password = "password";
   imapRootFolder = imapAccount.incomingServer.rootFolder;
-  imapAccount.incomingServer.performExpand(window.msgWindow);
+  imapAccount.incomingServer.performExpand(true);
   await TestUtils.waitForCondition(
     () => imapRootFolder.getChildNamed("imapMoveTarget"),
     "waiting for the IMAP folders to be discovered"
@@ -305,13 +305,7 @@ async function waitForFolder(parent, name) {
 async function copyFolder(folder, newParent, isMove) {
   const name = folder.name;
   const copyListener = new PromiseTestUtils.PromiseCopyListener();
-  MailServices.copy.copyFolder(
-    folder,
-    newParent,
-    isMove,
-    copyListener,
-    window.msgWindow
-  );
+  MailServices.copy.copyFolder(folder, newParent, isMove, copyListener, true);
   await copyListener.promise;
   return waitForFolder(newParent, name);
 }

@@ -13,7 +13,7 @@ export function MessageArchiver() {
   this._batches = {};
   this._currentKey = null;
 
-  this.msgWindow = null;
+  this.interactive = false;
   this.oncomplete = null;
 }
 
@@ -201,7 +201,7 @@ MessageArchiver.prototype = {
       batch.messages,
       [],
       batch.srcFolder,
-      this.msgWindow,
+      this.interactive,
       this
     );
     // continues with onStopOperation
@@ -307,7 +307,7 @@ MessageArchiver.prototype = {
         dstFolder,
         srcFolder.canDeleteMessages && !isNews,
         this,
-        this.msgWindow,
+        true,
         true
       );
       return; // continues with onStopCopy

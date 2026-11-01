@@ -50,7 +50,7 @@ add_task(async function test_newMsgs() {
   const folder = localserver.rootFolder.getChildNamed("test.filter");
   Assert.equal(folder.getTotalMessages(false), 0);
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
-  folder.getNewMessages(null, urlListener);
+  folder.getNewMessages(false, urlListener);
   await urlListener.promise;
   Assert.equal(folder.getTotalMessages(false), 8);
 });
@@ -64,7 +64,7 @@ add_task(async function test_cancel() {
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   folder
     .QueryInterface(Ci.nsIMsgNewsFolder)
-    .cancelMessage(hdr, urlListener, null);
+    .cancelMessage(hdr, urlListener, false);
   await urlListener.promise;
 
   Assert.equal(folder.getTotalMessages(false), 7);
@@ -87,7 +87,7 @@ add_task(function test_cancelLineBreakInMessageId() {
     () =>
       folder
         .QueryInterface(Ci.nsIMsgNewsFolder)
-        .cancelMessage(hdr, new PromiseTestUtils.PromiseUrlListener(), null),
+        .cancelMessage(hdr, new PromiseTestUtils.PromiseUrlListener(), false),
     /NS_ERROR_ILLEGAL_VALUE/,
     "cancel should be refused"
   );
@@ -130,7 +130,7 @@ add_task(async function test_fetchMessage() {
   const streamListener = new PromiseTestUtils.PromiseStreamListener();
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   const folder = localserver.rootFolder.getChildNamed("test.filter");
-  MailServices.nntp.fetchMessage(folder, 2, null, streamListener, urlListener);
+  MailServices.nntp.fetchMessage(folder, 2, false, streamListener, urlListener);
   await urlListener.promise;
   const data = await streamListener.promise;
   // To point out that the streamListener Promise shouldn't reject.
@@ -142,7 +142,7 @@ add_task(async function test_fetchMessageNoStreamListener() {
   const streamListener = null;
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   const folder = localserver.rootFolder.getChildNamed("test.filter");
-  MailServices.nntp.fetchMessage(folder, 2, null, streamListener, urlListener);
+  MailServices.nntp.fetchMessage(folder, 2, false, streamListener, urlListener);
   await urlListener.promise;
 });
 
@@ -176,7 +176,7 @@ add_task(async function test_search() {
     }
   );
 
-  searchSession.search(null);
+  searchSession.search(false);
   await searchListener.promise;
 
   Assert.equal(hitCount, 1);
@@ -207,7 +207,7 @@ add_task(async function test_grouplist() {
     return groups;
   }
 
-  MailServices.nntp.getListOfGroupsOnServer(localserver, null, false);
+  MailServices.nntp.getListOfGroupsOnServer(localserver, false, false);
   await subscribablePromise.promise;
 
   const groups = enumGroups("");
@@ -232,7 +232,7 @@ add_task(async function test_postMessage() {
     "misc.test",
     localserver.key,
     urlListener,
-    null
+    false
   );
   await urlListener.promise;
   Assert.equal(daemon.getGroup("misc.test").keys.length, 1);
@@ -258,7 +258,7 @@ add_task(async function test_escapedName() {
   // Can we access it?
   const folder = localserver.rootFolder.getChildNamed(evilName);
   const newMessageUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  folder.getNewMessages(null, newMessageUrlListener);
+  folder.getNewMessages(false, newMessageUrlListener);
   await newMessageUrlListener.promise;
 
   // If we get here, we didn't crash--newsgroups unescape properly.
@@ -268,7 +268,7 @@ add_task(async function test_escapedName() {
   MailServices.nntp.fetchMessage(
     folder,
     1,
-    null,
+    false,
     streamlistener,
     fetchMessageUrlListener
   );

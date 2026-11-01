@@ -4,7 +4,6 @@
 
 #include "nsISupports.idl"
 
-interface nsIMsgWindow;
 interface nsIMsgIncomingServer;
 
 /**
@@ -23,8 +22,8 @@ interface nsISubscribableServer : nsISupports {
   attribute nsISubscribeListener subscribeListener;
   attribute char delimiter;
 
-  void startPopulating(in nsIMsgWindow aMsgWindow, in boolean forceToServer, in boolean getOnlyNew);
-  void stopPopulating(in nsIMsgWindow aMsgWindow);
+  void startPopulating(in boolean interactive, in boolean forceToServer, in boolean getOnlyNew);
+  void stopPopulating();
 
   // return true if state changed, false otherwise
   boolean setState(in AUTF8String path, in boolean state);

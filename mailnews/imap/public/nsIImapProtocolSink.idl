@@ -4,7 +4,6 @@
 
 #include "nsISupports.idl"
 
-interface nsIMsgWindow;
 interface nsIMsgMailNewsUrl;
 
 /**
@@ -19,12 +18,11 @@ interface nsIImapProtocolSink : nsISupports {
    */
   void closeStreams();
   /**
-   * Get the msg window associated with a url
+   * Whether a user is waiting on a url and can answer for it.
    *
-   * @param aUrl url whose msgWindow we want.
-   * @returns msgWindow associated with url.
+   * @param url url whose interactive flag we want.
    */
-  nsIMsgWindow getUrlWindow(in nsIMsgMailNewsUrl aUrl);
+  boolean getUrlInteractive(in nsIMsgMailNewsUrl url);
 
   /**
    * Setup main thread proxies.

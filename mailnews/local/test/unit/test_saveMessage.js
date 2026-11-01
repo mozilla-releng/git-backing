@@ -50,7 +50,7 @@ async function saveMessageFromStore(storeID) {
       0,
       "",
       copyListener,
-      null
+      false
     );
     const copied = await copyListener.promise;
 
@@ -69,7 +69,7 @@ async function saveMessageFromStore(storeID) {
       savedFile,
       promiseUrlListener,
       true,
-      null
+      false
     );
     await promiseUrlListener.promise;
 

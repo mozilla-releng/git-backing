@@ -11,7 +11,6 @@
 #include "nsMsgSearchBoolExpression.h"
 #include "nsIDBFolderInfo.h"
 #include "nsIMsgLocalMailFolder.h"
-#include "nsIMsgWindow.h"
 #include "nsIMsgHdr.h"
 #include "nsIMsgFilterPlugin.h"
 #include "nsMsgMessageFlags.h"
@@ -279,11 +278,8 @@ nsresult nsMsgSearchOfflineMail::OpenSummaryFile() {
       nsCOMPtr<nsIMsgSearchSession> searchSession;
       m_scope->GetSearchSession(getter_AddRefs(searchSession));
       if (searchSession) {
-        nsCOMPtr<nsIMsgWindow> searchWindow;
-
-        searchSession->GetWindow(getter_AddRefs(searchWindow));
         searchSession->PauseSearch();
-        localFolder->ParseFolder(searchWindow, this);
+        localFolder->ParseFolder(this);
         // The OnStopRunningUrl method will be called once the parsing has
         // finished.
       }

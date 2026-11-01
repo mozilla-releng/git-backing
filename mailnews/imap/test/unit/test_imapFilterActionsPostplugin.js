@@ -169,7 +169,7 @@ function run_test() {
 
 function setupFilters() {
   // Create a non-body filter.
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   gFilter = filterList.createFilter("subject");
   const searchTerm = gFilter.createTerm();
   searchTerm.attrib = Subject;
@@ -201,7 +201,7 @@ function setupFilters() {
 
 // basic preparation done for each test
 async function setupTest(aFilter, aAction) {
-  const filterList = IMAPPump.incomingServer.getFilterList(null);
+  const filterList = IMAPPump.incomingServer.getFilterList();
   while (filterList.filterCount) {
     filterList.removeFilterAt(0);
   }
@@ -222,7 +222,7 @@ async function setupTest(aFilter, aAction) {
     new ImapMessage(specForFileName(gMessage), IMAPPump.mailbox.uidnext++, [])
   );
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.updateFolderWithListener(null, promiseUrlListener);
+  IMAPPump.inbox.updateFolderWithListener(false, promiseUrlListener);
   await promiseUrlListener.promise;
   await PromiseTestUtils.promiseDelay(200);
 }

@@ -40,7 +40,7 @@ add_task(async function setup() {
 
 add_task(async function downloadAllForOffline() {
   const promiseUrlListener = new PromiseTestUtils.PromiseUrlListener();
-  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, null);
+  IMAPPump.inbox.downloadAllForOffline(promiseUrlListener, false);
   await promiseUrlListener.promise;
 });
 
@@ -55,7 +55,7 @@ add_task(async function verifyDownloaded() {
     const streamListener = new PromiseTestUtils.PromiseStreamListener();
     const uri = inbox.getUriForMsg(msg);
     const service = MailServices.messageServiceFromURI(uri);
-    service.streamMessage(uri, streamListener, null, null, false, "", true);
+    service.streamMessage(uri, streamListener, null, false, "", true);
     await streamListener.promise;
   }
 });
@@ -91,7 +91,6 @@ add_task(
         service.streamMessage(
           uri,
           streamListener,
-          null,
           null,
           false,
           "",
@@ -137,7 +136,7 @@ add_task(
       const streamListener = new PromiseTestUtils.PromiseStreamListener();
       const uri = inbox.getUriForMsg(msg);
       const service = MailServices.messageServiceFromURI(uri);
-      service.streamMessage(uri, streamListener, null, null, false, "", false);
+      service.streamMessage(uri, streamListener, null, false, "", false);
       await streamListener.promise;
     }
 
@@ -152,7 +151,7 @@ add_task(
       const uri = inbox.getUriForMsg(msg);
       const service = MailServices.messageServiceFromURI(uri);
       // One more time, but with localOnly set.
-      service.streamMessage(uri, streamListener, null, null, false, "", true);
+      service.streamMessage(uri, streamListener, null, false, "", true);
       await streamListener.promise;
     }
   }

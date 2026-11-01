@@ -25,7 +25,7 @@ add_task(async function testViewSortBySize() {
     incomingServer.headersOnly = headersOnly;
     const urlListener = new PromiseTestUtils.PromiseUrlListener();
     MailServices.pop3.GetNewMail(
-      null,
+      false,
       urlListener,
       localAccountUtils.inboxFolder,
       incomingServer
@@ -68,7 +68,7 @@ add_task(async function testViewSortBySize() {
     );
   };
 
-  dbView.init(null, null);
+  dbView.init(false, null);
   dbView.open(
     localAccountUtils.inboxFolder,
     Ci.nsMsgViewSortType.bySize,

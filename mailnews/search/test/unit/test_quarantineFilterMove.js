@@ -25,7 +25,7 @@ var gMoveFolder, gMoveFolder2;
 var gFilter; // the test filter
 var gFilterList;
 add_task(async function createFilters() {
-  gFilterList = gPOP3Pump.fakeServer.getFilterList(null);
+  gFilterList = gPOP3Pump.fakeServer.getFilterList();
   gFilter = gFilterList.createFilter("MoveAll");
   const searchTerm = gFilter.createTerm();
   searchTerm.matchAll = true;
@@ -85,7 +85,7 @@ add_task(async function copyMovedMessages() {
     gMoveFolder2,
     false,
     promiseCopyListener,
-    null,
+    false,
     false
   );
   await Promise.all([promiseCopyListener.promise, promiseMoveMsg]);
@@ -161,7 +161,6 @@ function getContentFromMessage(aMsgHdr) {
     MailServices.messageServiceFromURI(msgUri).streamMessage(
       msgUri,
       streamListener,
-      null,
       null,
       false,
       "",

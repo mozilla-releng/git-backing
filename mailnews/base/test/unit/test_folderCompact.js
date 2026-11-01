@@ -30,7 +30,7 @@ function copyFileMessage(file, destFolder, isDraftOrTemplate) {
     0,
     "",
     listener,
-    null
+    false
   );
   return listener.promise;
 }
@@ -43,7 +43,7 @@ function copyMessages(items, isMove, srcFolder, destFolder) {
     destFolder,
     isMove,
     listener,
-    null,
+    false,
     true
   );
   return listener.promise;
@@ -51,7 +51,7 @@ function copyMessages(items, isMove, srcFolder, destFolder) {
 
 function deleteMessages(srcFolder, items) {
   const listener = new PromiseTestUtils.PromiseCopyListener();
-  srcFolder.deleteMessages(items, null, false, true, listener, true);
+  srcFolder.deleteMessages(items, false, false, true, listener, true);
   return listener.promise;
 }
 
@@ -149,7 +149,7 @@ add_task(async function testCompactFolder() {
   Assert.greater(expungedBytes, 0, "folder3 should need compaction");
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gFolder3.compact(listener, null);
+  gFolder3.compact(listener, false);
   await listener.promise;
 
   // Bug 854798: Check if the new message keys are the same as before compaction.
@@ -206,7 +206,7 @@ add_task(async function testCompactAllFolders() {
   const expungedBytes = gInbox.expungedBytes + gFolder2.expungedBytes;
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gInbox.compactAll(listener, null, false);
+  gInbox.compactAll(listener, false, false);
   await listener.promise;
 
   const keysAfter = Array.from(gFolder2.messages, m => m.messageKey);
@@ -261,7 +261,7 @@ add_task(async function testAbortCompactingFolder() {
   Assert.greater(gFolder2.expungedBytes, 0, "folder2 should need compaction");
 
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gFolder2.compact(listener, null);
+  gFolder2.compact(listener, false);
 
   // Shut down (or pretend to)! This can happen after starting compact because
   // compact is event driven and we haven't released the event loop yet.

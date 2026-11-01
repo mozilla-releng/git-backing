@@ -22,10 +22,6 @@ const TEXT_ATTACHMENT = "inline text attachment";
 var msgGen = new MessageGenerator();
 var inbox;
 var messageInjection = new MessageInjection({ mode: "local" });
-var msgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-  Ci.nsIMsgWindow
-);
-
 add_setup(function () {
   inbox = messageInjection.getInboxFolder();
 });
@@ -74,7 +70,6 @@ async function test_message_attachments(info) {
   msgService.streamMessage(
     msgURI,
     streamListener,
-    msgWindow,
     null,
     true, // have them create the converter
     // additional uri payload, note that "header=" is prepended automatically

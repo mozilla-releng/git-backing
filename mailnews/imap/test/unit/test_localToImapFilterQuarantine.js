@@ -35,18 +35,18 @@ add_setup(function () {
 
 add_task(async function createSubfolder() {
   const folderAddedListener = PromiseTestUtils.promiseFolderAdded("subfolder");
-  IMAPPump.incomingServer.rootFolder.createSubfolder("subfolder", null);
+  IMAPPump.incomingServer.rootFolder.createSubfolder("subfolder");
   await folderAddedListener;
   gSubfolder = IMAPPump.incomingServer.rootFolder.getChildNamed("subfolder");
   Assert.ok(gSubfolder instanceof Ci.nsIMsgImapMailFolder);
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  gSubfolder.updateFolderWithListener(null, listener);
+  gSubfolder.updateFolderWithListener(false, listener);
   await listener.promise;
 });
 
 add_task(async function getLocalMessages() {
   // setup copy then move mail filters on the inbox
-  const filterList = gPOP3Pump.fakeServer.getFilterList(null);
+  const filterList = gPOP3Pump.fakeServer.getFilterList();
   const filter = filterList.createFilter("copyThenMoveAll");
   const searchTerm = filter.createTerm();
   searchTerm.matchAll = true;
@@ -74,7 +74,7 @@ add_task(async function updateSubfolderAndTest() {
     gSubfolder,
     "FolderLoaded"
   );
-  gSubfolder.updateFolderWithListener(null, listener);
+  gSubfolder.updateFolderWithListener(false, listener);
   await listener.promise;
   await folderLoaded;
 
@@ -99,7 +99,7 @@ add_task(async function updateSubfolderAndTest2() {
     gSubfolder,
     "FolderLoaded"
   );
-  gSubfolder.updateFolderWithListener(null, listener);
+  gSubfolder.updateFolderWithListener(false, listener);
   await listener.promise;
   await folderLoaded;
   Assert.equal(folderCount(gSubfolder), 3);

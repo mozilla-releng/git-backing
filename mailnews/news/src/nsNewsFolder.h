@@ -26,14 +26,12 @@ class nsMsgNewsFolder : public nsMsgDBFolder, public nsIMsgNewsFolder {
   // nsIMsgFolder methods:
   NS_IMETHOD GetSubFolders(nsTArray<RefPtr<nsIMsgFolder>>& folders) override;
 
-  NS_IMETHOD UpdateFolder(nsIMsgWindow* aWindow) override;
+  NS_IMETHOD UpdateFolder(bool interactive) override;
 
-  NS_IMETHOD CreateSubfolder(const nsACString& folderName,
-                             nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD CreateSubfolder(const nsACString& folderName) override;
 
   NS_IMETHOD DeleteStorage() override;
-  NS_IMETHOD Rename(const nsACString& newName,
-                    nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD Rename(const nsACString& newName) override;
 
   NS_IMETHOD GetAbbreviatedName(nsAString& aAbbreviatedName) override;
 
@@ -46,10 +44,10 @@ class nsMsgNewsFolder : public nsMsgDBFolder, public nsIMsgNewsFolder {
                                   nsIMsgDatabase** db) override;
 
   NS_IMETHOD DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-                            nsIMsgWindow* msgWindow, bool deleteStorage,
-                            bool isMove, nsIMsgCopyServiceListener* listener,
+                            bool interactive, bool deleteStorage, bool isMove,
+                            nsIMsgCopyServiceListener* listener,
                             bool allowUndo) override;
-  NS_IMETHOD GetNewMessages(nsIMsgWindow* aWindow,
+  NS_IMETHOD GetNewMessages(bool interactive,
                             nsIUrlListener* aListener) override;
 
   NS_IMETHOD GetCanSubscribe(bool* aResult) override;
@@ -60,17 +58,14 @@ class nsMsgNewsFolder : public nsMsgDBFolder, public nsIMsgNewsFolder {
   NS_IMETHOD OnReadChanged(nsIDBChangeListener* aInstigator) override;
 
   NS_IMETHOD DownloadMessagesForOffline(
-      nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-      nsIMsgWindow* window) override;
+      nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, bool interactive) override;
   NS_IMETHOD DownloadAllForOffline(nsIUrlListener* listener,
-                                   nsIMsgWindow* msgWindow) override;
+                                   bool interactive) override;
 
   NS_IMETHOD Shutdown(bool shutdownChildren) override;
 
-  NS_IMETHOD GetFilterList(nsIMsgWindow* aMsgWindow,
-                           nsIMsgFilterList** aFilterList) override;
-  NS_IMETHOD GetEditableFilterList(nsIMsgWindow* aMsgWindow,
-                                   nsIMsgFilterList** aFilterList) override;
+  NS_IMETHOD GetFilterList(nsIMsgFilterList** aFilterList) override;
+  NS_IMETHOD GetEditableFilterList(nsIMsgFilterList** aFilterList) override;
   NS_IMETHOD SetFilterList(nsIMsgFilterList* aFilterList) override;
   NS_IMETHOD SetEditableFilterList(nsIMsgFilterList* aFilterList) override;
   NS_IMETHOD ApplyRetentionSettings() override;
@@ -90,7 +85,7 @@ class nsMsgNewsFolder : public nsMsgDBFolder, public nsIMsgNewsFolder {
   nsresult RememberUnsubscribedGroup(const nsACString& newsgroup,
                                      const nsACString& setStr);
   nsresult ForgetLine(void);
-  nsresult GetNewsMessages(nsIMsgWindow* aMsgWindow, bool getOld,
+  nsresult GetNewsMessages(bool interactive, bool getOld,
                            nsIUrlListener* aListener);
 
   int32_t HandleNewsrcLine(const char* line, uint32_t line_size);

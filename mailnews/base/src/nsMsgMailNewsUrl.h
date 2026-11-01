@@ -106,8 +106,6 @@ class nsMsgMailNewsUrl : public nsIMsgMailNewsUrl,
 
   nsCOMPtr<nsIURL> m_baseURL;
   nsCOMPtr<nsIURI> m_normalizedOrigin;
-  nsWeakPtr m_msgWindowWeak;
-  nsWeakPtr m_loadGroupWeak;
   nsCOMPtr<nsIMimeHeaders> mMimeHeaders;
   nsCOMPtr<nsIMsgSearchSession> m_searchSession;
   nsCOMPtr<nsICacheEntry> m_memCacheEntry;
@@ -121,6 +119,7 @@ class nsMsgMailNewsUrl : public nsIMsgMailNewsUrl,
   bool m_msgIsInLocalCache;
   bool m_suppressErrorMsgs;
   bool m_hasNormalizedOrigin;
+  bool mInteractive;
 
   // the following field is really a bit of a hack to make
   // open attachments work. The external applications code sometimes tries to

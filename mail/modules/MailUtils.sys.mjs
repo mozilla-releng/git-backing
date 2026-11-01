@@ -506,9 +506,6 @@ export var MailUtils = {
     }
 
     if (headers.get("X-Unsent") == "1") {
-      const msgWindow = Cc["@mozilla.org/messenger/msgwindow;1"].createInstance(
-        Ci.nsIMsgWindow
-      );
       lazy.MailServices.compose.OpenComposeWindow(
         null,
         {},
@@ -517,7 +514,7 @@ export var MailUtils = {
         Ci.nsIMsgCompFormat.Default,
         null,
         null,
-        msgWindow
+        true
       );
     } else if (
       Services.prefs.getIntPref("mail.openMessageBehavior") ==
@@ -1124,7 +1121,7 @@ export var MailUtils = {
         MailUtils.openEMLFile(win, tempFile, Services.io.newFileURI(tempFile));
       },
     };
-    messageService.saveMessageToDisk(uri, tempFile, urlListener, true, null);
+    messageService.saveMessageToDisk(uri, tempFile, urlListener, true, false);
   },
 
   /**
@@ -1355,9 +1352,9 @@ export var MailUtils = {
    *
    * @param {nsIFile} msgFile - The .eml file to copy..
    * @param {nsIMsgFolder} targetFolder - The message to replace.
-   * @param {nsIMsgWindow} msgWindow - The msg window to be used.
+   * @param {boolean} interactive - Whether the user is waiting on the copy.
    */
-  async copyFileMessageAsync(msgFile, targetFolder, msgWindow) {
+  async copyFileMessageAsync(msgFile, targetFolder, interactive) {
     const { promise, resolve, reject } = Promise.withResolvers();
     /** @implements {nsIMsgCopyServiceListener} */
     const copyServiceListener = {
@@ -1388,7 +1385,7 @@ export var MailUtils = {
       Ci.nsMsgMessageFlags.Read,
       "",
       copyServiceListener,
-      msgWindow
+      interactive
     );
     await promise;
   },
@@ -1418,7 +1415,7 @@ export var MailUtils = {
         resolve();
       },
     };
-    folder.updateFolderWithListener(null, urlListener);
+    folder.updateFolderWithListener(false, urlListener);
     await promise;
   },
 

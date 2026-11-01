@@ -21,7 +21,6 @@
 #include "nsIWindowWatcher.h"
 #include "FolderCompactor.h"
 #include "nsIDocShell.h"
-#include "nsIMsgWindow.h"
 #include "nsIWindowMediator.h"
 #include "nsIAbCard.h"
 #include "nsISpamSettings.h"
@@ -736,13 +735,13 @@ nsresult nsMsgDBFolder::SendFlagNotifications(nsIMsgDBHdr* item,
 }
 
 NS_IMETHODIMP nsMsgDBFolder::DownloadMessagesForOffline(
-    nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, nsIMsgWindow*) {
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& messages, bool) {
   NS_ASSERTION(false, "imap and news need to override this");
   return NS_OK;
 }
 
 NS_IMETHODIMP nsMsgDBFolder::DownloadAllForOffline(nsIUrlListener* listener,
-                                                   nsIMsgWindow* msgWindow) {
+                                                   bool interactive) {
   NS_ASSERTION(false, "imap and news need to override this");
   return NS_OK;
 }
@@ -1293,7 +1292,7 @@ nsresult nsMsgDBFolder::AddMarkAllReadUndoAction(nsMsgKey* thoseMarked,
 }
 
 NS_IMETHODIMP
-nsMsgDBFolder::MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) {
+nsMsgDBFolder::MarkAllMessagesRead() {
   nsresult rv = GetDatabase();
   m_newMsgs.Clear();
 
@@ -1759,7 +1758,7 @@ nsMsgDBFolder::MatchOrChangeFilterDestination(nsIMsgFolder* newFolder,
       rv = server->GetCanHaveFilters(&canHaveFilters);
       if (NS_SUCCEEDED(rv) && canHaveFilters) {
         // update the filterlist to match the new folder name
-        rv = server->GetFilterList(nullptr, getter_AddRefs(filterList));
+        rv = server->GetFilterList(getter_AddRefs(filterList));
         if (NS_SUCCEEDED(rv) && filterList) {
           bool match;
           rv = filterList->MatchOrChangeFilterTarget(oldUri, newUri,
@@ -1771,7 +1770,7 @@ nsMsgDBFolder::MatchOrChangeFilterDestination(nsIMsgFolder* newFolder,
           }
         }
         // update the editable filterlist to match the new folder name
-        rv = server->GetEditableFilterList(nullptr, getter_AddRefs(filterList));
+        rv = server->GetEditableFilterList(getter_AddRefs(filterList));
         if (NS_SUCCEEDED(rv) && filterList) {
           bool match;
           rv = filterList->MatchOrChangeFilterTarget(oldUri, newUri,
@@ -1944,12 +1943,11 @@ nsMsgDBFolder::OnMessageClassified(const nsACString& aMsgURI,
       // Apply post-bayes filtering.
       nsCOMPtr<nsIMsgFilterService> filterService(
           mozilla::components::Filter::Service());
-      // We use a null nsIMsgWindow because we don't want some sort of ui
-      // appearing in the middle of automatic filtering (plus I really don't
-      // want to propagate that value.)
+      // Not interactive because we don't want some sort of ui appearing in
+      // the middle of automatic filtering.
       rv = filterService->ApplyFilters(nsMsgFilterType::PostPlugin,
                                        mPostBayesMessagesToFilter, {}, this,
-                                       nullptr, nullptr);
+                                       false, nullptr);
       mPostBayesMessagesToFilter.Clear();
     }
 
@@ -2062,7 +2060,7 @@ nsMsgDBFolder::OnMessageTraitsClassified(const nsACString& aMsgURI,
  * Call the filter plugins (XXX currently just one)
  */
 NS_IMETHODIMP
-nsMsgDBFolder::CallFilterPlugins(nsIMsgWindow* aMsgWindow, bool* aFiltersRun) {
+nsMsgDBFolder::CallFilterPlugins(bool* aFiltersRun) {
   NS_ENSURE_ARG_POINTER(aFiltersRun);
   *aFiltersRun = false;
 
@@ -2212,7 +2210,7 @@ nsMsgDBFolder::CallFilterPlugins(nsIMsgWindow* aMsgWindow, bool* aFiltersRun) {
   // Do we need to apply message filters?
   bool filterPostPlugin = false;  // Do we have a post-analysis filter?
   nsCOMPtr<nsIMsgFilterList> filterList;
-  GetFilterList(aMsgWindow, getter_AddRefs(filterList));
+  GetFilterList(getter_AddRefs(filterList));
   if (filterList) {
     uint32_t filterCount = 0;
     filterList->GetFilterCount(&filterCount);
@@ -2384,8 +2382,8 @@ nsMsgDBFolder::CallFilterPlugins(nsIMsgWindow* aMsgWindow, bool* aFiltersRun) {
     rv = traitService->GetEnabledAntiIndices(antiIndices);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    rv = junkMailPlugin->ClassifyTraitsInMessages(
-        messageURIs, proIndices, antiIndices, this, aMsgWindow, this);
+    rv = junkMailPlugin->ClassifyTraitsInMessages(messageURIs, proIndices,
+                                                  antiIndices, this, this);
   } else if (filterPostPlugin) {
     // Nothing to classify, so need to end batch ourselves. We do this so that
     // post analysis filters will run consistently on a folder, even if
@@ -2642,7 +2640,7 @@ nsMsgDBFolder::GetMessages(nsIMsgEnumerator** result) {
 }
 
 NS_IMETHODIMP
-nsMsgDBFolder::UpdateFolder(nsIMsgWindow*) { return NS_OK; }
+nsMsgDBFolder::UpdateFolder(bool) { return NS_OK; }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -3263,7 +3261,7 @@ NS_IMETHODIMP nsMsgDBFolder::DeleteStorage() {
   return msgStore->DeleteFolder(this);
 }
 
-NS_IMETHODIMP nsMsgDBFolder::DeleteSelf(nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP nsMsgDBFolder::DeleteSelf(bool interactive) {
   nsCOMPtr<nsIMsgFolder> parent;
   GetParent(getter_AddRefs(parent));
   if (!parent) {
@@ -3378,8 +3376,7 @@ NS_IMETHODIMP nsMsgDBFolder::RecursiveDelete(bool deleteStorage) {
   return rv;
 }
 
-NS_IMETHODIMP nsMsgDBFolder::CreateSubfolder(const nsACString& folderName,
-                                             nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP nsMsgDBFolder::CreateSubfolder(const nsACString& folderName) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -3525,13 +3522,12 @@ NS_IMETHODIMP nsMsgDBFolder::AddSubfolder(const nsACString& name,
 }
 
 NS_IMETHODIMP nsMsgDBFolder::Compact(nsIUrlListener* aListener,
-                                     nsIMsgWindow* aMsgWindow) {
+                                     bool interactive) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP nsMsgDBFolder::CompactAll(nsIUrlListener* aListener,
-                                        nsIMsgWindow* aMsgWindow,
-                                        bool expunge) {
+                                        bool interactive, bool expunge) {
   NS_ASSERTION(false, "should be overridden by child class");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -3541,8 +3537,7 @@ NS_IMETHODIMP nsMsgDBFolder::EmptyTrash(nsIUrlListener* aListener) {
 }
 
 nsresult nsMsgDBFolder::CheckIfFolderExists(const nsACString& newFolderName,
-                                            nsIMsgFolder* parentFolder,
-                                            nsIMsgWindow* msgWindow) {
+                                            nsIMsgFolder* parentFolder) {
   NS_ENSURE_ARG_POINTER(parentFolder);
   nsTArray<RefPtr<nsIMsgFolder>> subFolders;
   nsresult rv = parentFolder->GetSubFolders(subFolders);
@@ -3560,8 +3555,7 @@ nsresult nsMsgDBFolder::CheckIfFolderExists(const nsACString& newFolderName,
   return NS_OK;
 }
 
-bool nsMsgDBFolder::ConfirmAutoFolderRename(nsIMsgWindow* msgWindow,
-                                            const nsCString& aOldName,
+bool nsMsgDBFolder::ConfirmAutoFolderRename(const nsCString& aOldName,
                                             const nsCString& aNewName) {
   nsCOMPtr<nsIStringBundle> bundle;
   nsresult rv = GetBaseStringBundle(getter_AddRefs(bundle));
@@ -3583,7 +3577,7 @@ bool nsMsgDBFolder::ConfirmAutoFolderRename(nsIMsgWindow* msgWindow,
   }
 
   bool confirmed = false;
-  rv = ThrowConfirmationPrompt(msgWindow, confirmString, &confirmed);
+  rv = ThrowConfirmationPrompt(confirmString, &confirmed);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
@@ -3720,8 +3714,7 @@ nsresult nsMsgDBFolder::GetBackupSummaryFile(nsIFile** aBackupFile,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsMsgDBFolder::Rename(const nsACString& aNewName,
-                                    nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP nsMsgDBFolder::Rename(const nsACString& aNewName) {
   nsCOMPtr<nsIFile> oldPathFile;
   nsresult rv = GetFilePath(getter_AddRefs(oldPathFile));
   if (NS_FAILED(rv)) return rv;
@@ -3750,7 +3743,7 @@ NS_IMETHODIMP nsMsgDBFolder::Rename(const nsACString& aNewName,
     parentPathFile->IsDirectory(&isDirectory);
     if (!isDirectory) AddDirectorySeparator(parentPathFile);
 
-    rv = CheckIfFolderExists(aNewName, parentFolder, msgWindow);
+    rv = CheckIfFolderExists(aNewName, parentFolder);
     if (NS_FAILED(rv)) return rv;
   }
 
@@ -3789,8 +3782,7 @@ NS_IMETHODIMP nsMsgDBFolder::Rename(const nsACString& aNewName,
 
       if (count > 0) {
         // Our parent's AddSubfolder() creates a folder of our own type.
-        static_cast<nsMsgDBFolder*>(newFolder.get())
-            ->RenameSubFolders(msgWindow, this);
+        static_cast<nsMsgDBFolder*>(newFolder.get())->RenameSubFolders(this);
       }
 
       if (parentFolder) {
@@ -3804,8 +3796,7 @@ NS_IMETHODIMP nsMsgDBFolder::Rename(const nsACString& aNewName,
   return rv;
 }
 
-nsresult nsMsgDBFolder::RenameSubFolders(nsIMsgWindow* msgWindow,
-                                         nsIMsgFolder* oldFolder) {
+nsresult nsMsgDBFolder::RenameSubFolders(nsIMsgFolder* oldFolder) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -3816,7 +3807,7 @@ NS_IMETHODIMP nsMsgDBFolder::RenameWithListener(const nsACString& aNewName,
   // once the server has answered. ExchangeFolder does not, so a listener
   // waiting on an EWS rename is told it finished as soon as the request has
   // been sent - see the FIXME in ExchangeFolder::Rename().
-  nsresult rv = Rename(aNewName, nullptr);
+  nsresult rv = Rename(aNewName);
   if (aListener) {
     // Defer, so that a caller sees the same ordering whether the rename ran
     // locally or against a server.
@@ -4347,7 +4338,7 @@ NS_IMETHODIMP nsMsgDBFolder::GetHostname(nsACString& hostname) {
   return server->GetHostname(hostname);
 }
 
-NS_IMETHODIMP nsMsgDBFolder::GetNewMessages(nsIMsgWindow*,
+NS_IMETHODIMP nsMsgDBFolder::GetNewMessages(bool,
                                             nsIUrlListener* /* aListener */) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -4549,7 +4540,7 @@ nsMsgDBFolder::SetJunkScoreForMessages(
 NS_IMETHODIMP
 nsMsgDBFolder::PerformActionsOnJunkMsgs(
     const nsTArray<RefPtr<nsIMsgDBHdr>>& messages, bool msgsAreJunk,
-    nsIMsgWindow* msgWindow, nsIUrlListener* listener) {
+    bool interactive, nsIUrlListener* listener) {
   uint32_t numJunkHdrs = messages.Length();
   if (!numJunkHdrs) {
     NS_WARNING("no indices of marked-as-junk messages to act on");
@@ -4616,9 +4607,9 @@ nsMsgDBFolder::PerformActionsOnJunkMsgs(
       nsCOMPtr<nsIMsgCopyService> copyService =
           mozilla::components::Copy::Service();
       copyService->CopyMessages(this, messages, targetFolder, true,
-                                copyListener, msgWindow, true);
+                                copyListener, interactive, true);
     } else if (msgsAreJunk) {
-      DeleteMessages(messages, msgWindow, false, false, copyListener, true);
+      DeleteMessages(messages, interactive, false, false, copyListener, true);
     }
 
     NS_ASSERTION(NS_SUCCEEDED(rv),
@@ -4768,8 +4759,8 @@ nsresult nsMsgDBFolder::ApplyRetentionSettings(bool deleteViaFolder) {
 
 NS_IMETHODIMP
 nsMsgDBFolder::DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-                              nsIMsgWindow* msgWindow, bool deleteStorage,
-                              bool isMove, nsIMsgCopyServiceListener* listener,
+                              bool interactive, bool deleteStorage, bool isMove,
+                              nsIMsgCopyServiceListener* listener,
                               bool allowUndo) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -4777,7 +4768,7 @@ nsMsgDBFolder::DeleteMessages(nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
 NS_IMETHODIMP
 nsMsgDBFolder::CopyMessages(nsIMsgFolder* srcFolder,
                             nsTArray<RefPtr<nsIMsgDBHdr>> const& messages,
-                            bool isMove, nsIMsgWindow* window,
+                            bool isMove, bool interactive,
                             nsIMsgCopyServiceListener* listener, bool isFolder,
                             bool allowUndo) {
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -4785,7 +4776,7 @@ nsMsgDBFolder::CopyMessages(nsIMsgFolder* srcFolder,
 
 NS_IMETHODIMP
 nsMsgDBFolder::CopyFolder(nsIMsgFolder* srcFolder, bool isMoveFolder,
-                          nsIMsgWindow* window,
+                          bool interactive,
                           nsIMsgCopyServiceListener* listener) {
   NS_ASSERTION(false, "should be overridden by child class");
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -4795,7 +4786,7 @@ NS_IMETHODIMP
 nsMsgDBFolder::CopyFileMessage(nsIFile* aFile, nsIMsgDBHdr* messageToReplace,
                                bool isDraftOrTemplate, uint32_t aNewMsgFlags,
                                const nsACString& aNewMsgKeywords,
-                               nsIMsgWindow* window,
+                               bool interactive,
                                nsIMsgCopyServiceListener* listener) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -4938,12 +4929,11 @@ nsresult nsMsgDBFolder::NotifyFolderEvent(const nsACString& aEvent) {
 }
 
 NS_IMETHODIMP
-nsMsgDBFolder::GetFilterList(nsIMsgWindow* aMsgWindow,
-                             nsIMsgFilterList** aResult) {
+nsMsgDBFolder::GetFilterList(nsIMsgFilterList** aResult) {
   nsCOMPtr<nsIMsgIncomingServer> server;
   nsresult rv = GetServer(getter_AddRefs(server));
   NS_ENSURE_SUCCESS(rv, rv);
-  return server->GetFilterList(aMsgWindow, aResult);
+  return server->GetFilterList(aResult);
 }
 
 NS_IMETHODIMP
@@ -4955,13 +4945,12 @@ nsMsgDBFolder::SetFilterList(nsIMsgFilterList* aFilterList) {
 }
 
 NS_IMETHODIMP
-nsMsgDBFolder::GetEditableFilterList(nsIMsgWindow* aMsgWindow,
-                                     nsIMsgFilterList** aResult) {
+nsMsgDBFolder::GetEditableFilterList(nsIMsgFilterList** aResult) {
   NS_ENSURE_ARG_POINTER(aResult);
   nsCOMPtr<nsIMsgIncomingServer> server;
   nsresult rv = GetServer(getter_AddRefs(server));
   NS_ENSURE_SUCCESS(rv, rv);
-  return server->GetEditableFilterList(aMsgWindow, aResult);
+  return server->GetEditableFilterList(aResult);
 }
 
 NS_IMETHODIMP
@@ -5064,8 +5053,7 @@ nsresult nsMsgDBFolder::GetStringFromBundle(const char* msgName,
   return rv;
 }
 
-nsresult nsMsgDBFolder::ThrowConfirmationPrompt(nsIMsgWindow* msgWindow,
-                                                const nsAString& confirmString,
+nsresult nsMsgDBFolder::ThrowConfirmationPrompt(const nsAString& confirmString,
                                                 bool* confirmed) {
   nsresult rv;
   nsCOMPtr<mozIDOMWindowProxy> domWindow;
@@ -5650,7 +5638,7 @@ NS_IMETHODIMP nsMsgDBFolder::GetIncomingServerType(
 
 NS_IMETHODIMP nsMsgDBFolder::HandleViewCommand(
     nsMsgViewCommandTypeValue command, const nsTArray<nsMsgKey>& messageKeys,
-    nsIMsgWindow* window, nsIMsgCopyServiceListener* listener) {
+    bool interactive, nsIMsgCopyServiceListener* listener) {
   return NS_OK;
 }
 

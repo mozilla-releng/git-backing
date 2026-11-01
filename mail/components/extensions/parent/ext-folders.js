@@ -349,7 +349,7 @@ async function doMoveCopyOperation(source, destination, extension, isMove) {
           });
         },
       },
-      null
+      false
     );
   });
 
@@ -1053,7 +1053,7 @@ this.folders = class extends ExtensionAPIPersistent {
             MailServices.mfn.folderAdded,
             parentFolder.URI
           );
-          parentFolder.createSubfolder(childName, null);
+          parentFolder.createSubfolder(childName);
 
           const childFolder = await childFolderPromise;
           return context.extension.folderManager.convert(
@@ -1088,7 +1088,7 @@ this.folders = class extends ExtensionAPIPersistent {
             MailServices.mfn.folderRenamed,
             folder.URI
           );
-          folder.rename(newName, null);
+          folder.rename(newName);
 
           const newFolder = await newFolderPromise;
           return context.extension.folderManager.convert(newFolder, accountKey);
@@ -1147,7 +1147,7 @@ this.folders = class extends ExtensionAPIPersistent {
                       resolve(status);
                     },
                   },
-                  null
+                  false
                 );
               });
               const status = await deletedPromise;
@@ -1172,7 +1172,7 @@ this.folders = class extends ExtensionAPIPersistent {
                       resolve(status);
                     },
                   },
-                  null
+                  false
                 );
               });
               const status = await deletedPromise;
@@ -1188,7 +1188,7 @@ this.folders = class extends ExtensionAPIPersistent {
                 MailServices.mfn.folderMoveCopyCompleted,
               folder.URI
             );
-            folder.deleteSelf(null);
+            folder.deleteSelf(false);
             await deletedPromise;
           }
         },
@@ -1423,10 +1423,10 @@ this.folders = class extends ExtensionAPIPersistent {
               folders.push(searchFolder);
             }
             for (const nativeFolder of folders) {
-              nativeFolder.markAllMessagesRead(null);
+              nativeFolder.markAllMessagesRead();
             }
           } else {
-            folder.markAllMessagesRead(null);
+            folder.markAllMessagesRead();
           }
         },
       },

@@ -37,8 +37,7 @@ class ExchangeIncomingServer : public nsMsgIncomingServer,
 
   nsresult UpdateFolderWithDetails(const nsACString& id,
                                    const nsACString& parentId,
-                                   const nsACString& name,
-                                   nsIMsgWindow* msgWindow);
+                                   const nsACString& name);
 
   // nsIMsgIncomingServer
   NS_IMETHOD GetPassword(nsAString& password) override;
@@ -48,12 +47,12 @@ class ExchangeIncomingServer : public nsMsgIncomingServer,
   NS_IMETHOD GetCanBeDefaultServer(bool* canBeDefaultServer) override;
   NS_IMETHOD GetOfflineSupportLevel(int32_t* aSupportLevel) override;
 
-  NS_IMETHOD GetNewMessages(nsIMsgFolder* aFolder, nsIMsgWindow* aMsgWindow,
+  NS_IMETHOD GetNewMessages(nsIMsgFolder* aFolder, bool interactive,
                             nsIUrlListener* aUrlListener) override;
-  NS_IMETHOD PerformBiff(nsIMsgWindow* aMsgWindow) override;
-  NS_IMETHOD PerformExpand(nsIMsgWindow* aMsgWindow) override;
+  NS_IMETHOD PerformBiff(bool interactive) override;
+  NS_IMETHOD PerformExpand(bool interactive) override;
   NS_IMETHOD Shutdown() override;
-  NS_IMETHOD VerifyLogon(nsIUrlListener* aUrlListener, nsIMsgWindow* aMsgWindow,
+  NS_IMETHOD VerifyLogon(nsIUrlListener* aUrlListener, bool interactive,
                          nsIURI** _retval) override;
   NS_IMETHOD GetCanSearchMessages(bool* canSearchMessages) override;
 
@@ -68,19 +67,17 @@ class ExchangeIncomingServer : public nsMsgIncomingServer,
    * Synchronize the list of folders for this account, then call the given
    * callback function.
    */
-  nsresult SyncFolderList(nsIMsgWindow* aMsgWindow,
-                          std::function<nsresult()> postSyncCallback);
+  nsresult SyncFolderList(std::function<nsresult()> postSyncCallback);
 
   /**
    * Synchronize the message list for the given list of folders.
    */
   nsresult SyncFolders(const nsTArray<RefPtr<nsIMsgFolder>>& folders,
-                       nsIMsgWindow* aMsgWindow, nsIUrlListener* urlListener);
+                       bool interactive, nsIUrlListener* urlListener);
   /**
    * Synchronize the message list for every folder in the account.
    */
-  nsresult SyncAllFolders(nsIMsgWindow* aMsgWindow,
-                          nsIUrlListener* urlListener);
+  nsresult SyncAllFolders(bool interactive, nsIUrlListener* urlListener);
 
   /**
    * Set the trash folder flag to the folder which path is stored in the

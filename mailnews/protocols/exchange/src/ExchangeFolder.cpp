@@ -32,7 +32,6 @@
 #include "nsISpamSettings.h"
 #include "nsITransactionManager.h"
 #include "nsIMsgTransactionService.h"
-#include "nsIMsgWindow.h"
 #include "nsString.h"
 #include "nsMsgFolderFlags.h"
 #include "nsMsgUtils.h"
@@ -261,8 +260,7 @@ NS_IMETHODIMP ExchangeFolder::CreateStorageIfMissing(
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP ExchangeFolder::CreateSubfolder(const nsACString& aFolderName,
-                                              nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP ExchangeFolder::CreateSubfolder(const nsACString& aFolderName) {
   return CreateSubfolderWithListener(aFolderName, nullptr);
 }
 
@@ -376,12 +374,12 @@ NS_IMETHODIMP ExchangeFolder::GetIncomingServerType(nsACString& aServerType) {
   return NS_OK;
 }
 
-NS_IMETHODIMP ExchangeFolder::GetNewMessages(nsIMsgWindow* aWindow,
+NS_IMETHODIMP ExchangeFolder::GetNewMessages(bool interactive,
                                              nsIUrlListener* aListener) {
   // Sync the message list. We don't need to sync the folder tree, because the
   // only likely consumer of this method is `ExchangeIncomingServer`, which does
   // this before asking folders to sync their message lists.
-  return SyncMessages(aWindow, aListener);
+  return SyncMessages(aListener);
 }
 
 NS_IMETHODIMP ExchangeFolder::GetSubFolders(
@@ -497,7 +495,7 @@ NS_IMETHODIMP ExchangeFolder::MarkMessagesRead(
   return client->ChangeReadStatus(listener, requestedIds, markRead);
 }
 
-NS_IMETHODIMP ExchangeFolder::MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) {
+NS_IMETHODIMP ExchangeFolder::MarkAllMessagesRead() {
   nsCOMPtr<IExchangeClient> client;
   MOZ_TRY(GetProtocolClient(getter_AddRefs(client)));
 
@@ -507,8 +505,8 @@ NS_IMETHODIMP ExchangeFolder::MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) {
   nsTArray<nsCString> folderIds{{folderId}};
 
   RefPtr<ExchangeSimpleListener> listener = new ExchangeSimpleListener(
-      [self = RefPtr(this), window = RefPtr(aMsgWindow)](
-          const nsTArray<nsCString>& ids, bool useLegacyFallback) {
+      [self = RefPtr(this)](const nsTArray<nsCString>& ids,
+                            bool useLegacyFallback) {
         nsresult rv = self->GetDatabase();
         NS_ENSURE_SUCCESS(rv, rv);
 
@@ -566,14 +564,14 @@ NS_IMETHODIMP ExchangeFolder::MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) {
   return client->ChangeReadStatusAll(listener, folderIds, true, true);
 }
 
-NS_IMETHODIMP ExchangeFolder::UpdateFolder(nsIMsgWindow* aWindow) {
+NS_IMETHODIMP ExchangeFolder::UpdateFolder(bool interactive) {
   // Sync the message list.
   // TODO: In the future, we might want to sync the folder hierarchy. Since
   // we already keep the local folder list quite in sync with remote operations,
   // and we already sync it in a couple of occurrences (when getting new
   // messages, performing biff, etc.), it's likely fine to leave this as a
   // future improvement.
-  return SyncMessages(aWindow, nullptr);
+  return SyncMessages(nullptr);
 }
 
 // FIXME: This completes asynchronously, but there is no RenameWithListener()
@@ -587,11 +585,10 @@ NS_IMETHODIMP ExchangeFolder::UpdateFolder(nsIMsgWindow* aWindow) {
 // IExchangeFallibleOperationListener, after which the override can settle the
 // listener in both directions. The same gap existed before renameAsync() was
 // added: the front end simply discarded the error.
-NS_IMETHODIMP ExchangeFolder::Rename(const nsACString& aNewName,
-                                     nsIMsgWindow* msgWindow) {
+NS_IMETHODIMP ExchangeFolder::Rename(const nsACString& aNewName) {
   // Virtual folders are just a local operation.
   if (mFlags & nsMsgFolderFlags::Virtual) {
-    return nsMsgDBFolder::Rename(aNewName, msgWindow);
+    return nsMsgDBFolder::Rename(aNewName);
   }
 
   nsAutoCString currentName;
@@ -623,17 +620,16 @@ NS_IMETHODIMP ExchangeFolder::Rename(const nsACString& aNewName,
   rv = GetStringProperty(kExchangeSyncStateProperty, syncStateToken);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  const nsCOMPtr<nsIMsgWindow> window = msgWindow;
   const auto newName = nsCString(aNewName);
 
   RefPtr<ExchangeSimpleListener> listener = new ExchangeSimpleListener(
-      [self = RefPtr(this), newName, window](const nsTArray<nsCString>& ids,
-                                             bool useLegacyFallback) {
+      [self = RefPtr(this), newName](const nsTArray<nsCString>& ids,
+                                     bool useLegacyFallback) {
         nsCOMPtr<nsIMsgFolder> parentFolder;
         nsresult rv = self->GetParent(getter_AddRefs(parentFolder));
         NS_ENSURE_SUCCESS(rv, rv);
 
-        return LocalRenameOrReparentFolder(self, parentFolder, newName, window);
+        return LocalRenameOrReparentFolder(self, parentFolder, newName);
       });
 
   return client->UpdateFolder(listener, folderId, aNewName);
@@ -641,8 +637,8 @@ NS_IMETHODIMP ExchangeFolder::Rename(const nsACString& aNewName,
 
 NS_IMETHODIMP ExchangeFolder::CopyFileMessage(
     nsIFile* aFile, nsIMsgDBHdr* msgToReplace, bool isDraftOrTemplate,
-    uint32_t newMsgFlags, const nsACString& aNewMsgKeywords,
-    nsIMsgWindow* msgWindow, nsIMsgCopyServiceListener* copyListener) {
+    uint32_t newMsgFlags, const nsACString& aNewMsgKeywords, bool interactive,
+    nsIMsgCopyServiceListener* copyListener) {
   // Ensure both a source file and a listener have been provided.
   NS_ENSURE_ARG_POINTER(aFile);
   NS_ENSURE_ARG_POINTER(copyListener);
@@ -656,9 +652,9 @@ NS_IMETHODIMP ExchangeFolder::CopyFileMessage(
   rv = GetProtocolClient(getter_AddRefs(client));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  RefPtr<ExchangeMessageCopyHandler> handler =
-      new ExchangeMessageCopyHandler(aFile, this, isDraftOrTemplate, msgWindow,
-                                     exchangeId, client, copyListener);
+  RefPtr<ExchangeMessageCopyHandler> handler = new ExchangeMessageCopyHandler(
+      aFile, this, isDraftOrTemplate, interactive, exchangeId, client,
+      copyListener);
 
   // Start copying the message. Once it has finished,
   // `ExchangeMessageCopyHandler` will take care of sending the relevant
@@ -675,8 +671,8 @@ NS_IMETHODIMP ExchangeFolder::CopyFileMessage(
 
 NS_IMETHODIMP ExchangeFolder::CopyMessages(
     nsIMsgFolder* aSrcFolder, nsTArray<RefPtr<nsIMsgDBHdr>> const& aSrcHdrs,
-    bool aIsMove, nsIMsgWindow* aMsgWindow,
-    nsIMsgCopyServiceListener* aCopyListener, bool aIsFolder, bool aAllowUndo) {
+    bool aIsMove, bool aInteractive, nsIMsgCopyServiceListener* aCopyListener,
+    bool aIsFolder, bool aAllowUndo) {
   NS_ENSURE_ARG_POINTER(aSrcFolder);
 
   nsresult rv = NS_OK;
@@ -705,8 +701,8 @@ NS_IMETHODIMP ExchangeFolder::CopyMessages(
     const auto undoType = aIsMove ? nsIMsgTransactionService::eMoveMsg
                                   : nsIMsgTransactionService::eCopyMsg;
     rv = CopyItemsOnSameServer(exchangeSourceFolder, aSrcHdrs, aIsMove,
-                               aMsgWindow, aCopyListener, aAllowUndo, undoType,
-                               nullptr);
+                               aInteractive, aCopyListener, aAllowUndo,
+                               undoType, nullptr);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     // Cross-server copy or move. Instantiate a `ExchangeMessageCopyHandler` for
@@ -719,7 +715,7 @@ NS_IMETHODIMP ExchangeFolder::CopyMessages(
     MOZ_TRY(GetProtocolClient(getter_AddRefs(client)));
 
     RefPtr<ExchangeMessageCopyHandler> handler = new ExchangeMessageCopyHandler(
-        aSrcFolder, this, aSrcHdrs, aIsMove, aMsgWindow, exchangeId, client,
+        aSrcFolder, this, aSrcHdrs, aIsMove, aInteractive, exchangeId, client,
         aCopyListener);
 
     // Start the copy for the first message. Once this copy has finished, the
@@ -741,9 +737,8 @@ NS_IMETHODIMP ExchangeFolder::CopyMessages(
 
 NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
     IExchangeFolder* aSrcFolder, nsTArray<RefPtr<nsIMsgDBHdr>> const& aSrcHdrs,
-    bool aIsMove, nsIMsgWindow* aMsgWindow,
-    nsIMsgCopyServiceListener* aCopyListener, bool aAllowUndo,
-    int32_t undoOperationType,
+    bool aIsMove, bool aInteractive, nsIMsgCopyServiceListener* aCopyListener,
+    bool aAllowUndo, int32_t undoOperationType,
     IExchangeFolderOperationListener* aOperationListener) {
   // Same server copy or move, perform operation remotely.
   nsTArray<nsCString> exchangeIds;
@@ -754,7 +749,6 @@ NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
   rv = GetExchangeId(destinationFolderId);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  const nsCOMPtr<nsIMsgWindow> msgWindow = aMsgWindow;
   const nsCOMPtr<IExchangeFolder> srcFolder = aSrcFolder;
   const nsCOMPtr<nsIMsgCopyServiceListener> copyListener = aCopyListener;
   const nsCOMPtr<IExchangeFolderOperationListener> operationListener =
@@ -763,7 +757,7 @@ NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
   const RefPtr<ExchangeSimpleFallibleMessageListener> listener =
       new ExchangeSimpleFallibleMessageListener(
           aSrcHdrs,
-          [self = RefPtr(this), srcFolder, msgWindow, aIsMove, copyListener,
+          [self = RefPtr(this), srcFolder, aInteractive, aIsMove, copyListener,
            aAllowUndo, operationListener, undoOperationType](
               const nsTArray<RefPtr<nsIMsgDBHdr>>& srcHdrs,
               const nsTArray<nsCString>& ids,
@@ -778,7 +772,7 @@ NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
 
             nsTArray<RefPtr<nsIMsgDBHdr>> newHeaders;
             if (useLegacyFallback) {
-              rv = self->SyncMessages(msgWindow, nullptr);
+              rv = self->SyncMessages(nullptr);
               NS_ENSURE_SUCCESS(rv, rv);
             } else {
               // The new IDs were returned from the server. In this case,
@@ -814,7 +808,7 @@ NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
               genericFolder->NotifyFolderEvent(kDeleteOrMoveMsgCompleted);
             }
 
-            if (aAllowUndo && msgWindow) {
+            if (aAllowUndo) {
               nsCOMPtr<nsITransactionManager> txnMgr;
               nsCOMPtr<nsIMsgTransactionService> txns =
                   mozilla::components::Txns::Service();
@@ -824,10 +818,10 @@ NS_IMETHODIMP ExchangeFolder::CopyItemsOnSameServer(
 
               RefPtr<ExchangeCopyMoveTransaction> undoTransaction =
                   aIsMove ? ExchangeCopyMoveTransaction::ForMove(
-                                srcFolder, self.get(), msgWindow,
+                                srcFolder, self.get(), aInteractive,
                                 newHeaders.Clone())
                           : ExchangeCopyMoveTransaction::ForCopy(
-                                srcFolder, self.get(), msgWindow,
+                                srcFolder, self.get(), aInteractive,
                                 srcHdrs.Clone(), newHeaders.Clone());
               undoTransaction->SetTransactionType(
                   static_cast<uint32_t>(undoOperationType));
@@ -891,7 +885,7 @@ static nsresult CompleteCopyMoveFolderOperation(
 }
 
 NS_IMETHODIMP ExchangeFolder::CopyFolder(
-    nsIMsgFolder* aSrcFolder, bool aIsMoveFolder, nsIMsgWindow* aMsgWindow,
+    nsIMsgFolder* aSrcFolder, bool aIsMoveFolder, bool aInteractive,
     nsIMsgCopyServiceListener* aCopyListener) {
   NS_ENSURE_ARG_POINTER(aSrcFolder);
 
@@ -915,14 +909,13 @@ NS_IMETHODIMP ExchangeFolder::CopyFolder(
 
   if (isSameServer) {
     // Same server move or copy.
-    rv = CopyFolderOnSameServer(aSrcFolder, aIsMoveFolder, aMsgWindow,
-                                aCopyListener);
+    rv = CopyFolderOnSameServer(aSrcFolder, aIsMoveFolder, aCopyListener);
     NS_ENSURE_SUCCESS(rv, rv);
   } else {
     // Cross-server folder move (or copy). Instantiate a
     // `ExchangeFolderCopyHandler` for this operation.
     RefPtr<ExchangeFolderCopyHandler> handler = new ExchangeFolderCopyHandler(
-        aSrcFolder, this, aIsMoveFolder, aMsgWindow, client, aCopyListener);
+        aSrcFolder, this, aIsMoveFolder, aInteractive, client, aCopyListener);
 
     rv = handler->CopyNextFolder();
     NS_ENSURE_SUCCESS(rv, rv);
@@ -932,7 +925,7 @@ NS_IMETHODIMP ExchangeFolder::CopyFolder(
 }
 
 NS_IMETHODIMP ExchangeFolder::CopyFolderOnSameServer(
-    nsIMsgFolder* aSourceFolder, bool aIsMoveFolder, nsIMsgWindow* aWindow,
+    nsIMsgFolder* aSourceFolder, bool aIsMoveFolder,
     nsIMsgCopyServiceListener* aCopyListener) {
   nsAutoCString sourceExchangeId;
   nsresult rv =
@@ -949,14 +942,12 @@ NS_IMETHODIMP ExchangeFolder::CopyFolderOnSameServer(
   NS_ENSURE_SUCCESS(rv, rv);
 
   const nsCOMPtr<nsIMsgFolder> srcFolder = aSourceFolder;
-  const nsCOMPtr<nsIMsgWindow> msgWindow = aWindow;
   const nsCOMPtr<nsIMsgCopyServiceListener> copyListener = aCopyListener;
 
   RefPtr<ExchangeSimpleFallibleListener> listener =
       new ExchangeSimpleFallibleListener(
-          [self = RefPtr(this), srcFolder, copyListener, msgWindow,
-           aIsMoveFolder](const nsTArray<nsCString>& ids,
-                          bool useLegacyFallback) {
+          [self = RefPtr(this), srcFolder, copyListener, aIsMoveFolder](
+              const nsTArray<nsCString>& ids, bool useLegacyFallback) {
             NS_ENSURE_TRUE(ids.Length() == 1, NS_ERROR_UNEXPECTED);
             const auto& newExchangeId = ids[0];
 
@@ -972,8 +963,7 @@ NS_IMETHODIMP ExchangeFolder::CopyFolderOnSameServer(
             // subfolders, and we have no way to obtain the new IDs other than
             // performing a sync of the folder hierarchy.
             if (aIsMoveFolder) {
-              rv =
-                  LocalRenameOrReparentFolder(srcFolder, self, name, msgWindow);
+              rv = LocalRenameOrReparentFolder(srcFolder, self, name);
               NS_ENSURE_SUCCESS(rv, rv);
               rv = CompleteCopyMoveFolderOperation(
                   srcFolder, self, copyListener, name, newExchangeId);
@@ -1001,14 +991,14 @@ NS_IMETHODIMP ExchangeFolder::CopyFolderOnSameServer(
             // for the enhancement to improve hierarchy update granularity.
             const RefPtr<ExchangeSimpleListener> listener =
                 new ExchangeSimpleListener{
-                    [self, srcFolder, msgWindow, copyListener, newExchangeId,
-                     name](const auto& ids, bool resyncRequired) {
+                    [self, srcFolder, copyListener, newExchangeId, name](
+                        const auto& ids, bool resyncRequired) {
                       nsresult rv = NS_OK;
                       rv = CompleteCopyMoveFolderOperation(
                           srcFolder, self, copyListener, name, newExchangeId);
                       return rv;
                     }};
-            return exchangeServer->SyncFolderHierarchy(listener, msgWindow);
+            return exchangeServer->SyncFolderHierarchy(listener);
           },
           [self = RefPtr(this), srcFolder, copyListener](nsresult status) {
             if (copyListener) {
@@ -1086,17 +1076,17 @@ nsresult ExchangeFolder::HandleDeleteOperation(
 }
 
 NS_IMETHODIMP ExchangeFolder::DeleteMessages(
-    nsTArray<RefPtr<nsIMsgDBHdr>> const& aMsgHeaders, nsIMsgWindow* aMsgWindow,
+    nsTArray<RefPtr<nsIMsgDBHdr>> const& aMsgHeaders, bool aInteractive,
     bool aDeleteStorage, bool aIsMove, nsIMsgCopyServiceListener* aCopyListener,
     bool aAllowUndo) {
   // If we're performing a "hard" delete, or if we're deleting from the trash
   // folder, perform a "real" deletion (i.e. delete the messages from both the
   // storage and the server).
   const auto headers = CopyableTArray<RefPtr<nsIMsgDBHdr>>{aMsgHeaders};
-  const auto onHardDelete = [self = RefPtr(this), window = RefPtr(aMsgWindow),
+  const auto onHardDelete = [self = RefPtr(this), interactive = aInteractive,
                              copyListener = RefPtr(aCopyListener), headers]() {
     nsresult rv = NS_OK;
-    if (window) {
+    if (interactive) {
       // Format the message we'll show the user while we wait for the remote
       // operation to complete.
       RefPtr<intl::Localization> l10n = intl::Localization::Create(
@@ -1184,10 +1174,10 @@ NS_IMETHODIMP ExchangeFolder::DeleteMessages(
 
   // We're moving the messages to trash folder.
   const auto onSoftDelete =
-      [self = RefPtr(this), headers, window = RefPtr(aMsgWindow),
+      [self = RefPtr(this), headers, interactive = aInteractive,
        copyListener = RefPtr(aCopyListener)](IExchangeFolder* trashFolder) {
         return trashFolder->CopyItemsOnSameServer(
-            self, headers, true, window, copyListener, true,
+            self, headers, true, interactive, copyListener, true,
             nsIMsgTransactionService::eDeleteMsg, nullptr);
       };
 
@@ -1195,12 +1185,12 @@ NS_IMETHODIMP ExchangeFolder::DeleteMessages(
                                std::move(onSoftDelete));
 }
 
-NS_IMETHODIMP ExchangeFolder::DeleteSelf(nsIMsgWindow* aWindow) {
+NS_IMETHODIMP ExchangeFolder::DeleteSelf(bool interactive) {
   // If it's a virtual folder, we just need to delete it locally.
   uint32_t folderFlags;
   GetFlags(&folderFlags);
   if (folderFlags & nsMsgFolderFlags::Virtual) {
-    return nsMsgDBFolder::DeleteSelf(aWindow);
+    return nsMsgDBFolder::DeleteSelf(interactive);
   }
 
   bool deletable = false;
@@ -1215,12 +1205,11 @@ NS_IMETHODIMP ExchangeFolder::DeleteSelf(nsIMsgWindow* aWindow) {
   rv = GetExchangeId(folderId);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIMsgWindow> window = aWindow;
-
-  const auto onHardDelete = [self = RefPtr(this), window, folderId]() {
+  const auto onHardDelete = [self = RefPtr(this), interactive, folderId]() {
     RefPtr<ExchangeSimpleListener> listener = new ExchangeSimpleListener(
-        [self, window](const nsTArray<nsCString>& ids, bool useLegacyFallback) {
-          return self->nsMsgDBFolder::DeleteSelf(window);
+        [self, interactive](const nsTArray<nsCString>& ids,
+                            bool useLegacyFallback) {
+          return self->nsMsgDBFolder::DeleteSelf(interactive);
         });
 
     nsCOMPtr<IExchangeClient> client;
@@ -1229,9 +1218,9 @@ NS_IMETHODIMP ExchangeFolder::DeleteSelf(nsIMsgWindow* aWindow) {
     return client->DeleteFolder(listener, folderId);
   };
 
-  const auto onSoftDelete = [self = RefPtr(this), window = RefPtr(aWindow)](
-                                IExchangeFolder* trashFolder) {
-    return trashFolder->CopyFolderOnSameServer(self, true, window, nullptr);
+  const auto onSoftDelete = [self =
+                                 RefPtr(this)](IExchangeFolder* trashFolder) {
+    return trashFolder->CopyFolderOnSameServer(self, true, nullptr);
   };
 
   return HandleDeleteOperation(false, std::move(onHardDelete),
@@ -1341,8 +1330,7 @@ NS_IMETHODIMP ExchangeFolder::EmptyTrash(nsIUrlListener* aListener) {
 }
 
 NS_IMETHODIMP ExchangeFolder::CompactAll(nsIUrlListener* aListener,
-                                         nsIMsgWindow* aMsgWindow,
-                                         bool expunge) {
+                                         bool interactive, bool expunge) {
   nsresult rv = NS_OK;
   nsCOMPtr<nsIMsgFolder> rootFolder;
   rv = GetRootFolder(getter_AddRefs(rootFolder));
@@ -1386,7 +1374,7 @@ NS_IMETHODIMP ExchangeFolder::CompactAll(nsIUrlListener* aListener,
 }
 
 NS_IMETHODIMP ExchangeFolder::Compact(nsIUrlListener* aListener,
-                                      nsIMsgWindow* aMsgWindow) {
+                                      bool interactive) {
   return AsyncCompactFolders({this}, aListener);
 }
 
@@ -1427,8 +1415,7 @@ nsresult ExchangeFolder::GetTrashFolder(nsIMsgFolder** result) {
   return exchangeServer->GetTrashFolder(result);
 }
 
-nsresult ExchangeFolder::SyncMessages(nsIMsgWindow* window,
-                                      nsIUrlListener* urlListener) {
+nsresult ExchangeFolder::SyncMessages(nsIUrlListener* urlListener) {
   nsresult rv;
   nsCOMPtr<nsIUrlListener> syncUrlListener = urlListener;
   nsCOMPtr<nsIURI> folderUri;
@@ -1486,8 +1473,7 @@ nsresult ExchangeFolder::SyncMessages(nsIMsgWindow* window,
       bool incomingFiltersRequireBody = false;
       {
         nsCOMPtr<nsIMsgFilterList> filterList;
-        if (NS_SUCCEEDED(
-                self->GetFilterList(nullptr, getter_AddRefs(filterList)))) {
+        if (NS_SUCCEEDED(self->GetFilterList(getter_AddRefs(filterList)))) {
           filterList->DoFiltersNeedMessageBody(nsMsgFilterType::Incoming,
                                                &incomingFiltersRequireBody);
         }
@@ -1574,7 +1560,7 @@ nsresult ExchangeFolder::PerformFiltering() {
   bool incomingFiltersRequireBody;
   {
     nsCOMPtr<nsIMsgFilterList> filterList;
-    MOZ_TRY(GetFilterList(nullptr, getter_AddRefs(filterList)));
+    MOZ_TRY(GetFilterList(getter_AddRefs(filterList)));
     MOZ_TRY(filterList->DoFiltersNeedMessageBody(nsMsgFilterType::Incoming,
                                                  &incomingFiltersRequireBody));
   }
@@ -1627,7 +1613,7 @@ nsresult ExchangeFolder::PerformFiltering() {
       // nsIJunkMailClassificationListener param instead of relying on
       // folder inheritance.
       bool filtersRun;
-      rv = self->CallFilterPlugins(nullptr, &filtersRun);
+      rv = self->CallFilterPlugins(&filtersRun);
       NS_ENSURE_SUCCESS(rv, rv);
 
       return NS_OK;
@@ -1645,9 +1631,9 @@ nsresult ExchangeFolder::PerformFiltering() {
     // their own filter actions.
     nsCOMPtr<nsIMsgFilterService> filterService(
         mozilla::components::Filter::Service());
-    nsresult rv = filterService->ApplyFilters(nsMsgFilterType::Inbox,
-                                              targetMsgs, targetHeaders, this,
-                                              nullptr /*window*/, listener);
+    nsresult rv = filterService->ApplyFilters(
+        nsMsgFilterType::Inbox, targetMsgs, targetHeaders, this,
+        false /* interactive */, listener);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -1829,7 +1815,7 @@ NS_IMETHODIMP ExchangeFolder::OnMessageClassified(
             mozilla::components::Copy::Service();
         rv = copySvc->CopyMessages(
             this, messages, folder, true,
-            /*nsIMsgCopyServiceListener* listener*/ nullptr, nullptr,
+            /*nsIMsgCopyServiceListener* listener*/ nullptr, false,
             false /*allowUndo*/);
         NS_ASSERTION(NS_SUCCEEDED(rv), "CopyMessages failed");
         if (NS_FAILED(rv)) {
@@ -1852,8 +1838,8 @@ NS_IMETHODIMP ExchangeFolder::OnMessageClassified(
 }
 
 NS_IMETHODIMP ExchangeFolder::HandleViewCommand(
-    int32_t command, const nsTArray<nsMsgKey>& messageKeys,
-    nsIMsgWindow* window, nsIMsgCopyServiceListener* listener) {
+    int32_t command, const nsTArray<nsMsgKey>& messageKeys, bool interactive,
+    nsIMsgCopyServiceListener* listener) {
   nsresult rv;
   if (command == nsMsgViewCommandType::junk ||
       command == nsMsgViewCommandType::unjunk) {
@@ -1906,11 +1892,11 @@ NS_IMETHODIMP ExchangeFolder::HandleViewCommand(
 
     RefPtr<ExchangeSimpleMessageListener> operationListener =
         new ExchangeSimpleMessageListener{
-            headers, [self = RefPtr(this), window = RefPtr(window),
-                      listener = RefPtr(listener), destinationFolder](
-                         const nsTArray<RefPtr<nsIMsgDBHdr>>& headers,
-                         const nsTArray<nsCString>& movedItemIds,
-                         bool useLegacyFallback) {
+            headers,
+            [self = RefPtr(this), interactive, listener = RefPtr(listener),
+             destinationFolder](const nsTArray<RefPtr<nsIMsgDBHdr>>& headers,
+                                const nsTArray<nsCString>& movedItemIds,
+                                bool useLegacyFallback) {
               nsresult rv = NS_OK;
               auto notifyCopyServiceOnExit =
                   GuardCopyServiceListener(listener, rv);
@@ -1920,14 +1906,14 @@ NS_IMETHODIMP ExchangeFolder::HandleViewCommand(
                 // a sync on the destination folder.
                 if (destinationFolder) {
                   // Best we can do is a sync of the supposed destination.
-                  rv = destinationFolder->GetNewMessages(window, nullptr);
+                  rv = destinationFolder->GetNewMessages(interactive, nullptr);
                   NS_ENSURE_SUCCESS(rv, rv);
                 }
 
                 // If we're here, it means we've triggered a server-side move.
                 // This means we need to sync the current folder, so we can pick
                 // up the removal of the target message(s).
-                rv = self->SyncMessages(window, nullptr);
+                rv = self->SyncMessages(nullptr);
                 NS_ENSURE_SUCCESS(rv, rv);
 
                 return NS_OK;

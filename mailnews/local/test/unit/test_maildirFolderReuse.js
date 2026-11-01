@@ -15,7 +15,7 @@ add_task(function test_folder_not_reused_after_rename() {
   const folder = rootFolder.createLocalSubfolder(folderName);
   const oldURI = folder.URI;
 
-  folder.rename("RenamedFolder", null);
+  folder.rename("RenamedFolder");
   Assert.equal(folder.parent, null, "renamed folder should be detached");
 
   const recreated = rootFolder.createLocalSubfolder(folderName);
@@ -59,7 +59,7 @@ add_task(function test_empty_trash_preserves_folder_object() {
     trashFolder.setFlag(Ci.nsMsgFolderFlags.Trash);
   }
   const trashURI = trashFolder.URI;
-  trashFolder.createSubfolder("FolderInTrash", null);
+  trashFolder.createSubfolder("FolderInTrash");
 
   trashFolder.emptyTrash(null);
 

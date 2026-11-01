@@ -669,8 +669,7 @@ export class MsgHdrProcessor {
       // This is not using aConvertData and returns the raw unprocessed message.
       service.streamMessage(
         msgUri,
-        streamlistener,
-        null, // aMsgWindow
+        streamlistener, // aStreamlistener
         null, // aUrlListener
         false, // aConvertData
         "" //aAdditionalHeader
@@ -1604,7 +1603,7 @@ export class MessageTracker extends EventEmitter {
       // corrupt the key mapping of the message tracker. The modified copy is
       // picked up by the folder update of the delete operation itself.
       if (cachedSrcMsgs.some(msgHdr => msgHdr.folder?.URI != dstFolder.URI)) {
-        dstFolder.updateFolder(null);
+        dstFolder.updateFolder(false);
       }
       const deferredDstMsgs = await Promise.all(dstMsgsPromises);
       this.emit(emitMsg, cachedSrcMsgs, deferredDstMsgs);
@@ -2853,7 +2852,7 @@ async function retrieveMessageFromServer(mid, server) {
         },
       },
       true,
-      null
+      false
     );
   });
   const status = await savedPromise;

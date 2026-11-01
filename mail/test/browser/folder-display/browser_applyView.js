@@ -26,17 +26,17 @@ add_setup(async function () {
   folderSource = await create_folder("ColumnsApplySource");
 
   folderParent = await create_folder("ColumnsApplyParent");
-  folderParent.createSubfolder("Child1", null);
+  folderParent.createSubfolder("Child1");
   folderChild1 = folderParent.getChildNamed("Child1");
-  folderParent.createSubfolder("Child2", null);
+  folderParent.createSubfolder("Child2");
 
   await be_in_folder(folderSource);
   await ensure_table_view(document);
 
   registerCleanupFunction(async () => {
     await ensure_cards_view(document);
-    folderParent.deleteSelf(null);
-    folderSource.deleteSelf(null);
+    folderParent.deleteSelf(false);
+    folderSource.deleteSelf(false);
   });
 });
 

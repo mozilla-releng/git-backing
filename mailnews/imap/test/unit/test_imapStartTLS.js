@@ -55,11 +55,7 @@ add_setup(async function () {
 
 async function discoverFolders() {
   const listener = new PromiseTestUtils.PromiseUrlListener();
-  MailServices.imap.discoverAllFolders(
-    incomingServer.rootFolder,
-    listener,
-    gDummyMsgWindow
-  );
+  MailServices.imap.discoverAllFolders(incomingServer.rootFolder, listener, true);
   try {
     await listener.promise;
     return true;
@@ -177,7 +173,7 @@ add_task(async function testCertificateError() {
       exitCode = code;
     },
   });
-  MailServices.imap.discoverAllFolders(server.rootFolder, listener, null);
+  MailServices.imap.discoverAllFolders(server.rootFolder, listener, false);
   await Assert.rejects(listener.promise, /./, "connecting should fail");
 
   const nssErrorsService = Cc["@mozilla.org/nss_errors_service;1"].getService(

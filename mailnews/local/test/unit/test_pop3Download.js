@@ -88,7 +88,7 @@ add_task(async function testDownloadMessages() {
   daemon.setMessages(testMessages);
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   MailServices.pop3.GetNewMail(
-    null,
+    false,
     urlListener,
     localAccountUtils.inboxFolder,
     incomingServer
@@ -104,7 +104,6 @@ add_task(async function testDownloadMessages() {
     MailServices.messageServiceFromURI(msgURI).streamMessage(
       msgURI,
       streamListener,
-      null,
       null,
       false,
       "",

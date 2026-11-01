@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* globals msgWindow */ // From mailWindow.js
-
 var MailOfflineMgr = {
   offlineManager: null,
   offlineBundle: null,
@@ -65,7 +63,7 @@ var MailOfflineMgr = {
         downloadForOfflineUse,
         false,
         true,
-        msgWindow
+        true
       );
     }
   },
@@ -97,9 +95,8 @@ var MailOfflineMgr = {
    * Prompt the user about going online to send unsent messages, and then send them
    * if appropriate. Puts the app back into online mode.
    *
-   * @param {nsIMsgWindow} aMsgWindow - The msg window to be used when going online.
    */
-  goOnlineToSendMessages(aMsgWindow) {
+  goOnlineToSendMessages() {
     const goOnlineToSendMsgs = Services.prompt.confirm(
       window,
       this.offlineBundle.GetStringFromName("sendMessagesOfflineWindowTitle1"),
@@ -110,7 +107,7 @@ var MailOfflineMgr = {
       this.offlineManager.goOnline(
         true /* send unsent messages*/,
         false,
-        aMsgWindow
+        true
       );
     }
   },
@@ -224,7 +221,7 @@ var MailOfflineMgr = {
       this.offlineManager.goOnline(
         this.shouldSendUnsentMessages(),
         false /* playbackOfflineImapOperations */,
-        msgWindow
+        true
       );
     }
     return goOnline;
@@ -269,7 +266,7 @@ var MailOfflineMgr = {
           this.haveUnsentMessages() &&
           this.confirmSendUnsentMessages()) ||
         prefSendUnsentMessages == 1;
-      this.offlineManager.goOnline(sendUnsentMessages, true, msgWindow);
+      this.offlineManager.goOnline(sendUnsentMessages, true, true);
     }
   },
 };

@@ -84,7 +84,7 @@ add_setup(async function () {
   nntpAccount.incomingServer.prettyName = "NNTP Account";
   nntpAccount.incomingServer.port = nntpServer.port;
   nntpRootFolder = nntpAccount.incomingServer.rootFolder;
-  nntpRootFolder.createSubfolder("getmessages.offline", null);
+  nntpRootFolder.createSubfolder("getmessages.offline");
   nntpFolder = nntpRootFolder.getChildNamed("getmessages.offline");
   allInboxes.push(nntpFolder);
 
@@ -141,7 +141,7 @@ add_task(async function testOffline() {
       () => inbox.getNumUnread(false) - inbox.numPendingUnread == 10,
       `waiting for new ${inbox.server.type} messages to be received`
     );
-    inbox.markAllMessagesRead(window.msgWindow);
+    inbox.markAllMessagesRead();
     // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
     await new Promise(resolve => setTimeout(resolve, 250));
   }

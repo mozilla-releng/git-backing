@@ -35,7 +35,7 @@ function addFolder(parent, folderName, storeIn) {
   ];
   // We won't receive a copy listener notification for this
   gCurrStatus |= kStatus.onStopCopyDone;
-  parent.createSubfolder(folderName, null);
+  parent.createSubfolder(folderName);
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
     resetStatusAndProceed();
@@ -62,7 +62,7 @@ function copyFileMessage(file, destFolder, isDraftOrTemplate) {
     0,
     "",
     copyListener,
-    null
+    false
   );
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
@@ -80,7 +80,7 @@ function copyMessages(items, isMove, srcFolder, destFolder) {
     destFolder,
     isMove,
     copyListener,
-    null,
+    false,
     true
   );
   gCurrStatus |= kStatus.functionCallDone;
@@ -98,7 +98,7 @@ function copyFolder(srcFolder, isMove, destFolder) {
     destFolder,
     isMove,
     copyListener,
-    null
+    false
   );
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
@@ -129,7 +129,7 @@ function deleteMessages(srcFolder, items, deleteStorage, isMove) {
 
   srcFolder.deleteMessages(
     items,
-    null,
+    false,
     deleteStorage,
     isMove,
     copyListener,
@@ -144,7 +144,7 @@ function deleteMessages(srcFolder, items, deleteStorage, isMove) {
 function renameFolder(folder, newName) {
   gExpectedEvents = [[MailServices.mfn.folderRenamed, [folder], newName]];
   gCurrStatus = kStatus.onStopCopyDone;
-  folder.rename(newName, null);
+  folder.rename(newName);
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
     resetStatusAndProceed();
@@ -178,7 +178,7 @@ function deleteFolder(folder, child) {
     ];
   }
 
-  folder.deleteSelf(null);
+  folder.deleteSelf(false);
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
     resetStatusAndProceed();
@@ -192,7 +192,7 @@ function compactFolder(folder) {
   ];
   // We won't receive a copy listener notification for this
   gCurrStatus |= kStatus.onStopCopyDone;
-  folder.compact(null, null);
+  folder.compact(null, false);
   gCurrStatus |= kStatus.functionCallDone;
   if (gCurrStatus == kStatus.everythingDone) {
     resetStatusAndProceed();

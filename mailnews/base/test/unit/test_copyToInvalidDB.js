@@ -14,7 +14,7 @@ const { MessageGenerator } = ChromeUtils.importESModule(
 async function setup() {
   const createSubfolder = async function (parentFolder, name) {
     const promiseAdded = PromiseTestUtils.promiseFolderAdded(name);
-    parentFolder.createSubfolder(name, null);
+    parentFolder.createSubfolder(name);
     await promiseAdded;
     return parentFolder.getChildNamed(name);
   };
@@ -71,7 +71,7 @@ add_task(async function test_copyToInvalidDB() {
     folder2,
     true, // isMove
     copyListener,
-    null, // window
+    false, // window
     false // allowUndo
   );
   await copyListener.promise;
@@ -85,7 +85,7 @@ add_task(async function test_copyToInvalidDB() {
   // Rebuild the the database.
   const urlListener = new PromiseTestUtils.PromiseUrlListener();
   try {
-    folder2.getDatabaseWithReparse(urlListener, null);
+    folder2.getDatabaseWithReparse(urlListener);
   } catch (ex) {
     // We expect this - it indicates the DB is not valid. But it will have
     // kicked off an async reparse, so we need to wait for the listener.

@@ -49,47 +49,44 @@ class ExchangeFolder : public nsMsgDBFolder, public IExchangeFolder {
   NS_IMETHOD SetStringProperty(const char* propertyName,
                                const nsACString& propertyValue) override;
   NS_IMETHOD CreateStorageIfMissing(nsIUrlListener* urlListener) override;
-  NS_IMETHOD CreateSubfolder(const nsACString& folderName,
-                             nsIMsgWindow* msgWindow) override;
+  NS_IMETHOD CreateSubfolder(const nsACString& folderName) override;
   NS_IMETHOD CreateSubfolderWithListener(const nsACString&,
                                          nsIUrlListener*) override;
   NS_IMETHOD CopyFileMessage(nsIFile* aFile, nsIMsgDBHdr* msgToReplace,
                              bool isDraftOrTemplate, uint32_t newMsgFlags,
                              const nsACString& aNewMsgKeywords,
-                             nsIMsgWindow* msgWindow,
+                             bool interactive,
                              nsIMsgCopyServiceListener* listener) override;
   NS_IMETHOD CopyMessages(nsIMsgFolder* srcFolder,
                           nsTArray<RefPtr<nsIMsgDBHdr>> const& srcHdrs,
-                          bool isMove, nsIMsgWindow* msgWindow,
+                          bool isMove, bool interactive,
                           nsIMsgCopyServiceListener* listener, bool isFolder,
                           bool allowUndo) override;
   NS_IMETHOD DeleteMessages(const nsTArray<RefPtr<nsIMsgDBHdr>>& msgHeaders,
-                            nsIMsgWindow* msgWindow, bool deleteStorage,
-                            bool isMove, nsIMsgCopyServiceListener* listener,
+                            bool interactive, bool deleteStorage, bool isMove,
+                            nsIMsgCopyServiceListener* listener,
                             bool allowUndo) override;
   NS_IMETHOD EmptyTrash(nsIUrlListener* aListener) override;
   NS_IMETHOD CopyFolder(nsIMsgFolder* srcFolder, bool isMoveFolder,
-                        nsIMsgWindow* window,
+                        bool interactive,
                         nsIMsgCopyServiceListener* listener) override;
-  NS_IMETHOD DeleteSelf(nsIMsgWindow* aWindow) override;
+  NS_IMETHOD DeleteSelf(bool interactive) override;
   NS_IMETHOD GetDBFolderInfoAndDB(nsIDBFolderInfo** folderInfo,
                                   nsIMsgDatabase** _retval) override;
   NS_IMETHOD GetSupportsOffline(bool* supportsOffline) override;
   NS_IMETHOD GetDeletable(bool* deletable) override;
   NS_IMETHOD GetIncomingServerType(nsACString& aIncomingServerType) override;
-  NS_IMETHOD GetNewMessages(nsIMsgWindow* aWindow,
+  NS_IMETHOD GetNewMessages(bool interactive,
                             nsIUrlListener* aListener) override;
   NS_IMETHOD GetSubFolders(
       nsTArray<RefPtr<nsIMsgFolder>>& aSubFolders) override;
   NS_IMETHOD MarkMessagesRead(const nsTArray<RefPtr<nsIMsgDBHdr>>& messages,
                               bool markRead) override;
-  NS_IMETHOD MarkAllMessagesRead(nsIMsgWindow* aMsgWindow) override;
-  NS_IMETHOD Rename(const nsACString& aNewName,
-                    nsIMsgWindow* msgWindow) override;
-  NS_IMETHOD UpdateFolder(nsIMsgWindow* aWindow) override;
-  NS_IMETHOD Compact(nsIUrlListener* aListener,
-                     nsIMsgWindow* aMsgWindow) override;
-  NS_IMETHOD CompactAll(nsIUrlListener* aListener, nsIMsgWindow* aMsgWindow,
+  NS_IMETHOD MarkAllMessagesRead() override;
+  NS_IMETHOD Rename(const nsACString& aNewName) override;
+  NS_IMETHOD UpdateFolder(bool interactive) override;
+  NS_IMETHOD Compact(nsIUrlListener* aListener, bool interactive) override;
+  NS_IMETHOD CompactAll(nsIUrlListener* aListener, bool interactive,
                         bool expunge) override;
 
   NS_IMETHOD AddSubfolder(const nsACString& name,
@@ -101,7 +98,7 @@ class ExchangeFolder : public nsMsgDBFolder, public IExchangeFolder {
 
   NS_IMETHOD HandleViewCommand(nsMsgViewCommandTypeValue command,
                                const nsTArray<nsMsgKey>& messageKeys,
-                               nsIMsgWindow* window,
+                               bool interactive,
                                nsIMsgCopyServiceListener* listener) override;
 
   NS_IMETHOD FetchMsgPreviewText(nsTArray<nsMsgKey> const& aKeysToFetch,
@@ -147,7 +144,7 @@ class ExchangeFolder : public nsMsgDBFolder, public IExchangeFolder {
   /**
    * Synchronize the message list for the current folder.
    */
-  nsresult SyncMessages(nsIMsgWindow* window, nsIUrlListener* urlListener);
+  nsresult SyncMessages(nsIUrlListener* urlListener);
 
   /**
    * Look up the message database entry matching a given Exchange ID.

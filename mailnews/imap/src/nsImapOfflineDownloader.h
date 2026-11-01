@@ -11,7 +11,6 @@
 #include "nsCOMPtr.h"
 #include "nsTArray.h"
 
-class nsIMsgWindow;
 class nsIMsgFolder;
 class nsIMsgIncomingServer;
 class nsIMsgOfflineOpsDatabase;
@@ -33,7 +32,7 @@ class nsIMsgOfflineOpsDatabase;
  */
 class nsImapOfflineDownloader : public nsIUrlListener {
  public:
-  nsImapOfflineDownloader(nsIMsgWindow* window, nsIUrlListener* listener);
+  nsImapOfflineDownloader(bool interactive, nsIUrlListener* listener);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIURLLISTENER
@@ -43,7 +42,7 @@ class nsImapOfflineDownloader : public nsIUrlListener {
   virtual ~nsImapOfflineDownloader();
 
  private:
-  nsCOMPtr<nsIMsgWindow> m_window;
+  bool m_interactive;
   nsCOMPtr<nsIUrlListener> m_listener;
 
   nsTArray<RefPtr<nsIMsgIncomingServer>> m_allServers;
