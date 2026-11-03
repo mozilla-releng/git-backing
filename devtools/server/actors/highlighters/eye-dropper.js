@@ -80,7 +80,10 @@ class EyeDropper extends EventEmitter {
   _buildMarkup() {
     // Highlighter main container.
     const container = this.markup.createNode({
-      attributes: { class: "highlighter-container" },
+      attributes: {
+        id: "eye-dropper-container",
+        class: "highlighter-container",
+      },
     });
 
     // Wrapper element.
@@ -210,9 +213,8 @@ class EyeDropper extends EventEmitter {
       this.#pageEventListenersAbortController.abort();
       this.#pageEventListenersAbortController = null;
 
-      const rootElement = this.getElement("eye-dropper-root");
-      rootElement.setAttribute("hidden", "true");
-      rootElement.removeAttribute("drawn");
+      this.getElement("eye-dropper-root").setAttribute("hidden", "true");
+      this.getElement("eye-dropper-container").removeAttribute("drawn");
 
       this.emit("hidden");
 
@@ -239,7 +241,7 @@ class EyeDropper extends EventEmitter {
 
   /**
    * Create an image bitmap from the page screenshot, draw the eyedropper and set the
-   * "drawn" attribute on the "root" element once it's done.
+   * "drawn" attribute on the container element once it's done.
    *
    * @param {string | null} screenshot
    *   A dataURL representation of the page screenshot.
@@ -267,9 +269,9 @@ class EyeDropper extends EventEmitter {
     // We likely haven't drawn anything yet (no mousemove events yet), so start now.
     this.draw();
 
-    // Set an attribute on the root element to be able to run tests after the first draw
-    // was done.
-    rootElement.setAttribute("drawn", "true");
+    // Set an attribute on the container element to be able to run tests after the first
+    // draw was done.
+    this.getElement("eye-dropper-container").setAttribute("drawn", "true");
 
     // Show the eyedropper.
     rootElement.removeAttribute("hidden");
@@ -427,7 +429,7 @@ class EyeDropper extends EventEmitter {
         this.show();
         break;
       case "resize":
-        this.getElement("eye-dropper-root").removeAttribute("drawn");
+        this.getElement("eye-dropper-container").removeAttribute("drawn");
         this.#debouncedUpdateScreenshot();
         break;
     }
