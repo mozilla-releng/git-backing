@@ -257,6 +257,10 @@ class TrustPanel {
     // Add an observer to listen for FxAccounts logout to clear OAuth cache
     Services.obs.addObserver(this, "fxaccounts:onlogout");
 
+    // Watch the tracker count pref so the icon reacts to it being changed from
+    // anywhere, including about:preferences.
+    UrlbarPrefs.addObserver(this);
+
     customElements.whenDefined("breach-alert-panel").then(() => {
       const breachAlertElement = document.getElementById(
         "trustpanel-breach-alert-section"
@@ -282,6 +286,7 @@ class TrustPanel {
 
     Services.obs.removeObserver(this, "smartblock:open-protections-panel");
     Services.obs.removeObserver(this, "fxaccounts:onlogout");
+    UrlbarPrefs.removeObserver(this);
   }
 
   get #popup() {
@@ -391,6 +396,9 @@ class TrustPanel {
       document
         .getElementById("trustpanel-toggle")
         .addEventListener("click", () => this.#toggleTrackingProtection());
+      document
+        .getElementById("trackercount-toggle")
+        .addEventListener("click", () => this.#toggleTrackerCount());
       document
         .getElementById("identity-popup-remove-cert-exception")
         .addEventListener("click", () => this.#removeCertException());
@@ -551,19 +559,20 @@ class TrustPanel {
    *    because `onContentBlockingEvent` only gets called when a particular
    *    category of trackers is first blocked (e.g. fingerprinters), not for
    *    every blocked origin, leaving the count incomplete.
-   * 2. Set `this.#blockersChecked` and call `#updateUrlBarIcon`, to ensure
-   *    the scanning state gets resolved to the final secure/insecure state.
+   * 2. Set `this.#blockersChecked` and redraw the icon, to ensure the scanning
+   *    state gets resolved to the final secure/insecure state.
    */
   onNavigationComplete() {
     if (!this.#enabled || !this.#uri) {
       return;
     }
-    if (!this.#trackerCountEnabled) {
-      return;
-    }
-    this.#updateToolbarTrackerCount();
-    if (!this.#blockersChecked) {
-      this.#blockersChecked = true;
+    // The blocker check belongs to the document, not to the tracker count
+    // feature, so it is resolved even while the feature is off: enabling it
+    // later for this page must not leave the icon stuck in the scanning state.
+    this.#blockersChecked = true;
+    if (this.#trackerCountEnabled) {
+      this.#updateToolbarTrackerCount();
+    } else {
       this.#updateUrlbarIcon();
     }
   }
@@ -823,6 +832,12 @@ class TrustPanel {
       { host: this.#displayHost }
     );
 
+    let trackerCountToggle = document.getElementById("trackercount-toggle");
+    trackerCountToggle.toggleAttribute(
+      "pressed",
+      UrlbarPrefs.get("trackerCount.enabled")
+    );
+
     let hostElement = document.getElementById("trustpanel-popup-host");
     hostElement.setAttribute("value", this.#displayHost);
     hostElement.setAttribute("tooltiptext", this.#displayHost);
@@ -852,6 +867,11 @@ class TrustPanel {
       document.getElementById("trustpanel-toggle-section"),
       "disabled",
       !ContentBlockingAllowList.canHandle(window.gBrowser.selectedBrowser)
+    );
+    this.#updateAttribute(
+      document.getElementById("trackercount-toggle-section"),
+      "hidden",
+      !UrlbarPrefs.get("trackerCountFeatureGate")
     );
 
     // TODO(Bug 1751045): Show the clear site data footer in private browsing
@@ -901,13 +921,13 @@ class TrustPanel {
     if (!this.#trackerCountEnabled) {
       return;
     }
+    const iconContainer = document.getElementById("trust-icon-container");
     let count = this.#getCumulativeTrackerCount();
 
     // A blocked tracker resolves the scanning shield straight into the reveal.
     if (count > 0) {
       this.#blockersChecked = true;
     }
-    const iconContainer = document.getElementById("trust-icon-container");
     if (count > 0 && !UrlbarPrefs.get("trackerCountShown")) {
       // The very first time we show the count of trackers, we set this pref so
       // that we can trigger a feature callout in response.
@@ -1348,6 +1368,38 @@ class TrustPanel {
     this.#closingReason = CLOSING_REASONS.ETP_TOGGLED;
     PanelMultiView.hidePopup(this.#popup);
     window.BrowserCommands.reload();
+  }
+
+  #toggleTrackerCount() {
+    // #onTrackerCountFeatureChanged handles actually enabling/disabling the
+    // tracker count:
+    UrlbarPrefs.set(
+      "trackerCount.enabled",
+      !UrlbarPrefs.get("trackerCount.enabled")
+    );
+  }
+
+  onPrefChanged(pref) {
+    if (pref == "trackerCount.enabled") {
+      this.#onTrackerCountFeatureChanged();
+    }
+  }
+
+  onNimbusChanged(name) {
+    if (name == "trackerCountFeatureGate") {
+      this.#onTrackerCountFeatureChanged();
+    }
+  }
+
+  #onTrackerCountFeatureChanged() {
+    if (this.#trackerCountEnabled) {
+      this.#updateToolbarTrackerCount();
+      return;
+    }
+    document.l10n.setArgs(document.getElementById("trust-icon-container"), {
+      count: 0,
+    });
+    this.#updateUrlbarIcon();
   }
 
   #isHttpsOnlyModeActive(isWindowPrivate) {
