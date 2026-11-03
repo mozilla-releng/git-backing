@@ -35,6 +35,9 @@ def get_commits(logger, repo_root):
         logger.warning("No VCS found for path %s" % repo_root)
         return []
 
+    if repo.name != "hg":
+        return []
+
     return repo.get_commits(
         limit=50,
         follow=[
