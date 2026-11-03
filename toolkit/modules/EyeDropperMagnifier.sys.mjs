@@ -126,7 +126,7 @@ export class EyeDropperMagnifier {
    *
    * @returns {{r: number, g: number, b: number}}
    */
-  get #centerColor() {
+  get color() {
     const pos = this.#centerCell * this.#cellSize + this.#cellSize / 2;
     const [r, g, b] = this.#canvasCtx.getImageData(pos, pos, 1, 1).data;
     return { r, g, b };
@@ -233,7 +233,7 @@ export class EyeDropperMagnifier {
     this.#drawCrosshair();
 
     // Update the color preview and value.
-    const { r, g, b } = this.#centerColor;
+    const { r, g, b } = this.color;
     this.#colorPreview.setAttribute(
       "style",
       `background-color:rgb(${r}, ${g}, ${b});`
@@ -283,6 +283,6 @@ export class EyeDropperMagnifier {
    * @returns {string}
    */
   get colorString() {
-    return this.#colorFormatter(this.#centerColor);
+    return this.#colorFormatter(this.color);
   }
 }
