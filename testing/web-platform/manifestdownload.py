@@ -55,13 +55,13 @@ def manifest_url(logger, repo_root):
         repo = mozversioncontrol.get_repository_object(repo_root)
     except mozversioncontrol.InvalidRepoPath:
         logger.warning("No VCS found for path %s" % repo_root)
-        return taskcluster_url(logger, [])
+        return latest_url(logger)
 
     if repo.name in ("git", "jj"):
         return git_taskcluster_url(logger, repo.get_ancestors(limit=20))
 
     if repo.name != "hg":
-        return taskcluster_url(logger, [])
+        return latest_url(logger)
 
     return taskcluster_url(
         logger,
@@ -101,8 +101,10 @@ def git_taskcluster_url(logger, commits):
 
             if req.status_code == 200:
                 return tc_index_url + ARTIFACT_PATH
+            if req.status_code != 404:
+                return DEFAULT_URL
 
-    return taskcluster_url(logger, [])
+    return latest_url(logger)
 
 
 def taskcluster_url(logger, commits):
@@ -152,10 +154,13 @@ def taskcluster_url(logger, commits):
             if req.status_code == 200:
                 return tc_index_url + ARTIFACT_PATH
 
+    return latest_url(logger)
+
+
+def latest_url(logger):
     logger.info(
         "Can't find a commit-specific manifest so just using the most recent one"
     )
-
     return DEFAULT_URL
 
 
