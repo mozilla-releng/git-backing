@@ -16,14 +16,14 @@ def index_url(revision, name):
     return manifestdownload.TC_URL.format(changeset=revision, name=name)
 
 
-def git_taskcluster_url(commits, found=None, error=None):
+def git_taskcluster_url(commits, found=None, error=None, miss_status=404):
     requested = []
 
     def get(logger, url, **kwargs):
         requested.append(url)
         if error:
             raise error
-        return mock.Mock(status_code=200 if url == found else 404)
+        return mock.Mock(status_code=200 if url == found else miss_status)
 
     with mock.patch.object(manifestdownload, "get", get):
         url = manifestdownload.git_taskcluster_url(mock.Mock(), commits)
@@ -33,7 +33,11 @@ def git_taskcluster_url(commits, found=None, error=None):
 def test_git_taskcluster_url_first_indexed_ancestor():
     found = index_url(OLD, "autoland")
     url, requested = git_taskcluster_url([NEW, OLD], found=found)
-    assert url == found + manifestdownload.ARTIFACT_PATH
+    assert url == (
+        "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/"
+        f"gecko.v2.autoland.revision.{OLD}.source.manifest-upload"
+        "/artifacts/public/manifests.tar.gz"
+    )
     assert requested == [
         index_url(NEW, name) for name in manifestdownload.REPOS.values()
     ] + [index_url(OLD, "mozilla-central"), found]
@@ -45,12 +49,51 @@ def test_git_taskcluster_url_not_found():
     assert len(requested) == 2 * len(manifestdownload.REPOS)
 
 
+def test_git_taskcluster_url_server_error():
+    url, requested = git_taskcluster_url([NEW, OLD], miss_status=503)
+    assert url == manifestdownload.DEFAULT_URL
+    assert requested == [index_url(NEW, "mozilla-central")]
+
+
 def test_git_taskcluster_url_request_error():
     url, requested = git_taskcluster_url(
         [NEW, OLD], error=requests.exceptions.ConnectionError()
     )
     assert url == manifestdownload.DEFAULT_URL
     assert requested == [index_url(NEW, "mozilla-central")]
+
+
+def manifest_url(vcs):
+    repo = mock.Mock(get_ancestors=mock.Mock(return_value=[NEW, OLD]))
+    repo.name = vcs
+    with mock.patch.object(
+        manifestdownload.mozversioncontrol, "get_repository_object", return_value=repo
+    ):
+        with mock.patch.object(manifestdownload, "git_taskcluster_url") as git_url:
+            with mock.patch.object(manifestdownload, "taskcluster_url") as hg_url:
+                url = manifestdownload.manifest_url(mock.Mock(), "/src")
+    return url, git_url, hg_url
+
+
+def test_manifest_url_git():
+    for vcs in ("git", "jj"):
+        url, git_url, hg_url = manifest_url(vcs)
+        assert url == git_url.return_value
+        assert git_url.call_args.args[1] == [NEW, OLD]
+        hg_url.assert_not_called()
+
+
+def test_manifest_url_hg():
+    url, git_url, hg_url = manifest_url("hg")
+    assert url == hg_url.return_value
+    git_url.assert_not_called()
+
+
+def test_manifest_url_source():
+    url, git_url, hg_url = manifest_url("src")
+    assert url == manifestdownload.DEFAULT_URL
+    git_url.assert_not_called()
+    hg_url.assert_not_called()
 
 
 if __name__ == "__main__":
