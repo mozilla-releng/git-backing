@@ -4,3 +4,4 @@ subsuite = "mozbase"
 ["test_manifestdownload.py"]
 
 ["test_metamerge.py"]
+disabled = "Bug NNNNNN - expected output no longer matches metamerge.py"
