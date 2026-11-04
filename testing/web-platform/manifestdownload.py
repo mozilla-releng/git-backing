@@ -16,11 +16,33 @@ except ImportError:
 
 HEADERS = {"User-Agent": "wpt manifest download"}
 
+ARTIFACT_PATH = "/artifacts/public/manifests.tar.gz"
+
+REPOS = {
+    "mozilla-central": "mozilla-central",
+    "integration/autoland": "autoland",
+    "releases/mozilla-esr115": "mozilla-esr115",
+    "releases/mozilla-esr140": "mozilla-esr140",
+    "releases/mozilla-esr153": "mozilla-esr153",
+}
+
+TC_URL = (
+    "https://firefox-ci-tc.services.mozilla.com/api/index/v1/"
+    "task/gecko.v2.{name}."
+    "revision.{changeset}.source.manifest-upload"
+)
+
+DEFAULT_URL = (
+    "https://firefox-ci-tc.services.mozilla.com/api/index/v1/"
+    "task/gecko.v2.mozilla-central.latest.source.manifest-upload" + ARTIFACT_PATH
+)
+
 
 def get(logger, url, **kwargs):
     logger.debug(url)
     if "headers" not in kwargs:
         kwargs["headers"] = HEADERS
+    kwargs.setdefault("timeout", 30)
     return requests.get(url, **kwargs)
 
 
@@ -28,22 +50,28 @@ def abs_path(path):
     return os.path.abspath(os.path.expanduser(path))
 
 
-def get_commits(logger, repo_root):
+def manifest_url(logger, repo_root):
     try:
         repo = mozversioncontrol.get_repository_object(repo_root)
     except mozversioncontrol.InvalidRepoPath:
         logger.warning("No VCS found for path %s" % repo_root)
-        return []
+        return taskcluster_url(logger, [])
+
+    if repo.name in ("git", "jj"):
+        return git_taskcluster_url(logger, repo.get_ancestors(limit=20))
 
     if repo.name != "hg":
-        return []
+        return taskcluster_url(logger, [])
 
-    return repo.get_commits(
-        limit=50,
-        follow=[
-            "testing/web-platform/tests",
-            "testing/web-platform/mozilla/tests",
-        ],
+    return taskcluster_url(
+        logger,
+        repo.get_commits(
+            limit=50,
+            follow=[
+                "testing/web-platform/tests",
+                "testing/web-platform/mozilla/tests",
+            ],
+        ),
     )
 
 
@@ -62,30 +90,25 @@ def should_download(logger, manifest_paths, rebuild_time=timedelta(days=5)):
     return False
 
 
-def taskcluster_url(logger, commits):
-    artifact_path = "/artifacts/public/manifests.tar.gz"
+def git_taskcluster_url(logger, commits):
+    for revision in commits:
+        for index_name in REPOS.values():
+            tc_index_url = TC_URL.format(changeset=revision, name=index_name)
+            try:
+                req = get(logger, tc_index_url)
+            except requests.exceptions.RequestException:
+                return DEFAULT_URL
 
-    repos = {
-        "mozilla-central": "mozilla-central",
-        "integration/autoland": "autoland",
-        "releases/mozilla-esr115": "mozilla-esr115",
-        "releases/mozilla-esr140": "mozilla-esr140",
-        "releases/mozilla-esr153": "mozilla-esr153",
-    }
+            if req.status_code == 200:
+                return tc_index_url + ARTIFACT_PATH
+
+    return taskcluster_url(logger, [])
+
+
+def taskcluster_url(logger, commits):
     cset_url = (
         "https://hg.mozilla.org/{repo}/json-pushes?"
         "changeset={changeset}&version=2&tipsonly=1"
-    )
-
-    tc_url = (
-        "https://firefox-ci-tc.services.mozilla.com/api/index/v1/"
-        "task/gecko.v2.{name}."
-        "revision.{changeset}.source.manifest-upload"
-    )
-
-    default = (
-        "https://firefox-ci-tc.services.mozilla.com/api/index/v1/"
-        "task/gecko.v2.mozilla-central.latest.source.manifest-upload" + artifact_path
     )
 
     for revision in commits:
@@ -94,7 +117,7 @@ def taskcluster_url(logger, commits):
         if revision == 40 * "0":
             continue
 
-        for repo_path, index_name in repos.items():
+        for repo_path, index_name in REPOS.items():
             try:
                 req_headers = HEADERS.copy()
                 req_headers.update({"Accept": "application/json"})
@@ -110,7 +133,7 @@ def taskcluster_url(logger, commits):
                     logger.debug("%s not found in %s" % (revision, repo_path))
                     continue
                 else:
-                    return default
+                    return DEFAULT_URL
 
             result = req.json()
 
@@ -120,23 +143,23 @@ def taskcluster_url(logger, commits):
                 continue
             [cset] = next(iter(pushes.values()))["changesets"]
 
-            tc_index_url = tc_url.format(changeset=cset, name=index_name)
+            tc_index_url = TC_URL.format(changeset=cset, name=index_name)
             try:
                 req = get(logger, tc_index_url)
             except requests.exceptions.RequestException:
-                return default
+                return DEFAULT_URL
 
             if req.status_code == 200:
-                return tc_index_url + artifact_path
+                return tc_index_url + ARTIFACT_PATH
 
     logger.info(
         "Can't find a commit-specific manifest so just using the most recent one"
     )
 
-    return default
+    return DEFAULT_URL
 
 
-def download_manifest(logger, test_paths, commits_func, url_func, force=False):
+def download_manifest(logger, test_paths, url_func, force=False):
     manifest_paths = [
         (item["manifest_path"] if isinstance(item, dict) else item.manifest_path)
         for item in test_paths.values()
@@ -145,9 +168,7 @@ def download_manifest(logger, test_paths, commits_func, url_func, force=False):
     if not force and not should_download(logger, manifest_paths):
         return True
 
-    commits = commits_func()
-
-    url = url_func(logger, commits)
+    url = url_func()
     if not url:
         logger.warning("No generated manifest found")
         return False
@@ -206,7 +227,6 @@ def download_from_taskcluster(logger, repo_root, test_paths, force=False):
     return download_manifest(
         logger,
         test_paths,
-        lambda: get_commits(logger, repo_root),
-        taskcluster_url,
+        lambda: manifest_url(logger, repo_root),
         force,
     )
