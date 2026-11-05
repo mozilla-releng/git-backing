@@ -441,8 +441,7 @@ class nsBaseClipboard : public nsIClipboard {
 
   // Return whether aRequestingPrincipal is allowed to see the web custom
   // formats currently on the clipboard, see
-  // clipboard.readCrossOriginCustomFormats.enabled and
-  // clipboard.readCustomFormatsFromClipboard.enabled.
+  // clipboard.readCrossOriginCustomFormats.enabled.
   bool CanReadWebCustomFormats(ClipboardType aClipboardType,
                                nsIPrincipal* aRequestingPrincipal);
 

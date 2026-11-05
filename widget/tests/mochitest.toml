@@ -3,7 +3,6 @@ support-files = ["clipboard_helper.js"]
 tags = "os_integration"
 prefs = [
   "dom.clipboard.customFormatSupport.enabled=true",
-  "clipboard.readCustomFormatsFromClipboard.enabled=true",
   "clipboard.readCrossOriginCustomFormats.enabled=true",
 ]
 
