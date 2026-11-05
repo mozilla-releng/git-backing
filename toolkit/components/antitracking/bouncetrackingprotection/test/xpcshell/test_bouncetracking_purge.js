@@ -396,3 +396,76 @@ add_task(async function test_purge() {
   await SiteDataTestUtils.clear();
   Services.perms.removeAll();
 });
+
+/**
+ * Tests that default "bounce-tracking-protection-exception" permissions, as set by remote permissions,
+ * exempt the whole site from purging in normal and private browsing.
+ */
+add_task(async function test_purge_btp_skip_permission() {
+  const PB_OA = { privateBrowsingId: 1 };
+  let bounceTime =
+    (Date.now() - (bounceTrackingGracePeriodSec + 5) * 1000) * 1000;
+
+  let allowPrincipal = Services.scriptSecurityManager.createContentPrincipal(
+    Services.io.newURI("https://www.example.com"),
+    {}
+  );
+  let denyPrincipal = Services.scriptSecurityManager.createContentPrincipal(
+    Services.io.newURI("https://example.net"),
+    {}
+  );
+  Services.perms.addDefaultFromPrincipal(
+    allowPrincipal,
+    "bounce-tracking-protection-exception",
+    Services.perms.ALLOW_ACTION
+  );
+  Services.perms.addDefaultFromPrincipal(
+    denyPrincipal,
+    "bounce-tracking-protection-exception",
+    Services.perms.DENY_ACTION
+  );
+
+  for (let oa of [{}, PB_OA]) {
+    btp.testAddBounceTrackerCandidate(oa, "example.com", bounceTime);
+    btp.testAddBounceTrackerCandidate(oa, "example.net", bounceTime);
+    btp.testAddBounceTrackerCandidate(oa, "example.org", bounceTime);
+  }
+
+  let purgedHosts = await btp.testRunPurgeBounceTrackers();
+  Assert.deepEqual(
+    purgedHosts.sort(),
+    ["example.net", "example.net", "example.org", "example.org"],
+    "Should only purge sites without a bounce-tracking-protection-exception ALLOW permission."
+  );
+  for (let oa of [{}, PB_OA]) {
+    Assert.deepEqual(
+      btp.testGetBounceTrackerCandidateHosts(oa).map(entry => entry.siteHost),
+      [],
+      "Allowlisted and purged hosts are removed from the candidate map."
+    );
+  }
+
+  info(
+    "Removing the bounce-tracking-protection-exception permission makes the site purgeable again."
+  );
+  Services.perms.addDefaultFromPrincipal(
+    allowPrincipal,
+    "bounce-tracking-protection-exception",
+    Services.perms.UNKNOWN_ACTION
+  );
+  btp.testAddBounceTrackerCandidate({}, "example.com", bounceTime);
+  Assert.deepEqual(
+    await btp.testRunPurgeBounceTrackers(),
+    ["example.com"],
+    "Should purge the site after its bounce-tracking-protection-exception permission was removed."
+  );
+
+  Services.perms.addDefaultFromPrincipal(
+    denyPrincipal,
+    "bounce-tracking-protection-exception",
+    Services.perms.UNKNOWN_ACTION
+  );
+  btp.clearAll();
+  assertEmpty();
+  Services.perms.removeAll();
+});
