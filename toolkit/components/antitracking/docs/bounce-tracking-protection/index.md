@@ -101,6 +101,78 @@ so for a context opened by a cross-site frame it resolves to the frame's own sit
 the frame can still name itself. Gecko resolves the opener to its top level document
 instead.
 
+## Purge exceptions
+
+A classified bounce tracker is not purged if its site has one of the following
+exceptions:
+
+- The user turned off Enhanced Tracking Protection for the site
+  (`trackingprotection` or `trackingprotection-pb` permission).
+- The user allowed cookies for the site (`cookie` permission with
+  `ALLOW_ACTION`).
+- A remote intervention exempts the site, see below.
+
+Exceptions apply to the entire site (eTLD+1): a permission set for
+`https://www.example.com` also exempts `example.com` and all of its subdomains.
+Normal and private browsing are checked separately, using the permissions of the
+respective context. A site which is skipped because of an exception is removed
+from the bounce tracker candidates. If it bounces again after the exception has
+been removed it can be classified and purged again.
+
+### Remote interventions
+
+If BTP breaks a website, the site can be exempted from purging remotely,
+without shipping a new Firefox release. There are two mechanisms. Both are
+checked on every purge and a site is skipped if either of them exempts it.
+
+#### Remote permissions
+
+The preferred mechanism is a `bounce-tracking-protection-exception` permission set via
+[remote permissions](/permissions/remote.md). Records go into the
+`remote-permissions` Remote Settings collection:
+
+```json
+{
+  "origin": "https://example.com",
+  "type": "bounce-tracking-protection-exception",
+  "capability": 1
+}
+```
+
+Only `ALLOW_ACTION` (`1`) may be set. Any other value is rejected by
+`RemotePermissionService`, and BTP only considers `ALLOW_ACTION` to be an
+exception. New entries are requested through the
+[remote permissions process](/permissions/remote.md).
+
+Remote permissions are imported as default permissions. They are not written to
+the permission database, are mirrored to private browsing, and are not shown in
+the permission UI. The `remote-permissions` collection ships with a dump, so a
+new profile has the exceptions before its first Remote Settings sync. The
+import runs asynchronously during startup and BTP does not wait for it before
+purging, so a purge which runs before the import has finished does not see
+these exceptions. Changes synced from Remote Settings apply from the next purge
+onwards.
+
+Clearing a site's permissions, for example with "Forget About This Site",
+currently removes its `bounce-tracking-protection-exception` permission permanently
+([Bug 2089602](https://bugzilla.mozilla.org/show_bug.cgi?id=2089602)).
+
+#### BTP exception list
+
+The older mechanism is BTP's own Remote Settings collection,
+`bounce-tracking-protection-exceptions`, which is imported by
+`BTPRemoteExceptionList.sys.mjs`. Each record exempts one site host:
+
+```json
+{
+  "siteHost": "example.com"
+}
+```
+
+Unlike remote permissions, BTP waits for this list to be imported before it
+purges. It remains in place until the remote permissions mechanism has proven
+stable.
+
 ## Gecko Implementation
 
 Work for the Gecko implementation in tracked under following meta-bug:
@@ -125,7 +197,7 @@ classDiagram
         <!-- [...] -->
     }
 
-    class nsIBTPExceptionList {
+    class nsIBTPRemoteExceptionList {
         <!-- Bug 1930704: Empty classes lead to build errors. Adding a comment inside the class fixes the issue -->
         <!-- [...] -->
     }
@@ -182,10 +254,10 @@ classDiagram
     BounceTrackingStateGlobal --* BounceTrackingProtectionStorage
     BounceTrackingStateGlobal --> BounceTrackingProtectionStorage : Persists state changes in storage.
     BounceTrackingProtection --> BounceTrackingStateGlobal : Manages global state
-    nsIBTPExceptionList --* BounceTrackingProtection
-    nsIBTPExceptionList --> BounceTrackingProtection : Site host purge exceptions from RemoteSettings.
+    nsIBTPRemoteExceptionList --* BounceTrackingProtection
+    nsIBTPRemoteExceptionList --> BounceTrackingProtection : Site host purge exceptions from RemoteSettings.
     BounceTrackingAllowList --* BounceTrackingProtection
-    BounceTrackingAllowList --> BounceTrackingProtection :  Site host purge exceptions from PermissionManager.
+    BounceTrackingAllowList --> BounceTrackingProtection :  Site purge exceptions from PermissionManager, incl. remote permissions.
     BrowsingContextWebProgress --> BounceTrackingState : Navigation signals
     DocumentLoadListener --> BounceTrackingState : Navigation signals
 ```
