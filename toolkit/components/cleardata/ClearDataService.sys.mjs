@@ -1294,19 +1294,14 @@ const SHUTDOWN_EXCEPTION_PERMISSION = "persist-data-on-shutdown";
 
 const ShutdownExceptionsCleaner = {
   async _deleteInternal(filter, aOriginAttributesPattern = {}) {
-    Services.perms
-      .getAllForOriginAttributesPattern(
-        JSON.stringify(aOriginAttributesPattern),
-        [SHUTDOWN_EXCEPTION_PERMISSION]
-      )
-      .filter(filter)
-      .forEach(perm => {
-        try {
-          Services.perms.removePermission(perm);
-        } catch (ex) {
-          console.error(ex);
-        }
-      });
+    Services.perms.removePermissionsExceptDefaults(
+      Services.perms
+        .getAllForOriginAttributesPattern(
+          JSON.stringify(aOriginAttributesPattern),
+          [SHUTDOWN_EXCEPTION_PERMISSION]
+        )
+        .filter(filter)
+    );
   },
 
   async deleteByHost(aHost) {
@@ -1355,22 +1350,17 @@ const ShutdownExceptionsCleaner = {
 
 const PermissionsCleaner = {
   async _deleteInternal(filter, aOriginAttributesPattern = {}) {
-    Services.perms
-      .getAllForOriginAttributesPattern(
-        JSON.stringify(aOriginAttributesPattern),
-        []
-      )
-      // Skip persist-data-on-shutdown because it is handled by
-      // ShutdownExceptionsCleaner.
-      .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
-      .filter(filter)
-      .forEach(perm => {
-        try {
-          Services.perms.removePermission(perm);
-        } catch (ex) {
-          console.error(ex);
-        }
-      });
+    Services.perms.removePermissionsExceptDefaults(
+      Services.perms
+        .getAllForOriginAttributesPattern(
+          JSON.stringify(aOriginAttributesPattern),
+          []
+        )
+        // Skip persist-data-on-shutdown because it is handled by
+        // ShutdownExceptionsCleaner.
+        .filter(({ type }) => type != SHUTDOWN_EXCEPTION_PERMISSION)
+        .filter(filter)
+    );
     // Clean up interaction tracking data for removed permissions.
     await Services.perms.removeOrphanedInteractionRecords();
   },

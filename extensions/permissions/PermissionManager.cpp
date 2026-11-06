@@ -2415,6 +2415,63 @@ PermissionManager::RemovePermission(nsIPermission* aPerm) {
 }
 
 NS_IMETHODIMP
+PermissionManager::RemovePermissionsExceptDefaults(
+    const nsTArray<RefPtr<nsIPermission>>& aPerms) {
+  ENSURE_NOT_CHILD_PROCESS;
+
+  MonitorAutoLock lock{mMonitor};
+  EnsureReadCompleted();
+
+  for (nsIPermission* perm : aPerms) {
+    if (!perm) {
+      continue;
+    }
+
+    nsCOMPtr<nsIPrincipal> principal;
+    nsresult rv = perm->GetPrincipal(getter_AddRefs(principal));
+    if (NS_FAILED(rv) || principal->IsSystemPrincipal() ||
+        IsExpandedPrincipal(principal)) {
+      continue;
+    }
+
+    nsAutoCString type;
+    if (NS_FAILED(perm->GetType(type))) {
+      continue;
+    }
+
+    int32_t typeIndex = GetTypeIndex(type, false);
+    if (typeIndex == -1) {
+      continue;
+    }
+
+    RefPtr<PermissionKey> key = PermissionKey::CreateFromPrincipal(
+        principal, IsOAForceStripPermission(type), IsSiteScopedPermission(type),
+        rv);
+    if (!key) {
+      continue;
+    }
+
+    PermissionHashKey* entry = mPermissionTable.GetEntry(key);
+    if (!entry) {
+      continue;
+    }
+
+    int32_t index = entry->GetPermissionIndex(typeIndex);
+    if (index == -1 ||
+        entry->GetPermissions()[index].mID == cIDPermissionIsDefault) {
+      continue;
+    }
+
+    rv = RemoveFromPrincipalInternal(principal, type);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to remove permission");
+    }
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 PermissionManager::RemoveAll() {
   ENSURE_NOT_CHILD_PROCESS;
 
