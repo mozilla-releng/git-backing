@@ -265,6 +265,9 @@ add_task(async function testDetectionPromptForOtherSite() {
   prompts.length = 0;
   const saved = [];
   const originalSave = cal.auth.passwordManagerSave;
+  registerCleanupFunction(() => {
+    cal.auth.passwordManagerSave = originalSave;
+  });
   cal.auth.passwordManagerSave = (username, password, origin) => saved.push(origin);
   response = { username: "other", password: "entered", save: true };
   Assert.equal(
@@ -283,6 +286,96 @@ add_task(async function testDetectionPromptForOtherSite() {
     "nothing should be used for an unrelated site"
   );
   Assert.deepEqual(prompts, [], "the user should not be asked for an unrelated site");
+
+  MsgAuthPrompt.prototype.promptAuth = originalPromptAuth;
+  await Services.logins.removeAllLoginsAsync();
+});
+
+add_task(async function testDetectionSavedLoginForOtherSite() {
+  const prompts = [];
+  let response = null;
+  const originalPromptAuth = MsgAuthPrompt.prototype.promptAuth;
+  MsgAuthPrompt.prototype.promptAuth = function (channel, level, authInfo, label, save) {
+    prompts.push(channel.URI.host);
+    if (!response) {
+      return false;
+    }
+    authInfo.password = response.password;
+    save.value = response.save;
+    return true;
+  };
+  registerCleanupFunction(() => {
+    MsgAuthPrompt.prototype.promptAuth = originalPromptAuth;
+  });
+  await Services.logins.addLoginAsync(
+    new LoginInfo("https://dav.example.com", null, "test", USERNAME, "saved", "", "")
+  );
+  await Services.logins.addLoginAsync(
+    new LoginInfo("https://other.example.com", null, "test", USERNAME, "other", "", "")
+  );
+
+  const session = new CalDavDetectionSession(USERNAME, PASSWORD, false);
+  session.promptSites.add("https://example.com");
+  session.promptSites.add("https://example.net");
+
+  Assert.equal(
+    promptAuth(session, "https://dav.example.com/"),
+    "saved",
+    "the saved password should be used for an SRV target on another site"
+  );
+  Assert.equal(
+    promptAuth(session, "https://other.example.com/"),
+    "other",
+    "the password saved for another server on the same site should be used for it"
+  );
+  Assert.deepEqual(prompts, [], "the user should not be asked when a login is saved");
+
+  response = { password: "entered", save: false };
+  Assert.equal(
+    promptAuth(session, "https://dav.example.com/", Ci.nsIAuthInformation.PREVIOUS_FAILED),
+    "entered",
+    "the entered password should be used when the saved one failed"
+  );
+  Assert.deepEqual(
+    prompts,
+    ["dav.example.com"],
+    "the user should be asked when the saved password failed"
+  );
+  response = null;
+  Assert.equal(
+    promptAuth(session, "https://dav.example.com/", Ci.nsIAuthInformation.PREVIOUS_FAILED),
+    null,
+    "nothing should be used if the user declines after a failed password"
+  );
+  const [login] = await Services.logins.searchLoginsAsync({ origin: "https://dav.example.com" });
+  Assert.equal(login?.password, "saved", "a login saved before should not be removed");
+
+  const saved = [];
+  const originalSave = cal.auth.passwordManagerSave;
+  registerCleanupFunction(() => {
+    cal.auth.passwordManagerSave = originalSave;
+  });
+  cal.auth.passwordManagerSave = async (username, password, origin) => saved.push(origin);
+  response = { password: "", save: true };
+  Assert.equal(
+    promptAuth(session, "https://dav.example.net/"),
+    "",
+    "an empty entered password should be used"
+  );
+  cal.auth.passwordManagerSave = originalSave;
+  Assert.deepEqual(saved, [], "an empty password should not be saved");
+
+  const otherSession = new CalDavDetectionSession(USERNAME, PASSWORD, false);
+  otherSession.promptSites.add("https://example.com");
+  promptAuth(otherSession, "https://dav.example.com/");
+  prompts.length = 0;
+  response = null;
+  Assert.equal(
+    promptAuth(otherSession, "https://third.example.com/"),
+    null,
+    "a password saved for one server should not be used for another on the same site"
+  );
+  Assert.deepEqual(prompts, ["third.example.com"], "the user should be asked for the other server");
 
   MsgAuthPrompt.prototype.promptAuth = originalPromptAuth;
   await Services.logins.removeAllLoginsAsync();

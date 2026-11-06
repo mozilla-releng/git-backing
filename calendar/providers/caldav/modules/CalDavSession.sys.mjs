@@ -131,11 +131,11 @@ export class CalDavDetectionSession extends CalDavSession {
   declinedSites = new Set();
 
   /**
-   * The credentials the user entered for sites in promptSites, by site,
-   * whether the user chose to save them, and the origins and realms they have
-   * been saved for.
+   * The credentials the user entered for sites in promptSites, by site.
+   * Also whether the user chose to save them, the origins and realms they have
+   * been saved for, and a promise for the saving still in progress.
    *
-   * @type {Map<string, {username: string, password: string, save: boolean, savedFor: Set<string>}>}
+   * @type {Map<string, {username: string, password: string, save: boolean, savedFor: Set<string>, saving: Promise}>}
    */
   #enteredCredentials = new Map();
 
@@ -234,9 +234,10 @@ export class CalDavDetectionSession extends CalDavSession {
 
   /**
    * Asks the user for credentials for a server the password may not be sent
-   * to without asking, and saves them if the user chooses to. The user is only
-   * asked once per site, again if the credentials fail, and not again after
-   * declining.
+   * to without asking, and saves them if the user chooses to. A login already
+   * saved for the server is used without asking. The user is only asked once
+   * per site, again if the credentials fail, and not again after declining.
+   * Only logins saved here are removed when they fail.
    *
    * Calendars found are set up with this.username, so if the user changes the
    * username, the login isn't saved here. The calendar then asks for the
@@ -254,17 +255,31 @@ export class CalDavDetectionSession extends CalDavSession {
       return false;
     }
 
+    const origin = channel.URI.prePath;
+    const realm = authInfo.realm;
     const entered = this.#enteredCredentials.get(site);
     if (authInfo.flags & authInfo.PREVIOUS_FAILED) {
       this.#enteredCredentials.delete(site);
-      if (entered?.savedFor.delete(`${channel.URI.prePath} ${authInfo.realm}`)) {
-        cal.auth.passwordManagerRemove(entered.username, channel.URI.prePath, authInfo.realm);
+      if (entered?.savedFor.delete(`${origin} ${realm}`)) {
+        entered.saving
+          .then(() => cal.auth.passwordManagerRemove(entered.username, origin, realm))
+          .catch(console.error);
       }
     } else if (entered) {
       authInfo.username = entered.username;
       authInfo.password = entered.password;
-      this.#saveEntered(entered, channel.URI.prePath, authInfo.realm);
+      this.#saveEntered(entered, origin, realm);
       return true;
+    } else {
+      const password = this.#getSavedPassword(origin, realm);
+      if (password === undefined) {
+        return false;
+      }
+      if (password) {
+        authInfo.username = this.username;
+        authInfo.password = password;
+        return true;
+      }
     }
 
     authInfo.username = entered?.username ?? this.username;
@@ -294,6 +309,7 @@ export class CalDavDetectionSession extends CalDavSession {
       password: authInfo.password,
       save: !!(savePasswordLabel && savePassword.value && authInfo.username == this.username),
       savedFor: new Set(),
+      saving: Promise.resolve(),
     };
     this.#enteredCredentials.set(site, newEntry);
     this.#saveEntered(newEntry, channel.URI.prePath, authInfo.realm);
@@ -304,17 +320,46 @@ export class CalDavDetectionSession extends CalDavSession {
    * Saves credentials from #enteredCredentials for an origin and realm, if the
    * user chose to save them and they haven't been saved for it yet.
    *
-   * @param {{username: string, password: string, save: boolean, savedFor: Set<string>}} entered
+   * @param {{username: string, password: string, save: boolean, savedFor: Set<string>, saving: Promise}} entered
    *   The entry in #enteredCredentials.
    * @param {string} origin - The origin to save the login for.
    * @param {string} realm - The realm to save the login for.
    */
   #saveEntered(entered, origin, realm) {
     const key = `${origin} ${realm}`;
-    if (!entered.save || entered.savedFor.has(key)) {
+    if (!entered.save || !entered.password || entered.savedFor.has(key)) {
       return;
     }
     entered.savedFor.add(key);
-    cal.auth.passwordManagerSave(entered.username, entered.password, origin, realm);
+    entered.saving = entered.saving
+      .then(() => cal.auth.passwordManagerSave(entered.username, entered.password, origin, realm))
+      .catch(console.error);
+  }
+
+  /**
+   * Looks up the password saved for this.username for an origin and realm.
+   *
+   * @param {string} origin - The origin of the server.
+   * @param {string} realm - The realm the server asks for.
+   * @returns {?string|undefined} The password, null if none is saved, or
+   *   undefined if the application is quitting.
+   */
+  #getSavedPassword(origin, realm) {
+    if (!this.username) {
+      return null;
+    }
+    const password = {};
+    let found = false;
+    let finished = false;
+    cal.auth
+      .passwordManagerGet(this.username, password, origin, realm)
+      .then(result => (found = result))
+      .catch(console.error)
+      .finally(() => (finished = true));
+    Services.tm.spinEventLoopUntilOrQuit("CalDavSession.sys.mjs:getSavedPassword", () => finished);
+    if (!finished) {
+      return undefined;
+    }
+    return found ? password.value : null;
   }
 }
