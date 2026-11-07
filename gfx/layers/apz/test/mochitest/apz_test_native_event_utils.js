@@ -1764,7 +1764,15 @@ async function doubleTapOn(element, x, y, useTouchpad) {
   await promiseApzFlushedRepaints();
 }
 
-const DefaultNativePanHandler = {
+const NativePanHandlerForLinux = {
+  beginPhase: SpecialPowers.DOMWindowUtils.PHASE_BEGIN,
+  updatePhase: SpecialPowers.DOMWindowUtils.PHASE_UPDATE,
+  endPhase: SpecialPowers.DOMWindowUtils.PHASE_END,
+  promiseNativePanEvent: promiseNativeTouchpadPanEventAndWaitForObserver,
+  delta: -50,
+};
+
+const NativePanHandlerForWindows = {
   beginPhase: SpecialPowers.DOMWindowUtils.PHASE_BEGIN,
   updatePhase: SpecialPowers.DOMWindowUtils.PHASE_UPDATE,
   endPhase: SpecialPowers.DOMWindowUtils.PHASE_END,
@@ -1781,15 +1789,24 @@ const NativePanHandlerForMac = {
   delta: -50,
 };
 
+const NativePanHandlerForHeadless = {
+  beginPhase: SpecialPowers.DOMWindowUtils.PHASE_BEGIN,
+  updatePhase: SpecialPowers.DOMWindowUtils.PHASE_UPDATE,
+  endPhase: SpecialPowers.DOMWindowUtils.PHASE_END,
+  promiseNativePanEvent: promiseNativeTouchpadPanEventAndWaitForObserver,
+  delta: 50,
+};
+
 function getPanHandler() {
   if (SpecialPowers.isHeadless) {
-    return DefaultNativePanHandler;
+    return NativePanHandlerForHeadless;
   }
 
   switch (getPlatform()) {
     case "linux":
+      return NativePanHandlerForLinux;
     case "windows":
-      return DefaultNativePanHandler;
+      return NativePanHandlerForWindows;
     case "mac":
       return NativePanHandlerForMac;
     default:

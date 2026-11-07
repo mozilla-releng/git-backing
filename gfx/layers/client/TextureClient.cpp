@@ -74,7 +74,7 @@ using namespace mozilla::gl;
 using namespace mozilla::gfx;
 
 struct TextureDeallocParams {
-  UniquePtr<TextureData> data;
+  TextureData* data = nullptr;
   RefPtr<TextureChild> actor;
   RefPtr<TextureReadLock> readLock;
   RefPtr<LayersIPCChannel> allocator;
@@ -85,12 +85,25 @@ struct TextureDeallocParams {
   TextureDeallocParams(const TextureDeallocParams&) = delete;
   TextureDeallocParams& operator=(const TextureDeallocParams&) = delete;
 
-  TextureDeallocParams(TextureDeallocParams&&) = default;
-  TextureDeallocParams& operator=(TextureDeallocParams&&) = delete;
+  TextureDeallocParams(TextureDeallocParams&& aOther)
+      : data(aOther.data),
+        actor(std::move(aOther.actor)),
+        readLock(std::move(aOther.readLock)),
+        allocator(std::move(aOther.allocator)),
+        clientDeallocation(aOther.clientDeallocation),
+        syncDeallocation(aOther.syncDeallocation) {
+    aOther.data = nullptr;
+  }
 
-  ~TextureDeallocParams() {
-    MOZ_RELEASE_ASSERT(
-        !data, "TextureData ownership must be transferred before destruction");
+  TextureDeallocParams& operator=(TextureDeallocParams&& aOther) {
+    data = aOther.data;
+    aOther.data = nullptr;
+    actor = std::move(aOther.actor);
+    readLock = std::move(aOther.readLock);
+    allocator = std::move(aOther.allocator);
+    clientDeallocation = aOther.clientDeallocation;
+    syncDeallocation = aOther.syncDeallocation;
+    return *this;
   }
 };
 
@@ -110,7 +123,7 @@ void DeallocateTextureClient(TextureDeallocParams& params);
 class TextureChild final : public PTextureChild {
   ~TextureChild() {
     // We should have deallocated mTextureData in ActorDestroy
-    MOZ_RELEASE_ASSERT(!mTextureData);
+    MOZ_ASSERT(!mTextureData);
     MOZ_ASSERT_IF(!mOwnerCalledDestroy, !mTextureClient);
   }
 
@@ -142,7 +155,7 @@ class TextureChild final : public PTextureChild {
   ///
   /// This will asynchronously send a Destroy message to the parent actor, whom
   /// will send the delete message.
-  void Destroy(TextureDeallocParams& aParams);
+  void Destroy(const TextureDeallocParams& aParams);
 
   // This lock is used order to prevent several threads to access the
   // TextureClient's data concurrently. In particular, it prevents shutdown
@@ -214,7 +227,7 @@ class TextureChild final : public PTextureChild {
   RefPtr<TextureForwarder> mTextureForwarder;
 
   TextureClient* mTextureClient;
-  UniquePtr<TextureData> mTextureData;
+  TextureData* mTextureData;
   Atomic<bool> mDestroyed;
   bool mOwnsTextureData;
   bool mOwnerCalledDestroy;
@@ -341,7 +354,7 @@ bool TextureData::IsRemote(KnowsCompositor* aKnowsCompositor,
   }
 }
 
-static void DestroyTextureData(UniquePtr<TextureData> aTextureData,
+static void DestroyTextureData(TextureData* aTextureData,
                                LayersIPCChannel* aAllocator, bool aDeallocate) {
   if (!aTextureData) {
     return;
@@ -352,19 +365,19 @@ static void DestroyTextureData(UniquePtr<TextureData> aTextureData,
   } else {
     aTextureData->Forget(aAllocator);
   }
-  // TextureData is deleted when aTextureData goes out of scope.
+  delete aTextureData;
 }
 
 void TextureChild::ActorDestroy(ActorDestroyReason why) {
   AUTO_PROFILER_LABEL("TextureChild::ActorDestroy", GRAPHICS);
 
   if (mTextureData) {
-    DestroyTextureData(std::move(mTextureData), GetAllocator(),
-                       mOwnsTextureData);
+    DestroyTextureData(mTextureData, GetAllocator(), mOwnsTextureData);
+    mTextureData = nullptr;
   }
 }
 
-void TextureChild::Destroy(TextureDeallocParams& aParams) {
+void TextureChild::Destroy(const TextureDeallocParams& aParams) {
   MOZ_ASSERT(!mOwnerCalledDestroy);
   if (mOwnerCalledDestroy) {
     return;
@@ -373,13 +386,13 @@ void TextureChild::Destroy(TextureDeallocParams& aParams) {
   mOwnerCalledDestroy = true;
 
   if (!CanSend()) {
-    DestroyTextureData(std::move(aParams.data), aParams.allocator,
+    DestroyTextureData(aParams.data, aParams.allocator,
                        aParams.clientDeallocation);
     return;
   }
 
   // DestroyTextureData will be called by TextureChild::ActorDestroy
-  mTextureData = std::move(aParams.data);
+  mTextureData = aParams.data;
   mOwnsTextureData = aParams.clientDeallocation;
 
   if (!mCompositableForwarder ||
@@ -410,9 +423,6 @@ void DeallocateTextureClient(TextureDeallocParams& params) {
       // An allocator with no thread means we are too late in the shutdown
       // sequence.
       gfxCriticalError() << "Texture deallocated too late during shutdown";
-      // Release ownership of TextureData, leaving it allocated because its
-      // deallocation requires the allocator thread, which is unavailable.
-      (void)params.data.release();
       return;
     }
   }
@@ -465,8 +475,7 @@ void DeallocateTextureClient(TextureDeallocParams& params) {
     // TextureClient before sharing it with the compositor. It means the data
     // cannot be owned by the TextureHost since we never created the
     // TextureHost...
-    DestroyTextureData(std::move(params.data), params.allocator,
-                       /* aDeallocate */ true);
+    DestroyTextureData(params.data, params.allocator, /* aDeallocate */ true);
     return;
   }
 
@@ -508,10 +517,11 @@ void TextureClient::Destroy() {
     actor = nullptr;
   }
 
-  UniquePtr<TextureData> data;
+  TextureData* data;
   {
     MutexAutoLock lock(mMutex);
-    data = std::move(mData);
+    data = mData;
+    mData = nullptr;
   }
 
   if (data || actor || readLock) {
@@ -520,7 +530,7 @@ void TextureClient::Destroy() {
     params.readLock = std::move(readLock);
     params.allocator = mAllocator;
     params.clientDeallocation = !!(mFlags & TextureFlags::DEALLOCATE_CLIENT);
-    params.data = std::move(data);
+    params.data = data;
     // At the moment we always deallocate synchronously when deallocating on the
     // client side, but having asynchronous deallocate in some of the cases will
     // be a worthwhile optimization.

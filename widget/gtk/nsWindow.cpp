@@ -7001,9 +7001,11 @@ void nsWindow::CreateAndPutGdkScrollEvent(mozilla::LayoutDeviceIntPoint aPoint,
   event.scroll.x = DevicePixelsToGdkCoordRoundDown(pointInWindow.x);
   event.scroll.y = DevicePixelsToGdkCoordRoundDown(pointInWindow.y);
 
+  // The delta values are backwards on Linux compared to Windows and Cocoa,
+  // hence the negation.
   event.scroll.direction = GDK_SCROLL_SMOOTH;
-  event.scroll.delta_x = aDeltaX;
-  event.scroll.delta_y = aDeltaY;
+  event.scroll.delta_x = -aDeltaX;
+  event.scroll.delta_y = -aDeltaY;
 
   gdk_event_put(&event);
 }
@@ -7019,9 +7021,7 @@ nsresult nsWindow::SynthesizeNativeMouseScrollEvent(
     return NS_OK;
   }
 
-  // The delta values are backwards on Linux compared to Windows and Cocoa,
-  // hence the negation.
-  CreateAndPutGdkScrollEvent(aPoint, -aDeltaX, -aDeltaY);
+  CreateAndPutGdkScrollEvent(aPoint, aDeltaX, aDeltaY);
 
   return NS_OK;
 }
