@@ -210,6 +210,10 @@ void LoaderPrivateAPIImp::NotifyEndDllLoad(void* aContext,
   gLoaderObserver->OnEndDllLoad(aContext, aLoadNtStatus,
                                 std::move(aModuleLoadInfo));
 
+  // Hold the lock shared so that the decrement and wake cannot fall between
+  // SetObserver checking the count and going to sleep, which would lose the
+  // wake.
+  nt::AutoSharedLock lock(gLoaderObserverLock);
   auto previousValue = gLoaderObserverOngoingLoadsCount--;
   MOZ_RELEASE_ASSERT(previousValue);
   if (previousValue == 1) {
