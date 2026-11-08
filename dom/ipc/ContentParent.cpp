@@ -338,6 +338,8 @@
 
 #ifdef XP_WIN
 #  include "mozilla/WinDllServices.h"
+#  include <windows.h>
+#  include <dbghelp.h>
 #endif
 
 #ifdef MOZ_CODE_COVERAGE
@@ -1894,6 +1896,10 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
     mForceKillTimer->Cancel();
     mForceKillTimer = nullptr;
   }
+  if (mConnectCheckTimer) {
+    mConnectCheckTimer->Cancel();
+    mConnectCheckTimer = nullptr;
+  }
 
   // Signal shutdown completion regardless of error state, so we can
   // finish waiting in the xpcom-shutdown/profile-before-change observer.
@@ -2574,6 +2580,11 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
 
   mLifecycleState = LifecycleState::INITIALIZED;
 
+  NS_NewTimerWithFuncCallback(getter_AddRefs(mConnectCheckTimer),
+                              ContentParent::ConnectCheckTimerCallback, this,
+                              10000, nsITimer::TYPE_ONE_SHOT,
+                              "dom::ContentParent::ConnectCheck"_ns);
+
   if (aIsSync) {
     glean::dom_contentprocess::sync_launch.AccumulateRawDuration(
         TimeStamp::Now() - mLaunchTS);
@@ -2647,6 +2658,9 @@ ContentParent::~ContentParent() {
   }
   if (mForceKillTimer) {
     mForceKillTimer->Cancel();
+  }
+  if (mConnectCheckTimer) {
+    mConnectCheckTimer->Cancel();
   }
 
   AssertIsOnMainThread();
@@ -3689,6 +3703,9 @@ void ContentParent::SignalImpendingShutdownToContentJS() {
 // Async shutdown blocker
 NS_IMETHODIMP
 ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
+  if ((TimeStamp::Now() - mLaunchTS).ToSeconds() > 5.0) {
+    MaybeDumpUnconnectedChild("at BlockShutdown");
+  }
   if (!AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdown)) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     mBlockShutdownCalled = true;
@@ -4401,6 +4418,64 @@ void ContentParent::ForceKillTimerCallback(nsITimer* aTimer, void* aClosure) {
 
   RefPtr self = static_cast<ContentParent*>(aClosure);
   self->KillHard("ShutDownKill");
+}
+
+void ContentParent::ConnectCheckTimerCallback(nsITimer* aTimer,
+                                              void* aClosure) {
+  RefPtr self = static_cast<ContentParent*>(aClosure);
+  self->mConnectCheckTimer = nullptr;
+  self->MaybeDumpUnconnectedChild("10s after launch");
+}
+
+void ContentParent::MaybeDumpUnconnectedChild(const char* aWhen) {
+  if (mDumpedUnconnectedChild || mCrashReporter || !mSubprocess) {
+    return;
+  }
+  mDumpedUnconnectedChild = true;
+
+  base::ProcessId pid = mSubprocess->GetChildProcessId();
+  nsAutoCString result("no dump: not Windows");
+#ifdef XP_WIN
+  result.AssignLiteral("no dump: MOZ_UPLOAD_DIR not set");
+  if (const wchar_t* uploadDir = _wgetenv(L"MOZ_UPLOAD_DIR")) {
+    nsAutoString path(uploadDir);
+    path.AppendLiteral(u"\\unconnected-content-");
+    path.AppendInt(static_cast<uint32_t>(pid));
+    path.AppendLiteral(u"-id");
+    path.AppendInt(static_cast<uint32_t>(ChildID()));
+    path.AppendLiteral(u".dmp");
+    using MiniDumpWriteDumpFn = decltype(&::MiniDumpWriteDump);
+    HMODULE dbghelp = ::LoadLibraryW(L"dbghelp.dll");
+    auto writeDump =
+        dbghelp ? reinterpret_cast<MiniDumpWriteDumpFn>(
+                      ::GetProcAddress(dbghelp, "MiniDumpWriteDump"))
+                : nullptr;
+    HANDLE file = ::CreateFileW(path.get(), GENERIC_WRITE, 0, nullptr,
+                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (!writeDump || file == INVALID_HANDLE_VALUE) {
+      result = nsPrintfCString("no dump: dbghelp=%p file error=%lu", dbghelp,
+                               ::GetLastError());
+    } else {
+      auto type = static_cast<MINIDUMP_TYPE>(
+          MiniDumpNormal | MiniDumpWithHandleData | MiniDumpWithThreadInfo |
+          MiniDumpWithUnloadedModules | MiniDumpWithProcessThreadData);
+      if (writeDump(mSubprocess->GetChildProcessHandle(), pid, file, type,
+                    nullptr, nullptr, nullptr)) {
+        result = "dump written to "_ns + NS_ConvertUTF16toUTF8(path);
+      } else {
+        result = nsPrintfCString("no dump: MiniDumpWriteDump error=%lu",
+                                 ::GetLastError());
+      }
+      ::CloseHandle(file);
+    }
+  }
+#endif
+
+  printf_stderr(
+      "TEST-UNEXPECTED-FAIL | ContentParent | content process pid %u (id=%u, "
+      "remoteType=%s) never connected (%s); %s\n",
+      (unsigned)pid, (unsigned)ChildID(), mRemoteType.get(), aWhen,
+      result.get());
 }
 
 void ContentParent::GeneratePairedMinidump(const char* aReason) {
