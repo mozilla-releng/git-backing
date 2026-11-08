@@ -4,6 +4,8 @@
 
 #include "LoaderPrivateAPI.h"
 
+#include <intrin.h>
+
 #include "mozilla/Assertions.h"
 #include "../DllBlocklistInit.h"
 #include "../ErrorHandler.h"
@@ -116,6 +118,67 @@ static CONDITION_VARIABLE gLoaderObserverNoOngoingLoadsCV =
     CONDITION_VARIABLE_INIT;
 static mozilla::Atomic<uint32_t> gLoaderObserverOngoingLoadsCount(0);
 
+// TRY ONLY diagnostics for bug 2087390.
+struct LoaderEvent {
+  uint32_t mTid;
+  uint32_t mKind;
+  uint32_t mCountAfter;
+  uint32_t mPad;
+  uint64_t mTsc;
+  wchar_t mName[24];
+};
+
+struct LoaderEventRing {
+  char mMagic[8];
+  long mIndex;
+  uint32_t mPad;
+  LoaderEvent mEvents[64];
+};
+
+enum LoaderEventKind : uint32_t {
+  kLoaderEventBegin = 1,
+  kLoaderEventEnd = 2,
+  kLoaderEventCheck = 3,
+  kLoaderEventWoken = 4,
+};
+
+volatile LoaderEventRing gLoaderEventRing = {
+    {'M', 'O', 'Z', 'L', 'D', 'E', 'V', 'T'}};
+
+static void CopyLeafName(PCUNICODE_STRING aName, wchar_t (&aOut)[24]) {
+  size_t len = 0;
+  const wchar_t* name = nullptr;
+  if (aName && aName->Buffer) {
+    name = aName->Buffer;
+    len = aName->Length / sizeof(wchar_t);
+    for (size_t i = len; i > 0; --i) {
+      if (aName->Buffer[i - 1] == L'\\') {
+        name = aName->Buffer + i;
+        len -= i;
+        break;
+      }
+    }
+  }
+  for (size_t i = 0; i < 24; ++i) {
+    aOut[i] = (i < len && i < 23) ? name[i] : L'\0';
+  }
+}
+
+static void RecordLoaderEvent(uint32_t aKind, uint32_t aCountAfter,
+                              const wchar_t (&aLeafName)[24]) {
+  long index = _InterlockedIncrement(&gLoaderEventRing.mIndex) - 1;
+  volatile LoaderEvent& event = gLoaderEventRing.mEvents[index % 64];
+  event.mTid = mozilla::nt::RtlGetCurrentThreadId();
+  event.mKind = aKind;
+  event.mCountAfter = aCountAfter;
+  event.mTsc = __rdtsc();
+  for (size_t i = 0; i < 24; ++i) {
+    event.mName[i] = aLeafName[i];
+  }
+}
+
+static const wchar_t kNoLeafName[24] = {};
+
 namespace mozilla {
 namespace freestanding {
 
@@ -192,7 +255,14 @@ void LoaderPrivateAPIImp::NotifyEndDllLoad(void* aContext,
   // If the ModuleLoadInfo came from an incompatible mozglue.dll then don't use
   // it.  Note that the OnEndDllLoad method is in the mozglue's DLL, so using
   // it there is fine.
+  wchar_t eventName[24] = {};
   if (aModuleLoadInfo.HasCompatibleLayout()) {
+    CopyLeafName(aModuleLoadInfo.mSectionName.IsEmpty()
+                     ? static_cast<PCUNICODE_STRING>(
+                           aModuleLoadInfo.mRequestedDllName)
+                     : static_cast<PCUNICODE_STRING>(
+                           aModuleLoadInfo.mSectionName),
+                 eventName);
     aModuleLoadInfo.SetEndLoadTimeStamp();
 
     if (NT_SUCCESS(aLoadNtStatus)) {
@@ -211,6 +281,7 @@ void LoaderPrivateAPIImp::NotifyEndDllLoad(void* aContext,
                                 std::move(aModuleLoadInfo));
 
   auto previousValue = gLoaderObserverOngoingLoadsCount--;
+  RecordLoaderEvent(kLoaderEventEnd, previousValue - 1, eventName);
   MOZ_RELEASE_ASSERT(previousValue);
   if (previousValue == 1) {
     ::RtlWakeAllConditionVariable(&gLoaderObserverNoOngoingLoadsCV);
@@ -264,7 +335,10 @@ nt::MemorySectionNameBuf LoaderPrivateAPIImp::GetSectionNameBuffer(
 void LoaderPrivateAPIImp::NotifyBeginDllLoad(
     void** aContext, PCUNICODE_STRING aRequestedDllName) {
   nt::AutoSharedLock lock(gLoaderObserverLock);
-  ++gLoaderObserverOngoingLoadsCount;
+  uint32_t countAfter = ++gLoaderObserverOngoingLoadsCount;
+  wchar_t eventName[24];
+  CopyLeafName(aRequestedDllName, eventName);
+  RecordLoaderEvent(kLoaderEventBegin, countAfter, eventName);
   gLoaderObserver->OnBeginDllLoad(aContext, aRequestedDllName);
 }
 
@@ -279,11 +353,16 @@ void LoaderPrivateAPIImp::SetObserver(nt::LoaderObserver* aNewObserver) {
   nt::LoaderObserver* prevLoaderObserver = nullptr;
 
   nt::AutoExclusiveLock lock(gLoaderObserverLock);
-  while (gLoaderObserverOngoingLoadsCount) {
+  uint32_t count;
+  while ((count = gLoaderObserverOngoingLoadsCount)) {
+    RecordLoaderEvent(kLoaderEventCheck, count, kNoLeafName);
     NTSTATUS status = ::RtlSleepConditionVariableSRW(
         &gLoaderObserverNoOngoingLoadsCV, &gLoaderObserverLock, nullptr, 0);
+    RecordLoaderEvent(kLoaderEventWoken, gLoaderObserverOngoingLoadsCount,
+                      kNoLeafName);
     MOZ_RELEASE_ASSERT(NT_SUCCESS(status) && status != STATUS_TIMEOUT);
   }
+  RecordLoaderEvent(kLoaderEventCheck, 0, kNoLeafName);
 
   MOZ_ASSERT(aNewObserver);
   if (!aNewObserver) {
