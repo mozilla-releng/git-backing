@@ -866,6 +866,8 @@ class ContentParent final : public PContentParent,
 
   static void SendShutdownTimerCallback(nsITimer* aTimer, void* aClosure);
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
+  static void ConnectCheckTimerCallback(nsITimer* aTimer, void* aClosure);
+  void MaybeDumpUnconnectedChild(const char* aWhen);
 
   bool CanOpenBrowser(const IPCTabContext& aContext);
 
@@ -1527,6 +1529,8 @@ class ContentParent final : public PContentParent,
   // SIGSTOP), are still killed eventually.  This task enforces that
   // timer.
   nsCOMPtr<nsITimer> mForceKillTimer;
+  nsCOMPtr<nsITimer> mConnectCheckTimer;
+  bool mDumpedUnconnectedChild = false;
 
   // Threadsafe handle object which can be used by actors like PBackground to
   // track the identity and other relevant information about the content process
