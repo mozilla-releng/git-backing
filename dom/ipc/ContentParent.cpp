@@ -4409,7 +4409,6 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
   // of the parent and child for submission to the crash server unless we're
   // already shutting down.
   if (mCrashReporter &&
-      !AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) &&
       StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup()) {
     // GeneratePairedMinidump creates two minidumps for us - the main
     // one is for the content process we're about to kill, and the other

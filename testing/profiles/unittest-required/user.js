@@ -69,7 +69,7 @@ user_pref("dom.allow_scripts_to_close_windows", true);
 user_pref("dom.disable_open_during_load", false);
 user_pref("dom.ipc.reportProcessHangs", true); // process hang monitor
 // Don't forceably kill content processes after a timeout
-user_pref("dom.ipc.tabs.shutdownTimeoutSecs", 0);
+user_pref("dom.ipc.tabs.shutdownTimeoutSecs", 10);
 user_pref("dom.min_background_timeout_value", 1000);
 user_pref("dom.permissions.testing.enabled", true);
 user_pref("dom.popup_maximum", -1);
