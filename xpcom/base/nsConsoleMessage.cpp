@@ -64,3 +64,5 @@ nsConsoleMessage::SetIsForwardedFromContentProcess(
   mIsForwardedFromContentProcess = aIsForwardedFromContentProcess;
   return NS_OK;
 }
+
+// try-only: touch a translation unit so clang-tidy has a file to check.
