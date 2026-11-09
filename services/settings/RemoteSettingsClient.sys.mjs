@@ -249,10 +249,7 @@ class AttachmentDownloader extends Downloader {
    */
   async deleteAll() {
     let allRecords = await this._client.db.list();
-    const idsToDelete = allRecords.filter(r => !!r.attachment).map(r => r.id);
-    if (idsToDelete.length) {
-      await this.cacheImpl.deleteMultiple(idsToDelete);
-    }
+    await this.deleteDownloadedMultiple(allRecords.filter(r => !!r.attachment));
   }
 }
 

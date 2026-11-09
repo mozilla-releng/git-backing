@@ -542,6 +542,23 @@ export class Downloader {
   }
 
   /**
+   * Delete the downloaded attachments of several records at once.
+   *
+   * @param {Array<object>} records Remote Settings entries with attachment.
+   */
+  async deleteDownloadedMultiple(records) {
+    const attachmentIds = records.map(record => record?.id);
+    if (attachmentIds.some(id => !id)) {
+      throw new Error(
+        "deleteDownloadedMultiple() was called with a record without `id`"
+      );
+    }
+    if (attachmentIds.length) {
+      await this.cacheImpl.deleteMultiple(attachmentIds);
+    }
+  }
+
+  /**
    * Clear the cache from obsolete downloaded attachments.
    *
    * @param {Array<string>} excludeIds List of attachments IDs to exclude from pruning.
