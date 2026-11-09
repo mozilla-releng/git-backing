@@ -199,6 +199,7 @@ import org.mozilla.fenix.splashscreen.DefaultSplashScreenStorage
 import org.mozilla.fenix.splashscreen.FetchExperimentsOperation
 import org.mozilla.fenix.splashscreen.SplashScreenManager
 import org.mozilla.fenix.splashscreen.SplashScreenOperation
+import org.mozilla.fenix.tabgroups.TabGroupToolbarHighlightBinding
 import org.mozilla.fenix.tabhistory.TabHistoryDialogFragment
 import org.mozilla.fenix.theme.DefaultThemeManager
 import org.mozilla.fenix.theme.StatusBarColorManager
@@ -354,6 +355,15 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         SummarizeToolbarHighlightBinding(
             appStore = components.appStore,
             featureDiscoverySettings = components.core.summarizeFeatureSettings,
+            browserStore = components.core.store,
+            mainDispatcher = Main,
+        )
+    }
+
+    private val tabGroupsToolbarHighlightBinding by lazy {
+        TabGroupToolbarHighlightBinding(
+            appStore = components.appStore,
+            featureDiscoverySettings = components.core.tabGroupDiscoveryFeatureConfiguration,
             browserStore = components.core.store,
             mainDispatcher = Main,
         )
@@ -667,6 +677,7 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
             externalAppLinkStatusBinding,
             pendingExtensionUpdateBinding,
             summarizeToolbarHighlightBinding,
+            tabGroupsToolbarHighlightBinding,
             components.core.summarizationSettingsBinding,
             translationsAIControllableFeatureRegistrar,
             ipProtectionPrompter,

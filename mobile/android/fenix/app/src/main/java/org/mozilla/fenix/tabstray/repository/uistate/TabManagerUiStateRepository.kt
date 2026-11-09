@@ -41,6 +41,12 @@ interface TabManagerUiStateRepository {
 
     /** Records that the ungroup confirmation dialog should be skipped from now on. */
     suspend fun setSkipUngroupConfirmation(): Boolean
+
+    /** Increments the number of times a user has seen the Tab Groups menu option. */
+    suspend fun incrementTabGroupMenuImpressionCount(): Boolean
+
+    /** Records that the Tab Groups option in the menu was used. */
+    suspend fun recordTabGroupMenuItemUsed(): Boolean
 }
 
 /**
@@ -82,6 +88,8 @@ internal constructor(
                     hasUserEverHadOneTabGroup = preferences[hasUserEverHadOneTabGroupKey] ?: false,
                     hasViewedTabGroupsPage = preferences[hasViewedTabGroupsPageKey] ?: false,
                     skipUngroupConfirmation = preferences[skipUngroupConfirmationKey] ?: false,
+                    tabGroupMenuImpressionCount = preferences[tabGroupMenuImpressionCountKey] ?: 0,
+                    hasUserEverUsedTabGroupMenuOptions = preferences[hasUserEverUsedTabGroupsMenuOptionKey] ?: false,
                 )
             }
             .stateIn(
@@ -111,6 +119,15 @@ internal constructor(
         preferences[skipUngroupConfirmationKey] = true
     }
 
+    override suspend fun incrementTabGroupMenuImpressionCount(): Boolean = updateDataStore { preferences ->
+        val currentImpressionCount = preferences[tabGroupMenuImpressionCountKey] ?: 0
+        preferences[tabGroupMenuImpressionCountKey] = currentImpressionCount + 1
+    }
+
+    override suspend fun recordTabGroupMenuItemUsed(): Boolean = updateDataStore { preferences ->
+        preferences[hasUserEverUsedTabGroupsMenuOptionKey] = true
+    }
+
     @VisibleForTesting
     internal suspend fun initializeDataStore(initialUiState: PersistedUIState) {
         dataStore.editOrCatch(onError = {}) { preferences ->
@@ -119,6 +136,8 @@ internal constructor(
             preferences[hasUserEverHadOneTabGroupKey] = initialUiState.hasUserEverHadOneTabGroup
             preferences[hasViewedTabGroupsPageKey] = initialUiState.hasViewedTabGroupsPage
             preferences[skipUngroupConfirmationKey] = initialUiState.skipUngroupConfirmation
+            preferences[tabGroupMenuImpressionCountKey] = initialUiState.tabGroupMenuImpressionCount
+            preferences[hasUserEverUsedTabGroupsMenuOptionKey] = initialUiState.hasUserEverUsedTabGroupMenuOptions
         }
     }
 

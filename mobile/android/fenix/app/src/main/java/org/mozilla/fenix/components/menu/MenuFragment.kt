@@ -385,6 +385,7 @@ class MenuFragment : BottomSheetDialogFragment() {
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             tabDataCoordinator = components.tabDataCoordinator,
             applicationScope = components.applicationScope,
+            tabGroupFeatureConfiguration = components.core.tabGroupDiscoveryFeatureConfiguration,
         )
     }
 

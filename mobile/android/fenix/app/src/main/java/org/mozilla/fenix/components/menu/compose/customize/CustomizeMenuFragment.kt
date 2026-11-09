@@ -105,6 +105,7 @@ class CustomizeMenuFragment : Fragment(), SystemInsetsPaddedFragment {
             tabDataCoordinator = components.tabDataCoordinator,
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             applicationScope = components.applicationScope,
+            tabGroupFeatureConfiguration = components.core.tabGroupDiscoveryFeatureConfiguration,
         )
     }
 }

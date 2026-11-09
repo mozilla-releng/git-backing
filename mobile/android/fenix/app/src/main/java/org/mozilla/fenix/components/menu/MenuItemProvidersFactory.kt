@@ -61,6 +61,7 @@ import org.mozilla.fenix.summarization.SummarizePageMenuItemProvider
 import org.mozilla.fenix.summarization.eligibility.SummarizationEligibilityChecker
 import org.mozilla.fenix.summarization.onboarding.FenixSummarizationFeatureConfiguration
 import org.mozilla.fenix.tabgroups.TabGroupMenuItemProvider
+import org.mozilla.fenix.tabgroups.TabGroupsFeatureDiscoveryConfiguration
 import org.mozilla.fenix.translations.TranslationsEnabledSettings
 import org.mozilla.fenix.translations.TranslationsMenuItemProvider
 import org.mozilla.fenix.utils.Settings
@@ -97,6 +98,7 @@ class MenuItemProvidersFactory(
     private val tabDataCoordinator: TabDataCoordinator,
     private val menuViewScope: CoroutineScope,
     private val applicationScope: CoroutineScope,
+    private val tabGroupFeatureConfiguration: TabGroupsFeatureDiscoveryConfiguration,
 ) {
 
     /** Build a [MenuItemProvider] for the given [FenixMenuItem]. */
@@ -272,6 +274,8 @@ class MenuItemProvidersFactory(
                     target = target,
                     isVisible = settings.showTabGroupsInMenu,
                     scope = menuViewScope,
+                    appStore = appStore,
+                    discoveryConfiguration = tabGroupFeatureConfiguration,
                 )
 
             FenixMenuItem.OpenInApp ->

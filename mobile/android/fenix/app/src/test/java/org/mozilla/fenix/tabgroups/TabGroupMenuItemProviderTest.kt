@@ -6,56 +6,51 @@ package org.mozilla.fenix.tabgroups
 
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import mozilla.components.compose.base.text.Text
+import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
+import mozilla.components.compose.menu.ui.MenuItemIconRes
 import mozilla.components.feature.tabdata.coordinator.data.Tab
 import mozilla.components.feature.tabdata.coordinator.data.TabsSnapshot
 import mozilla.components.feature.tabdata.coordinator.fakes.FakeTabDataCoordinator
+import mozilla.components.ui.icons.R as iconsR
 import org.junit.Test
+import org.mozilla.fenix.R
+import org.mozilla.fenix.components.AppStore
+import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.appstate.AppState
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
 import org.mozilla.fenix.components.menu.MenuFragmentDirections
 import org.mozilla.fenix.components.menu.MenuTarget
 import org.mozilla.fenix.components.menu.fake.FakeMenuHost
 import org.mozilla.fenix.components.menu.fake.reachableEvents
 import org.mozilla.fenix.components.menu.store.MenuAction
 import org.mozilla.fenix.tabgroups.TabGroupMenuItemProvider.Companion.ADD_ITEM
-import org.mozilla.fenix.tabgroups.TabGroupMenuItemProvider.Companion.MOVE_ITEM
+import org.mozilla.fenix.tabgroups.fake.FakeTabGroupsFeatureDiscoveryConfiguration
 import org.mozilla.fenix.tabgroups.flow.TabGroupFlowEntryPoint
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TabGroupMenuItemProviderTest {
     private val menu = FakeMenuHost()
+    private val discoveryConfiguration = FakeTabGroupsFeatureDiscoveryConfiguration()
 
     @Test
     fun `GIVEN the selected tab is not in a group WHEN building the menu item THEN show add to group`() = runTest {
         val provider = provider(snapshotWithSelectedTab(tabGroupId = null))
 
-        assertEquals(ADD_ITEM.copy(onClickEvent = addToGroupFlow()), provider.itemsFlow.value.single())
+        assertEquals(expectedAddItem(), provider.itemsFlow.value.single())
     }
 
     @Test
     fun `GIVEN the selected tab is in a group WHEN building the menu item THEN show move to group`() = runTest {
         val provider = provider(snapshotWithSelectedTab(tabGroupId = "group"))
 
-        assertEquals(MOVE_ITEM.copy(onClickEvent = moveToGroupFlow()), provider.itemsFlow.value.single())
-    }
-
-    @Test
-    fun `WHEN building the menu item THEN it is not highlighted`() = runTest {
-        listOf(null, "group").forEach { tabGroupId ->
-            val item = provider(snapshotWithSelectedTab(tabGroupId = tabGroupId)).itemsFlow.value.single()
-
-            assertNotEquals(
-                (item as StandardMenuItem).icon?.isHighlighted,
-                true,
-                "Highlighted when tabGroupId=$tabGroupId",
-            )
-            assertFalse(item.showNewIndicator, "New indicator shown when tabGroupId=$tabGroupId")
-        }
+        assertEquals(expectedMoveItem(), provider.itemsFlow.value.single())
     }
 
     @Test
@@ -77,7 +72,7 @@ class TabGroupMenuItemProviderTest {
         val coordinator = FakeTabDataCoordinator(snapshotWithSelectedTab(tabGroupId = null))
         val provider = provider(coordinator)
 
-        assertEquals(ADD_ITEM.copy(onClickEvent = addToGroupFlow()), provider.itemsFlow.value.single())
+        assertEquals(expectedAddItem(), provider.itemsFlow.value.single())
 
         coordinator.tabsSnapshot.value = snapshotWithSelectedTab(tabGroupId = null, private = true)
         runCurrent()
@@ -104,12 +99,12 @@ class TabGroupMenuItemProviderTest {
         val coordinator = FakeTabDataCoordinator(snapshotWithSelectedTab(tabGroupId = null))
         val provider = provider(coordinator)
 
-        assertEquals(ADD_ITEM.copy(onClickEvent = addToGroupFlow()), provider.itemsFlow.value.single())
+        assertEquals(expectedAddItem(), provider.itemsFlow.value.single())
 
         coordinator.tabsSnapshot.value = snapshotWithSelectedTab(tabGroupId = "group")
         runCurrent()
 
-        assertEquals(MOVE_ITEM.copy(onClickEvent = moveToGroupFlow()), provider.itemsFlow.value.single())
+        assertEquals(expectedMoveItem(), provider.itemsFlow.value.single())
     }
 
     @Test
@@ -122,8 +117,76 @@ class TabGroupMenuItemProviderTest {
         coordinator.tabsSnapshot.value = snapshotWithSelectedTab(tabGroupId = null)
         runCurrent()
 
-        assertEquals(ADD_ITEM.copy(onClickEvent = addToGroupFlow()), provider.itemsFlow.value.single())
+        assertEquals(expectedAddItem(), provider.itemsFlow.value.single())
     }
+
+    @Test
+    fun `GIVEN there is no tab groups menu notification WHEN building the menu item THEN it is not highlighted`() =
+        runTest {
+            listOf(null, "group").forEach { tabGroupId ->
+                val provider =
+                    provider(
+                        snapshotWithSelectedTab(tabGroupId = tabGroupId),
+                        appStore = appStoreWith(SupportedMenuNotifications.Downloads),
+                    )
+
+                val item = provider.itemsFlow.value.single() as StandardMenuItem
+                assertFalse(item.icon?.isHighlighted == true, "Expected no highlight when tabGroupId=$tabGroupId")
+                assertFalse(item.showNewIndicator, "Expected no new indicator when tabGroupId=$tabGroupId")
+            }
+        }
+
+    @Test
+    fun `GIVEN the tab groups menu notification WHEN building the add item THEN it is highlighted`() = runTest {
+        val provider =
+            provider(
+                snapshotWithSelectedTab(tabGroupId = null),
+                appStore = appStoreWith(SupportedMenuNotifications.TabGroups),
+            )
+
+        assertEquals(expectedAddItem(isHighlighted = true), provider.itemsFlow.value.single())
+    }
+
+    @Test
+    fun `GIVEN the tab groups menu notification WHEN building the move item THEN it is highlighted`() = runTest {
+        val provider =
+            provider(
+                snapshotWithSelectedTab(tabGroupId = "group"),
+                appStore = appStoreWith(SupportedMenuNotifications.TabGroups),
+            )
+
+        assertEquals(expectedMoveItem(isHighlighted = true), provider.itemsFlow.value.single())
+    }
+
+    @Test
+    fun `WHEN the tab groups menu notification is added or removed THEN update the highlight`() = runTest {
+        val appStore = appStoreWith()
+        val provider = provider(snapshotWithSelectedTab(tabGroupId = null), appStore = appStore)
+
+        assertEquals(expectedAddItem(isHighlighted = false), provider.itemsFlow.value.single())
+
+        appStore.dispatch(AppAction.MenuNotification.AddMenuNotification(SupportedMenuNotifications.TabGroups))
+        runCurrent()
+
+        assertEquals(expectedAddItem(isHighlighted = true), provider.itemsFlow.value.single())
+
+        appStore.dispatch(AppAction.MenuNotification.RemoveMenuNotification(SupportedMenuNotifications.TabGroups))
+        runCurrent()
+
+        assertEquals(expectedAddItem(isHighlighted = false), provider.itemsFlow.value.single())
+    }
+
+    @Test
+    fun `GIVEN the tab groups menu notification WHEN the selected tab is added to a group THEN keep the highlight`() =
+        runTest {
+            val coordinator = FakeTabDataCoordinator(snapshotWithSelectedTab(tabGroupId = null))
+            val provider = provider(coordinator, appStore = appStoreWith(SupportedMenuNotifications.TabGroups))
+
+            coordinator.tabsSnapshot.value = snapshotWithSelectedTab(tabGroupId = "group")
+            runCurrent()
+
+            assertEquals(expectedMoveItem(isHighlighted = true), provider.itemsFlow.value.single())
+        }
 
     @Test
     fun `GIVEN tab groups are disabled in the menu WHEN building the menu item THEN don't show it`() = runTest {
@@ -142,11 +205,18 @@ class TabGroupMenuItemProviderTest {
     }
 
     @Test
-    fun `GIVEN the customize menu screen WHEN building the menu item THEN show add to group without a click event`() =
+    fun `GIVEN the customize menu screen WHEN building the menu item THEN show add to group without events or highlight`() =
         runTest {
-            val provider = provider(snapshotWithSelectedTab(tabGroupId = "group"), target = MenuTarget.CustomizeMenu)
+            val provider =
+                provider(
+                    snapshotWithSelectedTab(tabGroupId = "group"),
+                    target = MenuTarget.CustomizeMenu,
+                    appStore = appStoreWith(SupportedMenuNotifications.TabGroups),
+                )
 
-            assertEquals(ADD_ITEM, provider.itemsFlow.value.single())
+            val item = provider.itemsFlow.value.single()
+            assertEquals(ADD_ITEM, item)
+            assertTrue(item.reachableEvents().isEmpty())
         }
 
     @Test
@@ -164,7 +234,7 @@ class TabGroupMenuItemProviderTest {
     @Test
     fun `WHEN clicking the menu item THEN open the tab group flow in place of the menu`() = runTest {
         val provider = provider(snapshotWithSelectedTab(tabGroupId = null))
-        val event = provider.itemsFlow.value.single().reachableEvents().single()
+        val event = requireNotNull((provider.itemsFlow.value.single() as StandardMenuItem).onClickEvent)
 
         provider.onEvent(event, menu)
 
@@ -181,7 +251,7 @@ class TabGroupMenuItemProviderTest {
     fun `GIVEN the selected tab is in a group WHEN clicking the menu item THEN open the move to group flow in place of the menu`() =
         runTest {
             val provider = provider(snapshotWithSelectedTab(tabGroupId = "group"))
-            val event = provider.itemsFlow.value.single().reachableEvents().single()
+            val event = requireNotNull((provider.itemsFlow.value.single() as StandardMenuItem).onClickEvent)
 
             provider.onEvent(event, menu)
 
@@ -193,6 +263,39 @@ class TabGroupMenuItemProviderTest {
             )
             assertFalse(menu.isDismissed)
         }
+
+    @Test
+    fun `WHEN clicking the menu item THEN record that it was used`() = runTest {
+        listOf(null, "group").forEach { tabGroupId ->
+            val configuration = FakeTabGroupsFeatureDiscoveryConfiguration()
+            val menu = FakeMenuHost()
+            val provider =
+                provider(snapshotWithSelectedTab(tabGroupId = tabGroupId), discoveryConfiguration = configuration)
+            val event = requireNotNull((provider.itemsFlow.value.single() as StandardMenuItem).onClickEvent)
+
+            provider.onEvent(event, menu)
+
+            assertEquals(1, configuration.menuItemUsedCount, "Expected a use recorded when tabGroupId=$tabGroupId")
+            assertEquals(0, configuration.menuItemExposureCount)
+        }
+    }
+
+    @Test
+    fun `WHEN the menu item is shown THEN record an exposure without navigating`() = runTest {
+        listOf(null, "group").forEach { tabGroupId ->
+            val configuration = FakeTabGroupsFeatureDiscoveryConfiguration()
+            val menu = FakeMenuHost()
+            val provider =
+                provider(snapshotWithSelectedTab(tabGroupId = tabGroupId), discoveryConfiguration = configuration)
+            val event = requireNotNull((provider.itemsFlow.value.single() as StandardMenuItem).onShownEvent)
+
+            provider.onEvent(event, menu)
+
+            assertEquals(1, configuration.menuItemExposureCount, "Expected an exposure when tabGroupId=$tabGroupId")
+            assertEquals(0, configuration.menuItemUsedCount)
+            assertEquals(null, menu.directions)
+        }
+    }
 
     @Test
     fun `WHEN the tab is in a group or not THEN handle all events the item can dispatch and no others`() = runTest {
@@ -210,19 +313,30 @@ class TabGroupMenuItemProviderTest {
         snapshot: TabsSnapshot?,
         target: MenuTarget = MenuTarget.BrowserTab,
         isEnabled: Boolean = true,
-    ) = provider(FakeTabDataCoordinator(snapshot), target, isEnabled)
+        appStore: AppStore = appStoreWith(),
+        discoveryConfiguration: FakeTabGroupsFeatureDiscoveryConfiguration =
+            this@TabGroupMenuItemProviderTest.discoveryConfiguration,
+    ) = provider(FakeTabDataCoordinator(snapshot), target, isEnabled, appStore, discoveryConfiguration)
 
     private fun TestScope.provider(
         coordinator: FakeTabDataCoordinator,
         target: MenuTarget = MenuTarget.BrowserTab,
         isEnabled: Boolean = true,
+        appStore: AppStore = appStoreWith(),
+        discoveryConfiguration: FakeTabGroupsFeatureDiscoveryConfiguration =
+            this@TabGroupMenuItemProviderTest.discoveryConfiguration,
     ) =
         TabGroupMenuItemProvider(
             tabDataCoordinator = coordinator,
+            appStore = appStore,
+            discoveryConfiguration = discoveryConfiguration,
             target = target,
             isVisible = isEnabled,
             scope = backgroundScope,
         )
+
+    private fun appStoreWith(vararg notifications: SupportedMenuNotifications) =
+        AppStore(AppState(supportedMenuNotifications = notifications.toSet()))
 
     private fun snapshotWithSelectedTab(
         tabGroupId: String?,
@@ -240,11 +354,32 @@ class TabGroupMenuItemProviderTest {
                 )
         )
 
-    private fun addToGroupFlow() =
-        MenuAction.Navigate.OpenTabGroupFlow(TabGroupFlowEntryPoint.AddTabToGroup(tabId = TAB_ID))
+    private fun expectedAddItem(isHighlighted: Boolean = false) =
+        expectedItem(
+            title = R.string.browser_menu_add_to_tab_group,
+            entryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = TAB_ID),
+            isHighlighted = isHighlighted,
+        )
 
-    private fun moveToGroupFlow() =
-        MenuAction.Navigate.OpenTabGroupFlow(TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID))
+    private fun expectedMoveItem(isHighlighted: Boolean = false) =
+        expectedItem(
+            title = R.string.browser_menu_move_to_tab_group,
+            entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID),
+            isHighlighted = isHighlighted,
+        )
+
+    private fun expectedItem(
+        title: Int,
+        entryPoint: TabGroupFlowEntryPoint,
+        isHighlighted: Boolean,
+    ) =
+        StandardMenuItem(
+            title = MenuItemTitle(Text.Resource(title)),
+            icon = MenuItemIconRes(iconsR.drawable.mozac_ic_tab_group_24, isHighlighted = isHighlighted),
+            showNewIndicator = isHighlighted,
+            onClickEvent = MenuAction.Navigate.OpenTabGroupFlow(entryPoint),
+            onShownEvent = MenuAction.OnTabGroupMenuItemExposed,
+        )
 
     private companion object {
         const val TAB_ID = "tab"

@@ -739,7 +739,9 @@ class BrowserToolbarMiddleware(
             HomeToolbarAction.Menu -> {
                 val highlighted =
                     appStore.state.supportedMenuNotifications
-                        .filterNot { it is SupportedMenuNotifications.Summarize }
+                        .filterNot {
+                            it is SupportedMenuNotifications.Summarize || it is SupportedMenuNotifications.TabGroups
+                        }
                         .any { it != SupportedMenuNotifications.OpenInApp }
                 ActionButtonRes(
                     drawableResId = iconsR.drawable.mozac_ic_more_vertical_round_24,

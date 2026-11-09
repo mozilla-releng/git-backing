@@ -12,6 +12,8 @@ package org.mozilla.fenix.tabstray.repository.uistate.data
  * @property hasUserEverHadOneTabGroup Whether the user has ever had a tab group.
  * @property hasViewedTabGroupsPage Whether the user has viewed the Tab Groups page.
  * @property skipUngroupConfirmation Whether the ungroup confirmation dialog should be skipped.
+ * @property tabGroupMenuImpressionCount How many times the user has been shown the tab groups menu item.
+ * @property hasUserEverUsedTabGroupMenuOptions Whether the user has ever used the tab groups menu item.
  */
 data class PersistedUIState(
     val hasUserDismissedTabGroupOnboarding: Boolean = false,
@@ -19,4 +21,6 @@ data class PersistedUIState(
     val hasUserEverHadOneTabGroup: Boolean = false,
     val hasViewedTabGroupsPage: Boolean = false,
     val skipUngroupConfirmation: Boolean = false,
+    val tabGroupMenuImpressionCount: Int = 0,
+    val hasUserEverUsedTabGroupMenuOptions: Boolean = false,
 )

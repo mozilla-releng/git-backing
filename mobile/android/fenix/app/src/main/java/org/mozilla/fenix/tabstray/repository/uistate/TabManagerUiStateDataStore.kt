@@ -20,6 +20,9 @@ internal val hasUserDismissedTabGroupOnboardingKey = booleanPreferencesKey("hasU
 /** Datastore key for reading/writing the tab group onboarding impression count. */
 internal val tabGroupOnboardingImpressionCountKey = intPreferencesKey("tabGroupOnboardingImpressionCountKey")
 
+/** Datastore key for reading/writing the tab group menu impression count. */
+internal val tabGroupMenuImpressionCountKey = intPreferencesKey("tabGroupMenuImpressionCountKey")
+
 /** Datastore key for reading/writing whether the user has ever had at least one tab group. */
 internal val hasUserEverHadOneTabGroupKey = booleanPreferencesKey("hasUserEverHadOneTabGroupKey")
 
@@ -28,3 +31,6 @@ internal val hasViewedTabGroupsPageKey = booleanPreferencesKey("hasViewedTabGrou
 
 /** Datastore key for reading/writing whether the ungroup confirmation dialog should be skipped. */
 internal val skipUngroupConfirmationKey = booleanPreferencesKey("skipUngroupConfirmationKey")
+
+/** Datastore key for reading/writing whether the user has ever used the tab groups menu item. */
+internal val hasUserEverUsedTabGroupsMenuOptionKey = booleanPreferencesKey("hasUserEverUsedTabGroupsMenuOptionKey")
