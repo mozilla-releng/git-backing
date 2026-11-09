@@ -72,6 +72,7 @@ import mozilla.components.support.utils.ext.top
 import mozilla.telemetry.glean.private.NoExtras
 import org.mozilla.fenix.GleanMetrics.Events
 import org.mozilla.fenix.R
+import org.mozilla.fenix.components.appstate.SupportedMenuNotifications
 import org.mozilla.fenix.components.menu.compose.CustomizeMenuPopup
 import org.mozilla.fenix.components.menu.compose.MenuDialogBottomSheet
 import org.mozilla.fenix.components.menu.compose.MenuHandleState
@@ -314,6 +315,18 @@ class MenuFragment : BottomSheetDialogFragment() {
             owner = this,
             view = view,
         )
+
+        recordToolbarOpenForTabGroups(savedInstanceState)
+    }
+
+    private fun recordToolbarOpenForTabGroups(savedInstanceState: Bundle?) {
+        if (
+            savedInstanceState == null &&
+                args.accessPoint == MenuAccessPoint.Browser &&
+                SupportedMenuNotifications.TabGroups in requireComponents.appStore.state.supportedMenuNotifications
+        ) {
+            requireComponents.core.tabGroupDiscoveryFeatureConfiguration.recordToolbarOpened()
+        }
     }
 
     private fun calculateMenuSheetWidth(): Int {
@@ -385,6 +398,7 @@ class MenuFragment : BottomSheetDialogFragment() {
             menuViewScope = viewLifecycleOwner.lifecycle.coroutineScope,
             tabDataCoordinator = components.tabDataCoordinator,
             applicationScope = components.applicationScope,
+            tabGroupFeatureConfiguration = components.core.tabGroupDiscoveryFeatureConfiguration,
         )
     }
 

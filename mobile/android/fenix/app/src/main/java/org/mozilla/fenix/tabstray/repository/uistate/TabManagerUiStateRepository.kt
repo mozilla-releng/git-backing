@@ -41,6 +41,15 @@ interface TabManagerUiStateRepository {
 
     /** Records that the ungroup confirmation dialog should be skipped from now on. */
     suspend fun setSkipUngroupConfirmation(): Boolean
+
+    /** Increments the number of times a user has seen the Tab Groups menu item. */
+    suspend fun incrementTabGroupMenuImpressionCount(): Boolean
+
+    /** Increments the number of times a user has seen the three dot menu highlight for Tab Groups. */
+    suspend fun incrementTabGroupToolbarMenuHighlightImpressionCount(): Boolean
+
+    /** Records that the Tab Groups menu item was used. */
+    suspend fun recordTabGroupMenuItemUsed(): Boolean
 }
 
 /**
@@ -82,6 +91,10 @@ internal constructor(
                     hasUserEverHadOneTabGroup = preferences[hasUserEverHadOneTabGroupKey] ?: false,
                     hasViewedTabGroupsPage = preferences[hasViewedTabGroupsPageKey] ?: false,
                     skipUngroupConfirmation = preferences[skipUngroupConfirmationKey] ?: false,
+                    tabGroupMenuImpressionCount = preferences[tabGroupMenuImpressionCountKey] ?: 0,
+                    tabGroupToolbarMenuHighlightImpressionCount =
+                        preferences[tabGroupToolbarMenuHighlightImpressionCountKey] ?: 0,
+                    hasUserEverUsedTabGroupMenuItem = preferences[hasUserEverUsedTabGroupMenuItemKey] ?: false,
                 )
             }
             .stateIn(
@@ -111,6 +124,21 @@ internal constructor(
         preferences[skipUngroupConfirmationKey] = true
     }
 
+    override suspend fun incrementTabGroupMenuImpressionCount(): Boolean = updateDataStore { preferences ->
+        val currentImpressionCount = preferences[tabGroupMenuImpressionCountKey] ?: 0
+        preferences[tabGroupMenuImpressionCountKey] = currentImpressionCount + 1
+    }
+
+    override suspend fun recordTabGroupMenuItemUsed(): Boolean = updateDataStore { preferences ->
+        preferences[hasUserEverUsedTabGroupMenuItemKey] = true
+    }
+
+    override suspend fun incrementTabGroupToolbarMenuHighlightImpressionCount(): Boolean =
+        updateDataStore { preferences ->
+            val currentImpressionCount = preferences[tabGroupToolbarMenuHighlightImpressionCountKey] ?: 0
+            preferences[tabGroupToolbarMenuHighlightImpressionCountKey] = currentImpressionCount + 1
+        }
+
     @VisibleForTesting
     internal suspend fun initializeDataStore(initialUiState: PersistedUIState) {
         dataStore.editOrCatch(onError = {}) { preferences ->
@@ -119,6 +147,10 @@ internal constructor(
             preferences[hasUserEverHadOneTabGroupKey] = initialUiState.hasUserEverHadOneTabGroup
             preferences[hasViewedTabGroupsPageKey] = initialUiState.hasViewedTabGroupsPage
             preferences[skipUngroupConfirmationKey] = initialUiState.skipUngroupConfirmation
+            preferences[tabGroupMenuImpressionCountKey] = initialUiState.tabGroupMenuImpressionCount
+            preferences[tabGroupToolbarMenuHighlightImpressionCountKey] =
+                initialUiState.tabGroupToolbarMenuHighlightImpressionCount
+            preferences[hasUserEverUsedTabGroupMenuItemKey] = initialUiState.hasUserEverUsedTabGroupMenuItem
         }
     }
 
