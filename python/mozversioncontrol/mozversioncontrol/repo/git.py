@@ -243,6 +243,17 @@ class GitRepository(Repository):
     def get_outgoing_files(self, diff_filter="ADM", upstream=None):
         assert all(f.lower() in self._valid_diff_filter for f in diff_filter)
 
+        if upstream and self.is_shallow:
+            # A shallow clone has no history to walk, so diff the two trees.
+            files = self._run(
+                "diff",
+                "--name-only",
+                f"--diff-filter={diff_filter.upper()}",
+                upstream,
+                "HEAD",
+            ).splitlines()
+            return [f for f in files if f]
+
         not_condition = upstream if upstream else "--remotes"
 
         files = self._run(

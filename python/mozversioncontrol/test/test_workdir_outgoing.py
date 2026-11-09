@@ -3,8 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import subprocess
 
 import mozunit
+import pytest
 
 from mozversioncontrol import get_repository_object
 
@@ -140,6 +142,42 @@ def test_workdir_outgoing(repo):
             vcs.get_changed_files("AMD", rev="files(baz)"),
             ["foo", "baz", "baby", "bar"],
         )
+
+
+def test_outgoing_files_shallow_clone(repo):
+    """A shallow clone has no history, so the outgoing files are the diff
+    against an explicit base revision, the way CI tasks get them."""
+    if repo.vcs != "git":
+        pytest.skip("shallow clones are a git feature")
+
+    def git(*args, cwd):
+        return subprocess.check_output(["git", *args], cwd=cwd, text=True).strip()
+
+    for _ in range(4):
+        repo.execute_next_step()
+    base = git("rev-parse", "HEAD~2", cwd=repo.dir)
+    head = git("rev-parse", "HEAD", cwd=repo.dir)
+
+    git("config", "uploadpack.allowAnySHA1InWant", "true", cwd=repo.dir)
+    shallow = repo.dir.parent / "shallow"
+    git(
+        "clone",
+        "--quiet",
+        "--depth=1",
+        "--no-checkout",
+        f"file://{repo.dir}",
+        str(shallow),
+        cwd=repo.dir.parent,
+    )
+    for rev in (base, head):
+        git("fetch", "--quiet", "--depth=1", "origin", rev, cwd=shallow)
+    git("checkout", "--quiet", head, cwd=shallow)
+
+    vcs = get_repository_object(shallow)
+    assert vcs.is_shallow
+    assert_files(vcs.get_outgoing_files("AMD", base), ["bar", "baz", "foo", "baby"])
+    assert_files(vcs.get_outgoing_files("A", base), ["baz", "baby"])
+    assert_files(vcs.get_outgoing_files("D", base), ["foo"])
 
 
 if __name__ == "__main__":

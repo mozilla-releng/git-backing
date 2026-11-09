@@ -287,9 +287,13 @@ def static_analysis(command_context):
 )
 @CommandArgument(
     "--outgoing",
+    nargs="?",
+    const=True,
     default=False,
-    action="store_true",
-    help="Run static analysis checks on outgoing files from mercurial repository",
+    metavar="BASE",
+    help="Run static analysis checks on the outgoing files of the repository. "
+    "A shallow git clone has no history to find them, so pass it the base "
+    "revision to diff against",
 )
 def check(
     command_context,
@@ -365,7 +369,13 @@ def _check(
     if outgoing:
         # Use outgoing files instead of source files
         repo = get_repository_object(command_context.topsrcdir)
-        files = repo.get_outgoing_files()
+        # Only git takes a base revision; the null revision of a push that
+        # created its branch means there is none.
+        base = outgoing if isinstance(outgoing, str) else None
+        if base and repo.name == "git" and base.strip("0"):
+            files = repo.get_outgoing_files(upstream=base)
+        else:
+            files = repo.get_outgoing_files()
     else:
         # Or resolve pattern
         files = itertools.chain(*[
