@@ -6,6 +6,7 @@ Library("sandboxtest")
 
 UNIFIED_SOURCES = [
     "TestConfigHelpers.cpp",
+    "TestSandboxBrokerLaunch.cpp",
 ]
 
 for var in ("UNICODE", "_UNICODE"):

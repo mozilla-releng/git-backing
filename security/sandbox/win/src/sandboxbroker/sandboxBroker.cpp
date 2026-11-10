@@ -89,7 +89,7 @@ LazyLogModule sSandboxBrokerLog("SandboxBroker");
 #define LOG_W(...) MOZ_LOG(sSandboxBrokerLog, LogLevel::Warning, (__VA_ARGS__))
 #define LOG_D(...) MOZ_LOG(sSandboxBrokerLog, LogLevel::Debug, (__VA_ARGS__))
 
-// Used to store whether we have accumulated an error combination for this
+// Used to store whether we have recorded an error combination for this
 // session.
 static StaticAutoPtr<nsTHashtable<nsCStringHashKey>> sLaunchErrors;
 
@@ -543,22 +543,27 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
   // Create the sandboxed process
   PROCESS_INFORMATION targetInfo = {0};
   DWORD last_error = ERROR_SUCCESS;
+  nsDependentCString processTypeStr(XRE_GeckoProcessTypeToString(aProcessType));
+  glean::sandbox::launch_attempts.Get(processTypeStr).Add();
   sandbox::ResultCode result =
       sBrokerService->SpawnTarget(aPath, aArguments, aEnvironment,
                                   std::move(mPolicy), &last_error, &targetInfo);
   if (sandbox::SBOX_ALL_OK != result) {
-    nsAutoCString key;
-    key.AppendASCII(XRE_GeckoProcessTypeToString(aProcessType));
-    key.AppendLiteral("/0x");
-    key.AppendInt(static_cast<uint32_t>(last_error), 16);
+    glean::sandbox::launch_failures.Get(processTypeStr).Add();
 
-    // Only accumulate for each combination once per session.
+    nsAutoCString key(processTypeStr);
+    key.AppendPrintf("/%d/0x%lx", result, last_error);
+
+    // Only record an event for each combination once per session.
     if (!sLaunchErrors) {
       sLaunchErrors = new nsTHashtable<nsCStringHashKey>();
     }
     if (!sLaunchErrors->Contains(key)) {
-      glean::sandbox::failed_launch_keyed.Get(key).AccumulateSingleSample(
-          result);
+      glean::sandbox::LaunchFailedExtra extra;
+      extra.processType = Some(nsCString(processTypeStr));
+      extra.resultCode = Some(static_cast<int64_t>(result));
+      extra.win32Error = Some(static_cast<int64_t>(last_error));
+      glean::sandbox::launch_failed.Record(Some(extra));
       sLaunchErrors->PutEntry(key);
     }
 

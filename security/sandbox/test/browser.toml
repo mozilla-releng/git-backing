@@ -28,6 +28,11 @@ skip-if = [
 
 ["browser_content_sandbox_syscalls.js"]
 
+["browser_sandbox_launch_telemetry.js"]
+run-if = [
+  "os == 'win'", # Only Windows records sandboxed launch telemetry
+]
+
 ["browser_sandbox_test.js"]
 run-if = [
   "debug",

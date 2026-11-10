@@ -31,18 +31,65 @@ sandbox:
       - gcp@mozilla.com
     expires: never
 
-  failed_launch_keyed:
-    type: labeled_custom_distribution
-    description: |
-      Error code when a Windows sandboxed process fails to launch, keyed by process type and Windows error code. See https://searchfox.org/mozilla-central/search?q=ResultCode++path%3Asandbox_types.h&redirect=true for definitions of the error codes.
-    range_min: 0
-    range_max: 50
-    bucket_count: 51
-    histogram_type: linear
+  launch_attempts:
+    type: labeled_counter
+    description: >
+      Number of attempts to launch a Windows sandboxed process that reach the
+      sandbox broker's SpawnTarget, labeled by process type (as returned by
+      XRE_GeckoProcessTypeToString).
     bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1368600
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1368600
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: never
+
+  launch_failures:
+    type: labeled_counter
+    description: >
+      Number of attempts to launch a Windows sandboxed process that reach the
+      sandbox broker's SpawnTarget and fail, labeled by process type (as
+      returned by XRE_GeckoProcessTypeToString).
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: never
+
+  launch_failed:
+    type: event
+    description: >
+      A Windows sandboxed process failed to launch. Recorded at most once per
+      session for each combination of process type, result code and Windows
+      error code.
+    extra_keys:
+      process_type:
+        description: >
+          The process type, as returned by XRE_GeckoProcessTypeToString.
+        type: string
+      result_code:
+        description: >
+          The sandbox::ResultCode returned by SpawnTarget, see
+          security/sandbox/chromium/sandbox/win/src/sandbox_types.h.
+        type: quantity
+      win32_error:
+        description: >
+          The Windows error code associated with the failure, 0 if the failure
+          was not caused by a Windows API call.
+        type: quantity
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
     notification_emails:
       - bowen@mozilla.com
     expires: never
