@@ -200,9 +200,11 @@ class PolicyBase final : public TargetPolicy {
   ResultCode MakeTokens(std::optional<base::win::AccessToken>& initial,
                         std::optional<base::win::AccessToken>& lockdown);
 
-  // Applies the sandbox to |target| and takes ownership. Internally a
-  // call to TargetProcess::Init() is issued.
-  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess> target);
+  // Applies the sandbox to |target|. Internally a call to TargetProcess::Init()
+  // is issued. Ownership of |target| is only taken on success. On failure the
+  // caller keeps it, so that the last Windows error can be read before the
+  // target is destroyed, because terminating the process could overwrite it.
+  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess>&& target);
 
   EvalResult EvalPolicy(IpcTag service, CountedParameterSetBase* params);
 

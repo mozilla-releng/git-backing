@@ -663,7 +663,7 @@ ResultCode PolicyBase::MakeTokens(
   return SBOX_ALL_OK;
 }
 
-ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess>&& target) {
   if (target_)
     return SBOX_ERROR_UNEXPECTED_CALL;
   // Policy rules are compiled when the underlying ConfigBase is frozen.
