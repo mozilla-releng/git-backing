@@ -123,6 +123,8 @@ tags = ["foldernames"]
 
 ["test_imapNamespaceRootMailbox.js"]
 
+["test_imapNtlmCancel.js"]
+
 ["test_imapNtlmNoChallenge.js"]
 
 ["test_imapOutOfStepResponse.js"]
