@@ -76,6 +76,7 @@ class SandboxBroker {
  private:
   static bool sRunningFromNetworkDrive;
   std::unique_ptr<sandbox::TargetPolicy> mPolicy;
+  const char* mSandboxKindLabel = nullptr;
 };
 
 }  // namespace mozilla

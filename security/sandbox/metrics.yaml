@@ -31,18 +31,85 @@ sandbox:
       - gcp@mozilla.com
     expires: never
 
-  failed_launch_keyed:
-    type: labeled_custom_distribution
-    description: |
-      Error code when a Windows sandboxed process fails to launch, keyed by process type and Windows error code. See https://searchfox.org/mozilla-central/search?q=ResultCode++path%3Asandbox_types.h&redirect=true for definitions of the error codes.
-    range_min: 0
-    range_max: 50
-    bucket_count: 51
-    histogram_type: linear
+  launch_attempts:
+    type: labeled_counter
+    description: >
+      Number of attempts to launch a Windows sandboxed process that reach the
+      sandbox broker's SpawnTarget, labeled by the kind of sandbox policy
+      applied. Labels start with the process type, followed by the sandbox
+      kind where the process type has more than one, for example
+      "utility.generic".
     bugs:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1368600
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1368600
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: never
+    labels: &sandbox_kind_labels
+      - tab.default
+      - tab.file
+      - gpu
+      - rdd
+      - gmplugin.default
+      - gmplugin.widevine
+      - gmplugin.clearkey
+      - gmplugin.fake
+      - utility.generic
+      - utility.audio_decoding_wmf
+      - utility.mf_media_engine_cdm
+      - utility.windows_utils
+      - utility.windows_file_dialog
+      - utility.pkcs11_module
+      - utility.hw_inference
+
+  launch_failures:
+    type: labeled_counter
+    description: >
+      Number of attempts to launch a Windows sandboxed process that reach the
+      sandbox broker's SpawnTarget and fail, labeled the same way as
+      launch_attempts.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: never
+    labels: *sandbox_kind_labels
+
+  launch_failed:
+    type: event
+    description: >
+      A Windows sandboxed process failed to launch. Recorded at most once per
+      application lifetime for each combination of sandbox kind, result code
+      and Windows error code.
+    extra_keys:
+      sandbox_kind:
+        description: >
+          The kind of sandbox policy applied, as used for the launch_attempts
+          labels, for example "utility.generic".
+        type: string
+      result_code:
+        description: >
+          The sandbox::ResultCode returned by SpawnTarget, see
+          security/sandbox/chromium/sandbox/win/src/sandbox_types.h.
+        type: quantity
+      win32_error:
+        description: >
+          The Windows error code associated with the failure, 0 if the failure
+          was not caused by a Windows API call.
+        type: quantity
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2091459
+    data_sensitivity:
+      - technical
     notification_emails:
       - bowen@mozilla.com
     expires: never

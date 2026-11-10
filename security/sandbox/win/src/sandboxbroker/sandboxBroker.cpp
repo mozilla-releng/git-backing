@@ -89,8 +89,7 @@ LazyLogModule sSandboxBrokerLog("SandboxBroker");
 #define LOG_W(...) MOZ_LOG(sSandboxBrokerLog, LogLevel::Warning, (__VA_ARGS__))
 #define LOG_D(...) MOZ_LOG(sSandboxBrokerLog, LogLevel::Debug, (__VA_ARGS__))
 
-// Used to store whether we have accumulated an error combination for this
-// session.
+// Launch failure combinations already recorded in this application lifetime.
 static StaticAutoPtr<nsTHashtable<nsCStringHashKey>> sLaunchErrors;
 
 // This helper function is our version of SandboxWin::AddWin32kLockdownConfig
@@ -441,6 +440,48 @@ static void EnsureAppLockerAccess(sandbox::TargetConfig* aConfig) {
   }
 }
 
+static const char* UtilitySandboxKindLabel(ipc::SandboxingKind aKind) {
+  switch (aKind) {
+    case ipc::SandboxingKind::GENERIC_UTILITY:
+      return "utility.generic";
+    case ipc::SandboxingKind::UTILITY_AUDIO_DECODING_WMF:
+      return "utility.audio_decoding_wmf";
+#ifdef MOZ_WMF_MEDIA_ENGINE
+    case ipc::SandboxingKind::MF_MEDIA_ENGINE_CDM:
+      return "utility.mf_media_engine_cdm";
+#endif
+    case ipc::SandboxingKind::WINDOWS_UTILS:
+      return "utility.windows_utils";
+    case ipc::SandboxingKind::WINDOWS_FILE_DIALOG:
+      return "utility.windows_file_dialog";
+#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
+    case ipc::SandboxingKind::PKCS11_MODULE:
+      return "utility.pkcs11_module";
+#endif
+    case ipc::SandboxingKind::HW_INFERENCE:
+      return "utility.hw_inference";
+    case ipc::SandboxingKind::COUNT:
+      break;
+  }
+  MOZ_ASSERT_UNREACHABLE("Invalid SandboxingKind");
+  return "utility";
+}
+
+static const char* GMPSandboxKindLabel(GMPSandboxKind aKind) {
+  switch (aKind) {
+    case GMPSandboxKind::Default:
+      return "gmplugin.default";
+    case GMPSandboxKind::Widevine:
+      return "gmplugin.widevine";
+    case GMPSandboxKind::Clearkey:
+      return "gmplugin.clearkey";
+    case GMPSandboxKind::Fake:
+      return "gmplugin.fake";
+  }
+  MOZ_ASSERT_UNREACHABLE("Invalid GMPSandboxKind");
+  return "gmplugin";
+}
+
 Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
     const wchar_t* aPath, const wchar_t* aArguments,
     base::EnvironmentMap& aEnvironment, GeckoProcessType aProcessType,
@@ -543,22 +584,29 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
   // Create the sandboxed process
   PROCESS_INFORMATION targetInfo = {0};
   DWORD last_error = ERROR_SUCCESS;
+  MOZ_RELEASE_ASSERT(mSandboxKindLabel,
+                     "A SetSecurityLevelFor* call must set the sandbox kind.");
+  nsDependentCString sandboxKind(mSandboxKindLabel);
+  glean::sandbox::launch_attempts.Get(sandboxKind).Add();
   sandbox::ResultCode result =
       sBrokerService->SpawnTarget(aPath, aArguments, aEnvironment,
                                   std::move(mPolicy), &last_error, &targetInfo);
   if (sandbox::SBOX_ALL_OK != result) {
-    nsAutoCString key;
-    key.AppendASCII(XRE_GeckoProcessTypeToString(aProcessType));
-    key.AppendLiteral("/0x");
-    key.AppendInt(static_cast<uint32_t>(last_error), 16);
+    glean::sandbox::launch_failures.Get(sandboxKind).Add();
 
-    // Only accumulate for each combination once per session.
+    nsAutoCString key(sandboxKind);
+    key.AppendPrintf("/%d/0x%lx", result, last_error);
+
+    // Only record each combination once per application lifetime.
     if (!sLaunchErrors) {
       sLaunchErrors = new nsTHashtable<nsCStringHashKey>();
     }
     if (!sLaunchErrors->Contains(key)) {
-      glean::sandbox::failed_launch_keyed.Get(key).AccumulateSingleSample(
-          result);
+      glean::sandbox::LaunchFailedExtra extra;
+      extra.sandboxKind = Some(sandboxKind);
+      extra.resultCode = Some(static_cast<int64_t>(result));
+      extra.win32Error = Some(static_cast<int64_t>(last_error));
+      glean::sandbox::launch_failed.Record(Some(extra));
       sLaunchErrors->PutEntry(key);
     }
 
@@ -1015,6 +1063,8 @@ void SandboxBroker::SetSecurityLevelForContentProcess(int32_t aSandboxLevel,
                                                       bool aIsFileProcess) {
   MOZ_RELEASE_ASSERT(mPolicy, "mPolicy must be set before this call.");
 
+  mSandboxKindLabel = aIsFileProcess ? "tab.file" : "tab.default";
+
   sandbox::JobLevel jobLevel;
   sandbox::TokenLevel accessTokenLevel;
   sandbox::IntegrityLevel initialIntegrityLevel;
@@ -1319,6 +1369,8 @@ void SandboxBroker::SetSecurityLevelForGPUProcess(int32_t aSandboxLevel) {
   MOZ_RELEASE_ASSERT(mPolicy, "mPolicy must be set before this call.");
   MOZ_RELEASE_ASSERT(aSandboxLevel >= 1);
 
+  mSandboxKindLabel = "gpu";
+
   sandbox::TokenLevel initialTokenLevel = sandbox::USER_RESTRICTED_SAME_ACCESS;
   sandbox::TokenLevel lockdownTokenLevel =
       (aSandboxLevel >= 2) ? sandbox::USER_LIMITED
@@ -1420,6 +1472,8 @@ bool SandboxBroker::SetSecurityLevelForRDDProcess() {
   if (!mPolicy) {
     return false;
   }
+
+  mSandboxKindLabel = "rdd";
 
   auto* config = mPolicy->GetConfig();
 
@@ -1764,6 +1818,8 @@ bool SandboxBroker::SetSecurityLevelForUtilityProcess(
     return false;
   }
 
+  mSandboxKindLabel = UtilitySandboxKindLabel(aSandbox);
+
   auto* config = mPolicy->GetConfig();
 
   switch (aSandbox) {
@@ -1808,6 +1864,8 @@ bool SandboxBroker::SetSecurityLevelForGMPlugin(
   if (!mPolicy) {
     return false;
   }
+
+  mSandboxKindLabel = GMPSandboxKindLabel(aGMPSandboxKind);
 
   auto* config = mPolicy->GetConfig();
 
