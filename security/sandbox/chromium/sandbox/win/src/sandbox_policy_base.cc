@@ -591,14 +591,16 @@ bool PolicyBase::HasJob() {
   return job_.IsValid();
 }
 
-ResultCode PolicyBase::DropActiveProcessLimit() {
+ResultCode PolicyBase::DropActiveProcessLimit(DWORD* last_error) {
+  *last_error = ERROR_SUCCESS;
   if (!job_.IsValid())
     return SBOX_ERROR_BAD_PARAMS;
 
   if (config()->GetJobLevel() >= JobLevel::kInteractive)
     return SBOX_ALL_OK;
 
-  if (ERROR_SUCCESS != job_.SetActiveProcessLimit(0))
+  *last_error = job_.SetActiveProcessLimit(0);
+  if (ERROR_SUCCESS != *last_error)
     return SBOX_ERROR_CANNOT_UPDATE_JOB_PROCESS_LIMIT;
 
   return SBOX_ALL_OK;
@@ -663,7 +665,9 @@ ResultCode PolicyBase::MakeTokens(
   return SBOX_ALL_OK;
 }
 
-ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target,
+                                     DWORD* last_error) {
+  *last_error = ERROR_SUCCESS;
   if (target_)
     return SBOX_ERROR_UNEXPECTED_CALL;
   // Policy rules are compiled when the underlying ConfigBase is frozen.
@@ -671,29 +675,35 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
 
   if (config()->zero_appshim()) {
     if (!ApplyZeroAppShimToSuspendedProcess(target->Process())) {
+      *last_error = ::GetLastError();
       return SBOX_ERROR_DISABLING_APPHELP;
     }
   }
 
   if (!ApplyProcessMitigationsToSuspendedProcess(
           target->Process(), config()->GetProcessMitigations())) {
+    *last_error = ::GetLastError();
     return SBOX_ERROR_APPLY_ASLR_MITIGATIONS;
   }
 
   dispatcher_ = std::make_unique<TopLevelDispatcher>(this);
+  ::SetLastError(ERROR_SUCCESS);
   ResultCode ret = SetupAllInterceptions(*target);
 
-  if (ret != SBOX_ALL_OK)
+  if (ret != SBOX_ALL_OK) {
+    *last_error = ::GetLastError();
     return ret;
+  }
 
-  if (!SetupHandleCloser(*target))
+  ::SetLastError(ERROR_SUCCESS);
+  if (!SetupHandleCloser(*target)) {
+    *last_error = ::GetLastError();
     return SBOX_ERROR_SETUP_HANDLE_CLOSER;
+  }
 
-  DWORD win_error = ERROR_SUCCESS;
   // Initialize the sandbox infrastructure for the target.
-  // TODO(wfh) do something with win_error code here.
   ret = target->Init(dispatcher_.get(), config()->policy_span(),
-                     delegate_data_span(), kIPCMemSize, &win_error);
+                     delegate_data_span(), kIPCMemSize, last_error);
 
   if (ret != SBOX_ALL_OK)
     return ret;
@@ -701,10 +711,10 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
   IntegrityLevel delayed_integrity_level = config()->delayed_integrity_level();
   static_assert(sizeof(g_shared_delayed_integrity_level) ==
                 sizeof(delayed_integrity_level));
-  ret = target->TransferVariable("g_shared_delayed_integrity_level",
-                                 &delayed_integrity_level,
-                                 &g_shared_delayed_integrity_level,
-                                 sizeof(g_shared_delayed_integrity_level));
+  ret = target->TransferVariable(
+      "g_shared_delayed_integrity_level", &delayed_integrity_level,
+      &g_shared_delayed_integrity_level,
+      sizeof(g_shared_delayed_integrity_level), last_error);
   if (SBOX_ALL_OK != ret)
     return ret;
 
@@ -720,7 +730,8 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
                 sizeof(delayed_mitigations));
   ret = target->TransferVariable(
       "g_shared_delayed_mitigations", &delayed_mitigations,
-      &g_shared_delayed_mitigations, sizeof(g_shared_delayed_mitigations));
+      &g_shared_delayed_mitigations, sizeof(g_shared_delayed_mitigations),
+      last_error);
   if (SBOX_ALL_OK != ret)
     return ret;
 
@@ -729,7 +740,8 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
                 sizeof(startup_mitigations));
   ret = target->TransferVariable(
       "g_shared_startup_mitigations", &startup_mitigations,
-      &g_shared_startup_mitigations, sizeof(g_shared_startup_mitigations));
+      &g_shared_startup_mitigations, sizeof(g_shared_startup_mitigations),
+      last_error);
   if (SBOX_ALL_OK != ret)
     return ret;
 

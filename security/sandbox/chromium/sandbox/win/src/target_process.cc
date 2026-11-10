@@ -279,18 +279,29 @@ void* TargetProcess::GetChildAddress(const char* name, const void* address) {
 ResultCode TargetProcess::TransferVariable(const char* name,
                                            const void* local_address,
                                            void* target_address,
-                                           size_t size) {
+                                           size_t size,
+                                           DWORD* win_error) {
+  if (win_error) {
+    *win_error = ERROR_SUCCESS;
+  }
+
   if (!sandbox_process_info_.IsValid())
     return SBOX_ERROR_UNEXPECTED_CALL;
 
   void* child_var = GetChildAddress(name, target_address);
   if (!child_var) {
+    if (win_error) {
+      *win_error = ::GetLastError();
+    }
     return SBOX_ERROR_CANNOT_FIND_VARIABLE_ADDRESS;
   }
 
   SIZE_T written;
   if (!::WriteProcessMemory(sandbox_process_info_.process_handle(), child_var,
                             local_address, size, &written)) {
+    if (win_error) {
+      *win_error = ::GetLastError();
+    }
     return SBOX_ERROR_CANNOT_WRITE_VARIABLE_VALUE;
   }
   if (written != size)
@@ -307,7 +318,7 @@ ResultCode TargetProcess::Init(
     std::optional<base::span<const uint8_t>> delegate_data,
     uint32_t shared_IPC_size,
     DWORD* win_error) {
-  ResultCode ret = VerifySentinels();
+  ResultCode ret = VerifySentinels(win_error);
   if (ret != SBOX_ALL_OK)
     return ret;
 
@@ -367,9 +378,9 @@ ResultCode TargetProcess::Init(
   size_t transfer_shared_IPC_size = shared_IPC_size;
   static_assert(sizeof(g_shared_IPC_size) == sizeof(transfer_shared_IPC_size));
   ret = TransferVariable("g_shared_IPC_size", &transfer_shared_IPC_size,
-                         &g_shared_IPC_size, sizeof(g_shared_IPC_size));
+                         &g_shared_IPC_size, sizeof(g_shared_IPC_size),
+                         win_error);
   if (SBOX_ALL_OK != ret) {
-    *win_error = ::GetLastError();
     return ret;
   }
   if (policy.has_value()) {
@@ -377,9 +388,9 @@ ResultCode TargetProcess::Init(
     static_assert(sizeof(g_shared_policy_size) ==
                   sizeof(transfer_shared_policy_size));
     ret = TransferVariable("g_shared_policy_size", &transfer_shared_policy_size,
-                           &g_shared_policy_size, sizeof(g_shared_policy_size));
+                           &g_shared_policy_size, sizeof(g_shared_policy_size),
+                           win_error);
     if (SBOX_ALL_OK != ret) {
-      *win_error = ::GetLastError();
       return ret;
     }
   }
@@ -388,9 +399,9 @@ ResultCode TargetProcess::Init(
     static_assert(sizeof(g_delegate_data_size) ==
                   sizeof(transfer_delegate_data_size));
     ret = TransferVariable("g_delegate_data_size", &transfer_delegate_data_size,
-                           &g_delegate_data_size, sizeof(g_delegate_data_size));
+                           &g_delegate_data_size, sizeof(g_delegate_data_size),
+                           win_error);
     if (SBOX_ALL_OK != ret) {
-      *win_error = ::GetLastError();
       return ret;
     }
   }
@@ -413,9 +424,9 @@ ResultCode TargetProcess::Init(
 
   static_assert(sizeof(g_shared_section) == sizeof(target_shared_section));
   ret = TransferVariable("g_shared_section", &target_shared_section,
-                         &g_shared_section, sizeof(g_shared_section));
+                         &g_shared_section, sizeof(g_shared_section),
+                         win_error);
   if (SBOX_ALL_OK != ret) {
-    *win_error = ::GetLastError();
     return ret;
   }
 
@@ -432,7 +443,8 @@ void TargetProcess::Terminate() {
   ::TerminateProcess(sandbox_process_info_.process_handle(), 0);
 }
 
-ResultCode TargetProcess::VerifySentinels() {
+ResultCode TargetProcess::VerifySentinels(DWORD* win_error) {
+  *win_error = ERROR_SUCCESS;
   if (!sandbox_process_info_.IsValid())
     return SBOX_ERROR_UNEXPECTED_CALL;
   DWORD value = 0;
@@ -441,6 +453,7 @@ ResultCode TargetProcess::VerifySentinels() {
       GetChildAddress("g_sentinel_value_start", &g_sentinel_value_start);
   if (!::ReadProcessMemory(sandbox_process_info_.process_handle(),
                            sentinel_start, &value, sizeof(DWORD), &read)) {
+    *win_error = ::GetLastError();
     return SBOX_ERROR_CANNOT_READ_SENTINEL_VALUE;
   }
   if (read != sizeof(DWORD))
@@ -451,6 +464,7 @@ ResultCode TargetProcess::VerifySentinels() {
       GetChildAddress("g_sentinel_value_end", &g_sentinel_value_end);
   if (!::ReadProcessMemory(sandbox_process_info_.process_handle(), sentinel_end,
                            &value, sizeof(DWORD), &read)) {
+    *win_error = ::GetLastError();
     return SBOX_ERROR_CANNOT_READ_SENTINEL_VALUE;
   }
   if (read != sizeof(DWORD))

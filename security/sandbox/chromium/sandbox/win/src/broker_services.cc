@@ -612,7 +612,7 @@ ResultCode BrokerServicesBase::FinishSpawnTargetImpl(
     // Restrict the job from containing any processes. Job restrictions
     // are only applied at process creation, so the target process is
     // unaffected.
-    ResultCode result = policy_base->DropActiveProcessLimit();
+    ResultCode result = policy_base->DropActiveProcessLimit(last_error);
     if (result != SBOX_ALL_OK) {
       target->Terminate();
       return result;
@@ -621,10 +621,9 @@ ResultCode BrokerServicesBase::FinishSpawnTargetImpl(
 
   // Now the policy is the owner of the target. TargetProcess will terminate
   // the process if it has not completed when it is destroyed.
-  ResultCode result = policy_base->ApplyToTarget(std::move(target));
+  ResultCode result = policy_base->ApplyToTarget(std::move(target), last_error);
 
   if (result != SBOX_ALL_OK) {
-    *last_error = ::GetLastError();
     return result;
   }
 

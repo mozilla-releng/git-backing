@@ -193,7 +193,8 @@ class PolicyBase final : public TargetPolicy {
 
   // Updates the active process limit on the policy's job to zero.
   // Has no effect if the job is allowed to spawn processes.
-  ResultCode DropActiveProcessLimit();
+  // |last_error| receives the Windows error on failure.
+  ResultCode DropActiveProcessLimit(DWORD* last_error);
 
   // Creates the two tokens with the levels specified in a previous call to
   // SetTokenLevel().
@@ -201,8 +202,10 @@ class PolicyBase final : public TargetPolicy {
                         std::optional<base::win::AccessToken>& lockdown);
 
   // Applies the sandbox to |target| and takes ownership. Internally a
-  // call to TargetProcess::Init() is issued.
-  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess> target);
+  // call to TargetProcess::Init() is issued. `last_error` is set to the
+  // Windows error on failure of a Windows API call, otherwise ERROR_SUCCESS.
+  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess> target,
+                           DWORD* last_error);
 
   EvalResult EvalPolicy(IpcTag service, CountedParameterSetBase* params);
 

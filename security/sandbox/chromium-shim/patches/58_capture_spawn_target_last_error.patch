@@ -1,0 +1,325 @@
+Capture the Windows error at the point of failure in SpawnTarget.
+
+FinishSpawnTargetImpl called GetLastError after ApplyToTarget had returned, by
+which time the target had been destroyed and terminated. So for most failures
+the reported error was stale or unrelated, and for failures that are not caused
+by a Windows API call it was meaningless.
+
+Pass last_error into ApplyToTarget and on to TargetProcess::Init,
+TransferVariable and VerifySentinels, so that it is set straight after the
+failing call and is ERROR_SUCCESS for failures that are just logic checks.
+Also return the error from DropActiveProcessLimit.
+
+SetupAllInterceptions and SetupHandleCloser have many internal failure points,
+so rather than pass last_error through all of them, the last error is cleared
+before calling them and read afterwards.
+
+diff --git a/sandbox/win/src/broker_services.cc b/sandbox/win/src/broker_services.cc
+index e40fffbad0fc..949d7f73dbaa 100644
+--- a/sandbox/win/src/broker_services.cc
++++ b/sandbox/win/src/broker_services.cc
+@@ -612,7 +612,7 @@ ResultCode BrokerServicesBase::FinishSpawnTargetImpl(
+     // Restrict the job from containing any processes. Job restrictions
+     // are only applied at process creation, so the target process is
+     // unaffected.
+-    ResultCode result = policy_base->DropActiveProcessLimit();
++    ResultCode result = policy_base->DropActiveProcessLimit(last_error);
+     if (result != SBOX_ALL_OK) {
+       target->Terminate();
+       return result;
+@@ -621,10 +621,9 @@ ResultCode BrokerServicesBase::FinishSpawnTargetImpl(
+ 
+   // Now the policy is the owner of the target. TargetProcess will terminate
+   // the process if it has not completed when it is destroyed.
+-  ResultCode result = policy_base->ApplyToTarget(std::move(target));
++  ResultCode result = policy_base->ApplyToTarget(std::move(target), last_error);
+ 
+   if (result != SBOX_ALL_OK) {
+-    *last_error = ::GetLastError();
+     return result;
+   }
+ 
+diff --git a/sandbox/win/src/sandbox_policy_base.cc b/sandbox/win/src/sandbox_policy_base.cc
+index 677bb48ecd8f..32d82a8dd63c 100644
+--- a/sandbox/win/src/sandbox_policy_base.cc
++++ b/sandbox/win/src/sandbox_policy_base.cc
+@@ -591,14 +591,16 @@ bool PolicyBase::HasJob() {
+   return job_.IsValid();
+ }
+ 
+-ResultCode PolicyBase::DropActiveProcessLimit() {
++ResultCode PolicyBase::DropActiveProcessLimit(DWORD* last_error) {
++  *last_error = ERROR_SUCCESS;
+   if (!job_.IsValid())
+     return SBOX_ERROR_BAD_PARAMS;
+ 
+   if (config()->GetJobLevel() >= JobLevel::kInteractive)
+     return SBOX_ALL_OK;
+ 
+-  if (ERROR_SUCCESS != job_.SetActiveProcessLimit(0))
++  *last_error = job_.SetActiveProcessLimit(0);
++  if (ERROR_SUCCESS != *last_error)
+     return SBOX_ERROR_CANNOT_UPDATE_JOB_PROCESS_LIMIT;
+ 
+   return SBOX_ALL_OK;
+@@ -663,7 +665,9 @@ ResultCode PolicyBase::MakeTokens(
+   return SBOX_ALL_OK;
+ }
+ 
+-ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
++ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target,
++                                     DWORD* last_error) {
++  *last_error = ERROR_SUCCESS;
+   if (target_)
+     return SBOX_ERROR_UNEXPECTED_CALL;
+   // Policy rules are compiled when the underlying ConfigBase is frozen.
+@@ -671,29 +675,35 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+ 
+   if (config()->zero_appshim()) {
+     if (!ApplyZeroAppShimToSuspendedProcess(target->Process())) {
++      *last_error = ::GetLastError();
+       return SBOX_ERROR_DISABLING_APPHELP;
+     }
+   }
+ 
+   if (!ApplyProcessMitigationsToSuspendedProcess(
+           target->Process(), config()->GetProcessMitigations())) {
++    *last_error = ::GetLastError();
+     return SBOX_ERROR_APPLY_ASLR_MITIGATIONS;
+   }
+ 
+   dispatcher_ = std::make_unique<TopLevelDispatcher>(this);
++  ::SetLastError(ERROR_SUCCESS);
+   ResultCode ret = SetupAllInterceptions(*target);
+ 
+-  if (ret != SBOX_ALL_OK)
++  if (ret != SBOX_ALL_OK) {
++    *last_error = ::GetLastError();
+     return ret;
++  }
+ 
+-  if (!SetupHandleCloser(*target))
++  ::SetLastError(ERROR_SUCCESS);
++  if (!SetupHandleCloser(*target)) {
++    *last_error = ::GetLastError();
+     return SBOX_ERROR_SETUP_HANDLE_CLOSER;
++  }
+ 
+-  DWORD win_error = ERROR_SUCCESS;
+   // Initialize the sandbox infrastructure for the target.
+-  // TODO(wfh) do something with win_error code here.
+   ret = target->Init(dispatcher_.get(), config()->policy_span(),
+-                     delegate_data_span(), kIPCMemSize, &win_error);
++                     delegate_data_span(), kIPCMemSize, last_error);
+ 
+   if (ret != SBOX_ALL_OK)
+     return ret;
+@@ -701,10 +711,10 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+   IntegrityLevel delayed_integrity_level = config()->delayed_integrity_level();
+   static_assert(sizeof(g_shared_delayed_integrity_level) ==
+                 sizeof(delayed_integrity_level));
+-  ret = target->TransferVariable("g_shared_delayed_integrity_level",
+-                                 &delayed_integrity_level,
+-                                 &g_shared_delayed_integrity_level,
+-                                 sizeof(g_shared_delayed_integrity_level));
++  ret = target->TransferVariable(
++      "g_shared_delayed_integrity_level", &delayed_integrity_level,
++      &g_shared_delayed_integrity_level,
++      sizeof(g_shared_delayed_integrity_level), last_error);
+   if (SBOX_ALL_OK != ret)
+     return ret;
+ 
+@@ -720,7 +730,8 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+                 sizeof(delayed_mitigations));
+   ret = target->TransferVariable(
+       "g_shared_delayed_mitigations", &delayed_mitigations,
+-      &g_shared_delayed_mitigations, sizeof(g_shared_delayed_mitigations));
++      &g_shared_delayed_mitigations, sizeof(g_shared_delayed_mitigations),
++      last_error);
+   if (SBOX_ALL_OK != ret)
+     return ret;
+ 
+@@ -729,7 +740,8 @@ ResultCode PolicyBase::ApplyToTarget(std::unique_ptr<TargetProcess> target) {
+                 sizeof(startup_mitigations));
+   ret = target->TransferVariable(
+       "g_shared_startup_mitigations", &startup_mitigations,
+-      &g_shared_startup_mitigations, sizeof(g_shared_startup_mitigations));
++      &g_shared_startup_mitigations, sizeof(g_shared_startup_mitigations),
++      last_error);
+   if (SBOX_ALL_OK != ret)
+     return ret;
+ 
+diff --git a/sandbox/win/src/sandbox_policy_base.h b/sandbox/win/src/sandbox_policy_base.h
+index 592f0de02ba3..8cf5f0e593f4 100644
+--- a/sandbox/win/src/sandbox_policy_base.h
++++ b/sandbox/win/src/sandbox_policy_base.h
+@@ -193,7 +193,8 @@ class PolicyBase final : public TargetPolicy {
+ 
+   // Updates the active process limit on the policy's job to zero.
+   // Has no effect if the job is allowed to spawn processes.
+-  ResultCode DropActiveProcessLimit();
++  // |last_error| receives the Windows error on failure.
++  ResultCode DropActiveProcessLimit(DWORD* last_error);
+ 
+   // Creates the two tokens with the levels specified in a previous call to
+   // SetTokenLevel().
+@@ -201,8 +202,10 @@ class PolicyBase final : public TargetPolicy {
+                         std::optional<base::win::AccessToken>& lockdown);
+ 
+   // Applies the sandbox to |target| and takes ownership. Internally a
+-  // call to TargetProcess::Init() is issued.
+-  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess> target);
++  // call to TargetProcess::Init() is issued. `last_error` is set to the
++  // Windows error on failure of a Windows API call, otherwise ERROR_SUCCESS.
++  ResultCode ApplyToTarget(std::unique_ptr<TargetProcess> target,
++                           DWORD* last_error);
+ 
+   EvalResult EvalPolicy(IpcTag service, CountedParameterSetBase* params);
+ 
+diff --git a/sandbox/win/src/target_process.cc b/sandbox/win/src/target_process.cc
+index 74a63e1d0c60..0d4d7fb71e20 100644
+--- a/sandbox/win/src/target_process.cc
++++ b/sandbox/win/src/target_process.cc
+@@ -279,18 +279,29 @@ void* TargetProcess::GetChildAddress(const char* name, const void* address) {
+ ResultCode TargetProcess::TransferVariable(const char* name,
+                                            const void* local_address,
+                                            void* target_address,
+-                                           size_t size) {
++                                           size_t size,
++                                           DWORD* win_error) {
++  if (win_error) {
++    *win_error = ERROR_SUCCESS;
++  }
++
+   if (!sandbox_process_info_.IsValid())
+     return SBOX_ERROR_UNEXPECTED_CALL;
+ 
+   void* child_var = GetChildAddress(name, target_address);
+   if (!child_var) {
++    if (win_error) {
++      *win_error = ::GetLastError();
++    }
+     return SBOX_ERROR_CANNOT_FIND_VARIABLE_ADDRESS;
+   }
+ 
+   SIZE_T written;
+   if (!::WriteProcessMemory(sandbox_process_info_.process_handle(), child_var,
+                             local_address, size, &written)) {
++    if (win_error) {
++      *win_error = ::GetLastError();
++    }
+     return SBOX_ERROR_CANNOT_WRITE_VARIABLE_VALUE;
+   }
+   if (written != size)
+@@ -307,7 +318,7 @@ ResultCode TargetProcess::Init(
+     std::optional<base::span<const uint8_t>> delegate_data,
+     uint32_t shared_IPC_size,
+     DWORD* win_error) {
+-  ResultCode ret = VerifySentinels();
++  ResultCode ret = VerifySentinels(win_error);
+   if (ret != SBOX_ALL_OK)
+     return ret;
+ 
+@@ -367,9 +378,9 @@ ResultCode TargetProcess::Init(
+   size_t transfer_shared_IPC_size = shared_IPC_size;
+   static_assert(sizeof(g_shared_IPC_size) == sizeof(transfer_shared_IPC_size));
+   ret = TransferVariable("g_shared_IPC_size", &transfer_shared_IPC_size,
+-                         &g_shared_IPC_size, sizeof(g_shared_IPC_size));
++                         &g_shared_IPC_size, sizeof(g_shared_IPC_size),
++                         win_error);
+   if (SBOX_ALL_OK != ret) {
+-    *win_error = ::GetLastError();
+     return ret;
+   }
+   if (policy.has_value()) {
+@@ -377,9 +388,9 @@ ResultCode TargetProcess::Init(
+     static_assert(sizeof(g_shared_policy_size) ==
+                   sizeof(transfer_shared_policy_size));
+     ret = TransferVariable("g_shared_policy_size", &transfer_shared_policy_size,
+-                           &g_shared_policy_size, sizeof(g_shared_policy_size));
++                           &g_shared_policy_size, sizeof(g_shared_policy_size),
++                           win_error);
+     if (SBOX_ALL_OK != ret) {
+-      *win_error = ::GetLastError();
+       return ret;
+     }
+   }
+@@ -388,9 +399,9 @@ ResultCode TargetProcess::Init(
+     static_assert(sizeof(g_delegate_data_size) ==
+                   sizeof(transfer_delegate_data_size));
+     ret = TransferVariable("g_delegate_data_size", &transfer_delegate_data_size,
+-                           &g_delegate_data_size, sizeof(g_delegate_data_size));
++                           &g_delegate_data_size, sizeof(g_delegate_data_size),
++                           win_error);
+     if (SBOX_ALL_OK != ret) {
+-      *win_error = ::GetLastError();
+       return ret;
+     }
+   }
+@@ -413,9 +424,9 @@ ResultCode TargetProcess::Init(
+ 
+   static_assert(sizeof(g_shared_section) == sizeof(target_shared_section));
+   ret = TransferVariable("g_shared_section", &target_shared_section,
+-                         &g_shared_section, sizeof(g_shared_section));
++                         &g_shared_section, sizeof(g_shared_section),
++                         win_error);
+   if (SBOX_ALL_OK != ret) {
+-    *win_error = ::GetLastError();
+     return ret;
+   }
+ 
+@@ -432,7 +443,8 @@ void TargetProcess::Terminate() {
+   ::TerminateProcess(sandbox_process_info_.process_handle(), 0);
+ }
+ 
+-ResultCode TargetProcess::VerifySentinels() {
++ResultCode TargetProcess::VerifySentinels(DWORD* win_error) {
++  *win_error = ERROR_SUCCESS;
+   if (!sandbox_process_info_.IsValid())
+     return SBOX_ERROR_UNEXPECTED_CALL;
+   DWORD value = 0;
+@@ -441,6 +453,7 @@ ResultCode TargetProcess::VerifySentinels() {
+       GetChildAddress("g_sentinel_value_start", &g_sentinel_value_start);
+   if (!::ReadProcessMemory(sandbox_process_info_.process_handle(),
+                            sentinel_start, &value, sizeof(DWORD), &read)) {
++    *win_error = ::GetLastError();
+     return SBOX_ERROR_CANNOT_READ_SENTINEL_VALUE;
+   }
+   if (read != sizeof(DWORD))
+@@ -451,6 +464,7 @@ ResultCode TargetProcess::VerifySentinels() {
+       GetChildAddress("g_sentinel_value_end", &g_sentinel_value_end);
+   if (!::ReadProcessMemory(sandbox_process_info_.process_handle(), sentinel_end,
+                            &value, sizeof(DWORD), &read)) {
++    *win_error = ::GetLastError();
+     return SBOX_ERROR_CANNOT_READ_SENTINEL_VALUE;
+   }
+   if (read != sizeof(DWORD))
+diff --git a/sandbox/win/src/target_process.h b/sandbox/win/src/target_process.h
+index da06407b8abc..9a5493f7af55 100644
+--- a/sandbox/win/src/target_process.h
++++ b/sandbox/win/src/target_process.h
+@@ -84,11 +84,13 @@ class TargetProcess {
+   HANDLE MainThread() const { return sandbox_process_info_.thread_handle(); }
+ 
+   // Transfers variable at `local_address` of `size` bytes from broker to
+-  // `target_address` of target.
++  // `target_address` of target. If `win_error` is provided, it is set to the
++  // Windows error on failure of a Windows API call, otherwise ERROR_SUCCESS.
+   ResultCode TransferVariable(const char* name,
+                               const void* local_address,
+                               void* target_address,
+-                              size_t size);
++                              size_t size,
++                              DWORD* win_error = nullptr);
+ 
+   // Creates a mock TargetProcess used for testing interceptions.
+   static std::unique_ptr<TargetProcess> MakeTargetProcessForTesting(
+@@ -102,7 +104,7 @@ class TargetProcess {
+   void* GetChildAddress(const char* name, const void* address);
+ 
+   // Verify the target process looks the same as the broker process.
+-  ResultCode VerifySentinels();
++  ResultCode VerifySentinels(DWORD* win_error);
+ 
+   // Filters an environment to only include those that have an entry in
+   // `to_keep`.

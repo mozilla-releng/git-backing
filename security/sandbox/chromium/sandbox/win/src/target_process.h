@@ -84,11 +84,13 @@ class TargetProcess {
   HANDLE MainThread() const { return sandbox_process_info_.thread_handle(); }
 
   // Transfers variable at `local_address` of `size` bytes from broker to
-  // `target_address` of target.
+  // `target_address` of target. If `win_error` is provided, it is set to the
+  // Windows error on failure of a Windows API call, otherwise ERROR_SUCCESS.
   ResultCode TransferVariable(const char* name,
                               const void* local_address,
                               void* target_address,
-                              size_t size);
+                              size_t size,
+                              DWORD* win_error = nullptr);
 
   // Creates a mock TargetProcess used for testing interceptions.
   static std::unique_ptr<TargetProcess> MakeTargetProcessForTesting(
@@ -102,7 +104,7 @@ class TargetProcess {
   void* GetChildAddress(const char* name, const void* address);
 
   // Verify the target process looks the same as the broker process.
-  ResultCode VerifySentinels();
+  ResultCode VerifySentinels(DWORD* win_error);
 
   // Filters an environment to only include those that have an entry in
   // `to_keep`.
