@@ -29,6 +29,9 @@ let otherCalendar;
 let transaction;
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [["ui.prefersReducedMotion", 1]],
+  });
   const initialView = window.gLastShownCalendarView.get();
   const initialDate = new Date(document.getElementById("calMinimonth").value);
 
@@ -116,6 +119,23 @@ async function edit(event, recurrenceId = null) {
   Assert.ok(await dialog.show(), "The edit dialog should open.");
 
   await doc.l10n.translateFragment(dialog);
+}
+
+/**
+ * Clicks Save, then moves the pointer away so later accessibility scans do not
+ * check the hover colors.
+ *
+ * @param {HTMLButtonElement} button - The Save button.
+ */
+function clickSave(button) {
+  EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+  EventUtils.synthesizeMouse(
+    doc.documentElement,
+    1,
+    1,
+    { type: "mousemove" },
+    browser.contentWindow
+  );
 }
 
 add_task(async function test_storeUpdatesBeforeConnection() {
@@ -291,7 +311,7 @@ add_task(async function test_onlySaveButtonInvokesSave() {
   );
 
   const button = dialog.querySelector(".calendar-event-save");
-  EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+  clickSave(button);
 
   Assert.equal(calls, 1, "A Save button click should invoke Save once.");
 
@@ -304,7 +324,7 @@ add_task(async function test_onlySaveButtonInvokesSave() {
   );
 
   const closed = BrowserTestUtils.waitForEvent(dialog, "close");
-  EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+  clickSave(button);
   await closed;
 
   Assert.equal(
@@ -449,7 +469,7 @@ add_task(async function test_invalidActiveFieldsBlockSave() {
   );
 
   const closed = BrowserTestUtils.waitForEvent(dialog, "close");
-  EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+  clickSave(button);
   await closed;
 
   Assert.equal(transactions, 1, "Retry should start one transaction.");
