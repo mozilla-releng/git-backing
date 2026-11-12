@@ -43,6 +43,7 @@ const smimeFile = `${smimeDataDir}alice.dsig.SHA256.multipart.env.eml`;
 const openpgpFile = `${openpgpDataDir}eml/signed-by-0xfbfcc82a015e7330-encrypted-to-0xf231550c4f47e38e.eml`;
 const undecryptableFile = `${openpgpDataDir}eml/enc-to-carol@pgp.icu-revoked.eml`;
 const smimeOpaqueSignedFile = `${smimeDataDir}alice.sig.SHA256.opaque.eml`;
+const smimeSinglePartFile = `${smimeDataDir}alice.env.eml`;
 
 const EXAMINE_ENCRYPTED_PREF =
   "mailnews.database.global.indexer.examine_encrypted_parts";
@@ -378,9 +379,42 @@ async function test_smime_encrypted_from_smime_type() {
       !untyped.wasDecrypted,
       `Undecryptable S/MIME without smime-type should not be marked decrypted (pref ${examine})`
     );
+    const opaqueSigned = await getGlodaMessage(folder, 2);
     Assert.ok(
-      !(await getGlodaMessage(folder, 2)).isEncrypted,
+      !opaqueSigned.isEncrypted,
       `Opaque signed S/MIME should not be marked encrypted (pref ${examine})`
+    );
+    Assert.deepEqual(
+      (await fulltextSearch("message", folder)).map(msg => msg.id),
+      [opaqueSigned.id],
+      `Opaque signed S/MIME body should be found (pref ${examine})`
+    );
+  }
+}
+
+/**
+ * The content of an S/MIME message that isn't multipart should be indexed
+ * like any other.
+ */
+async function test_smime_single_part_content() {
+  for (const examine of [false, true]) {
+    Services.prefs.setBoolPref(EXAMINE_ENCRYPTED_PREF, examine);
+    const folder = await indexEncryptedMessages([smimeSinglePartFile]);
+
+    const msg = await getGlodaMessage(folder, 0);
+    Assert.ok(
+      msg.isEncrypted,
+      `Message should be marked encrypted (pref ${examine})`
+    );
+    Assert.equal(
+      !!msg.wasDecrypted,
+      examine,
+      `Message should be marked decrypted only with the pref (pref ${examine})`
+    );
+    Assert.equal(
+      (await fulltextSearch("message", folder)).length,
+      examine ? 1 : 0,
+      `Body should be found only with the pref (pref ${examine})`
     );
   }
 }
@@ -424,4 +458,5 @@ var base_index_encrypted_messages_tests = [
   test_reindex_without_pref_clears_decrypted,
   test_indexing_keeps_displayed_message_state,
   test_smime_encrypted_from_smime_type,
+  test_smime_single_part_content,
 ];

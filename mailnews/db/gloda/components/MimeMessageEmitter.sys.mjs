@@ -318,13 +318,6 @@ MimeMessageEmitter.prototype = {
    * In case the MIME structure is wrong, (i.e. we have no parent to add the
    *  current part to), this function recursively makes sure we create the
    *  missing bits in the hierarchy.
-   * What happens in the case of encrypted emails (mimecryp.cpp):
-   *  1. is the message
-   *  1.1 doesn't exist
-   *  1.1.1 is the multipart/alternative that holds the text/plain and text/html
-   *  1.1.1.1 is text/plain
-   *  1.1.1.2 is text/html
-   * This function fills the missing bits.
    */
   _findOrCreateParent(aPartName) {
     const partName = aPartName + "";

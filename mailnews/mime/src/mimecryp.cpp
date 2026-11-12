@@ -446,6 +446,25 @@ static int MimeEncrypted_emit_buffered_child(MimeObject* obj) {
     return status;
   }
 
+  // The js emitter wants to know about the newly created child, like in
+  // MimeMultipartSigned_emit_child(). Without this, it never sees a child
+  // that isn't a multipart, e.g. the text of an opaque signed message.
+  if (obj->options->notify_nested_bodies) {
+    char* childCt = enc->hdrs ? MimeHeaders_get(enc->hdrs, HEADER_CONTENT_TYPE,
+                                                false, false)
+                              : nullptr;
+    mimeEmitterAddHeaderField(obj->options, HEADER_CONTENT_TYPE,
+                              childCt ? childCt : TEXT_PLAIN);
+    PR_Free(childCt);
+
+    char* partPath = mime_part_address(body);
+    if (partPath) {
+      mimeEmitterAddHeaderField(obj->options, "x-jsemitter-part-path",
+                                partPath);
+      PR_Free(partPath);
+    }
+  }
+
   /* Now that we've added this new object to our list of children,
    start its parser going. */
   status = body->clazz->parse_begin(body);
