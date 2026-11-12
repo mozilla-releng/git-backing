@@ -750,6 +750,16 @@ MimeUnknown.prototype = {
   set size(aSize) {
     this._size = aSize;
   },
+  /**
+   * An S/MIME encrypted part is represented as a MimeUnknown, with the
+   * decrypted parts as its children (when encrypted parts are examined).
+   *
+   * @param {nsIMsgFolder} msgFolder - A message folder, any message folder.
+   * @returns {string} The concatenated plaintext bodies of the child parts.
+   */
+  coerceBodyToPlaintext(msgFolder) {
+    return MimeMessage.prototype.coerceBodyToPlaintext.call(this, msgFolder);
+  },
   prettyString(aVerbose, aIndent, aDumpBody) {
     const nextIndent = aIndent + "  ";
 

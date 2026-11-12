@@ -430,6 +430,12 @@ MimeVerify.prototype = {
     );
     this.returnData(this.signedData);
 
+    // Background processing like indexing only needs the signed content, and
+    // must not interfere with the state kept for the message on display.
+    if (this.uri && /[&?]examineEncryptedParts=true/.test(this.uri.spec)) {
+      return;
+    }
+
     if (this.protocol != "application/pgp-signature") {
       lazy.log.debug(`Unexpected protocol seen: ${this.protocol}`);
       return;

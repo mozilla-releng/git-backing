@@ -11,6 +11,7 @@
  */
 
 import { MailServices } from "resource:///modules/MailServices.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { GlodaDatastore } from "resource:///modules/gloda/GlodaDatastore.sys.mjs";
 import {
   GlodaContact,
@@ -29,6 +30,12 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   MailUtils: "resource:///modules/MailUtils.sys.mjs",
 });
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "examineEncryptedParts",
+  "mailnews.database.global.indexer.examine_encrypted_parts",
+  false
+);
 
 var GLODA_MESSAGE_ID_PROPERTY = "gloda-id";
 /**
@@ -3143,6 +3150,7 @@ export var GlodaMsgIndexer = {
         false,
         {
           saneBodySize: true,
+          examineEncryptedParts: lazy.examineEncryptedParts,
         }
       );
       aMimeMsg = (yield GlodaConstants.kWorkAsync)[1];

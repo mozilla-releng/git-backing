@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { MimeParser } from "resource:///modules/mimeParser.sys.mjs";
+
 var kStateUnknown = 0;
 var kStateInHeaders = 1;
 var kStateInBody = 2;
@@ -17,6 +19,32 @@ var kStateInAttachment = 3;
  *  20 gave it some space and it was also the end of a mini-plateau.
  */
 var MAX_SANE_BODY_PART_SIZE = 20 * 1024;
+
+const SMIME_CONTENT_TYPES = new Set([
+  "application/pkcs7-mime",
+  "application/x-pkcs7-mime",
+]);
+
+/**
+ * Tell from its smime-type whether an S/MIME part is encrypted, rather than
+ * only signed. Decryption may fail, and libmime handles signed parts the same
+ * way, so this can't be left to libmime. A missing smime-type is assumed to
+ * mean encrypted.
+ *
+ * @param {string} contentType - The full Content-Type of the S/MIME part.
+ * @returns {boolean} true if the part is encrypted.
+ */
+function isSmimeEncrypted(contentType) {
+  const smimeType = MimeParser.getParameter(
+    contentType,
+    "smime-type"
+  ).toLowerCase();
+  return (
+    !smimeType ||
+    smimeType == "enveloped-data" ||
+    smimeType == "authenveloped-data"
+  );
+}
 
 /**
  * Custom nsIMimeEmitter to build a sub-optimal javascript representation of a
@@ -139,6 +167,10 @@ MimeMessageEmitter.prototype = {
       this._curPart = new this._mimeMsg.MimeContainer(contentTypeNoParams);
       this._curPart.isEncrypted = contentTypeNoParams == "multipart/encrypted";
       this._writeBody = false;
+    } else if (SMIME_CONTENT_TYPES.has(contentTypeNoParams)) {
+      this._curPart = new this._mimeMsg.MimeUnknown(contentTypeNoParams);
+      this._curPart.isEncrypted = isSmimeEncrypted(aContentType);
+      this._writeBody = false;
     } else {
       this._curPart = new this._mimeMsg.MimeUnknown(contentTypeNoParams);
       this._writeBody = false;
@@ -208,7 +240,11 @@ MimeMessageEmitter.prototype = {
           this._curPart.partName = partName;
           this._placePart(this._curPart);
         }
-      } else if (aField == "x-jsemitter-encrypted" && aValue == "1") {
+      } else if (
+        aField == "x-jsemitter-encrypted" &&
+        aValue == "1" &&
+        !SMIME_CONTENT_TYPES.has(this._curPart.contentType)
+      ) {
         this._curPart.isEncrypted = true;
       }
       // There is no other field to be emitted in the body case other than the

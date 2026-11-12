@@ -108,6 +108,9 @@ export function MimeDecryptHandler() {
   this.statusDisplayed = false;
   this.uri = null;
   this.backgroundJob = false;
+  // Set for background processing like indexing, which must not interfere
+  // with the state kept for the message on display.
+  this.examineEncryptedParts = false;
   this.decryptedHeaders = null;
   this.mimePartNumber = "";
   this.allowNestedDecrypt = false;
@@ -148,6 +151,8 @@ MimeDecryptHandler.prototype = {
 
     this.uri = mimeSvc.messageURI;
     this.outputRaw = this.uri && /[&?]outputformat=raw/.test(this.uri.spec);
+    this.examineEncryptedParts =
+      !!this.uri && /[&?]examineEncryptedParts=true/.test(this.uri.spec);
 
     this.pipe = null;
     this.closePipe = false;
@@ -175,7 +180,10 @@ MimeDecryptHandler.prototype = {
     const timeoutReached =
       EnigmailSingletons.lastMessageDecryptTime &&
       now - EnigmailSingletons.lastMessageDecryptTime > 10000;
-    if (timeoutReached || !this.isReloadingLastMessage()) {
+    if (
+      !this.examineEncryptedParts &&
+      (timeoutReached || !this.isReloadingLastMessage())
+    ) {
       EnigmailSingletons.clearLastDecryptedMessage();
       EnigmailSingletons.lastMessageDecryptTime = now;
     }
@@ -317,7 +325,7 @@ MimeDecryptHandler.prototype = {
    * @returns {boolean} true if we're reloading the same message.
    */
   isReloadingLastMessage() {
-    if (!this.uri) {
+    if (!this.uri || this.examineEncryptedParts) {
       return false;
     }
     if (!LAST_MSG.lastMessageURI) {
@@ -429,7 +437,9 @@ MimeDecryptHandler.prototype = {
         false
       )
     ) {
-      EnigmailSingletons.addUriWithNestedEncryptedPart(this.msgUriSpec);
+      if (!this.examineEncryptedParts) {
+        EnigmailSingletons.addUriWithNestedEncryptedPart(this.msgUriSpec);
+      }
       // ignore, do not display
       lazy.log.debug(
         `Found uri with nested encrypted part: ${this.msgUriSpec}`
@@ -470,14 +480,18 @@ MimeDecryptHandler.prototype = {
       // The processing of a contained signed message must be able to
       // check that this parent object is encrypted. We set the msg ID
       // early, despite the full results not yet being available.
-      LAST_MSG.lastMessageURI = lazy.EnigmailURIs.msgIdentificationFromUrl(
-        this.uri
-      );
-      LAST_MSG.mimePartNumber = this.mimePartNumber;
+      if (!this.examineEncryptedParts) {
+        LAST_MSG.lastMessageURI = lazy.EnigmailURIs.msgIdentificationFromUrl(
+          this.uri
+        );
+        LAST_MSG.mimePartNumber = this.mimePartNumber;
+      }
 
       options.noOutput = false;
       options.verifyOnly = false;
       options.uiFlags = lazy.EnigmailConstants.UI_PGP_MIME;
+      // Background processing like indexing must not prompt for passphrases.
+      options.allowPassphrasePrompt = !this.examineEncryptedParts;
 
       this.returnStatus = lazy.EnigmailFuncs.sync(
         lazy.RNP.decrypt(this.outQueue, options)
@@ -528,7 +542,9 @@ MimeDecryptHandler.prototype = {
 
       // Don't remember the last message if it contains an embedded PGP/MIME
       // message to avoid ending up in a loop.
-      if (
+      if (this.examineEncryptedParts) {
+        // Not the message on display, leave the remembered one alone.
+      } else if (
         this.mimePartNumber === "1" &&
         this.decryptedData.search(
           /^Content-Type:[\t ]+multipart\/encrypted/im
@@ -598,7 +614,7 @@ MimeDecryptHandler.prototype = {
           }),
           this.mimePartNumber
         );
-      } else if (sink) {
+      } else if (sink || this.examineEncryptedParts) {
         // not attachment...
         this.updateHeadersInMsgDb();
       }
@@ -795,6 +811,9 @@ MimeDecryptHandler.prototype = {
    * Process the Autocrypt-Gossip header lines.
    */
   async extractAutocryptGossip() {
+    if (this.examineEncryptedParts) {
+      return;
+    }
     const gossipHeaders =
       // TODO: already available as this.decryptedHeaders.get("autocrypt-gossip")
       MimeParser.extractHeaders(this.decryptedData).get("autocrypt-gossip") ||

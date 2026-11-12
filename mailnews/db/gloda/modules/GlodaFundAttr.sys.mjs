@@ -333,6 +333,18 @@ export var GlodaFundAttr = {
       objectNoun: GlodaConstants.NOUN_NUMBER,
     });
 
+    // Set when the decrypted content of an encrypted message was indexed.
+    this._attrWasDecrypted = Gloda.defineAttribute({
+      provider: this,
+      extensionName: GlodaConstants.BUILT_IN,
+      attributeType: GlodaConstants.kAttrFundamental,
+      attributeName: "wasDecrypted",
+      singular: true,
+      canQuery: true,
+      subjectNouns: [GlodaConstants.NOUN_MESSAGE],
+      objectNoun: GlodaConstants.NOUN_BOOLEAN,
+    });
+
     // Attachment infos
     this._attrAttachmentInfos = Gloda.defineAttribute({
       provider: this,
@@ -534,6 +546,22 @@ export var GlodaFundAttr = {
     aGlodaMessage.isEncrypted = false;
     if (aMimeMsg) {
       aGlodaMessage.isEncrypted = findIsEncrypted(aMimeMsg);
+    }
+
+    // Encrypted parts are emptied unless their decrypted content was
+    // requested, and they are also empty when decryption failed.
+    const hasContent = x =>
+      !!x.body?.trim() ||
+      x.allAttachments.length > 0 ||
+      !!x.parts?.some(hasContent);
+    const findWasDecrypted = x =>
+      !!x.parts?.some(
+        part => (x.isEncrypted && hasContent(part)) || findWasDecrypted(part)
+      );
+    if (aMimeMsg && findWasDecrypted(aMimeMsg)) {
+      aGlodaMessage.wasDecrypted = true;
+    } else {
+      delete aGlodaMessage.wasDecrypted;
     }
 
     // -- Attachments

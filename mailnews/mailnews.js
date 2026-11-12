@@ -1022,6 +1022,11 @@ pref("mailnews.database.dbcache.loglevel", "Warn");
 // -- Global Database (gloda) options
 // Should the indexer be enabled?
 pref("mailnews.database.global.indexer.enabled", false);
+// Should the indexer decrypt and index the content of encrypted messages?
+// The decrypted content gets stored unencrypted in the global database.
+// OpenPGP keys protected by a user-set passphrase are not used, to avoid
+// prompting for it.
+pref("mailnews.database.global.indexer.examine_encrypted_parts", false);
 pref("gloda.loglevel", "Warn");
 pref("gloda.test.loglevel", "Warn");
 // Rate of growth of the gloda cache, whose maximum value is 8 MiB and max is 64 MiB.

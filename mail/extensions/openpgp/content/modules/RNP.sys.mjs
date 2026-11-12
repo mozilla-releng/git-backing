@@ -1954,6 +1954,9 @@ export var RNP = {
    *   the encrypted message.
    * @param {object} options - Various pieces of information that are
    *   necessary for correctly processing the encrypted message.
+   * @param {boolean} [options.allowPassphrasePrompt=true] - Whether the user
+   *   may be prompted for the passphrase of the decryption key. If false,
+   *   decryption fails if the key cannot be unlocked without prompting.
    * @param {boolean} alreadyDecrypted - Usually callers should set this
    *   flag to false, to request both decryption and full decoding of
    *   all available meta data. Value True is intended to allow
@@ -2146,7 +2149,9 @@ export var RNP = {
           ) {
             const decryptKey = new RnpPrivateKeyUnlockTracker(key_handle);
             if (decryptKey.available()) {
-              decryptKey.setAllowPromptingUserForPassword(true);
+              decryptKey.setAllowPromptingUserForPassword(
+                options.allowPassphrasePrompt ?? true
+              );
               decryptKey.setRememberUnlockPassword(true);
               await decryptKey.unlock();
             }

@@ -27,6 +27,24 @@ prefs = ["gloda.loglevel=Debug"]
 ["test_index_compaction.js"]
 tags = ["compact"]
 
+["test_index_encrypted_messages_imap_offline.js"]
+tags = [
+  "openpgp",
+  "smime",
+]
+
+["test_index_encrypted_messages_local.js"]
+tags = [
+  "openpgp",
+  "smime",
+]
+
+["test_index_encrypted_messages_passphrase.js"]
+tags = [
+  "openpgp",
+  "smime",
+]
+
 ["test_index_junk_imap_offline.js"]
 
 ["test_index_junk_imap_online.js"]
