@@ -1575,9 +1575,30 @@ class SettingsTest {
     }
 
     @Test
-    fun `GIVEN a fresh profile WHEN reading the Power Saving Mode preferences THEN both are false`() {
+    fun `GIVEN a fresh profile WHEN reading the Power Saving Mode preferences THEN all are false`() {
+        assertFalse(settings.powerSavingModeAllowed)
         assertFalse(settings.powerSavingModeAutoEnabled)
         assertFalse(settings.powerSavingModeManuallyEnabled)
+    }
+
+    @Test
+    fun `GIVEN Power Saving Mode is allowed and enabled manually WHEN it is no longer allowed THEN it is not enabled manually`() {
+        settings.powerSavingModeAllowed = true
+        settings.powerSavingModeManuallyEnabled = true
+
+        settings.powerSavingModeAllowed = false
+
+        assertFalse(settings.powerSavingModeManuallyEnabled)
+    }
+
+    @Test
+    fun `GIVEN Power Saving Mode is allowed and follows the OS WHEN it is no longer allowed THEN it no longer follows the OS`() {
+        settings.powerSavingModeAllowed = true
+        settings.powerSavingModeAutoEnabled = true
+
+        settings.powerSavingModeAllowed = false
+
+        assertFalse(settings.powerSavingModeAutoEnabled)
     }
 
     @Test

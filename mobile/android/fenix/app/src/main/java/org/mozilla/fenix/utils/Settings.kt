@@ -3553,6 +3553,26 @@ class Settings(
             default = false,
         )
 
+    private var powerSavingModeAllowedPreference by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_power_saving_mode_allowed),
+            default = false,
+        )
+
+    /**
+     * Indicates if the user is allowed to use Power Saving Mode. Turning this off also turns off both
+     * [powerSavingModeAutoEnabled] and [powerSavingModeManuallyEnabled].
+     */
+    var powerSavingModeAllowed: Boolean
+        get() = powerSavingModeAllowedPreference
+        set(value) {
+            powerSavingModeAllowedPreference = value
+            if (!value) {
+                powerSavingModeAutoPreference = false
+                powerSavingModeManuallyPreference = false
+            }
+        }
+
     private var powerSavingModeAutoPreference by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_power_saving_mode_auto_enabled),

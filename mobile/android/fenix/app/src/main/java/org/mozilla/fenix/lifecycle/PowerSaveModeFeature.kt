@@ -34,7 +34,7 @@ import org.mozilla.fenix.utils.Settings
  *
  * @param context [Context] used to register the power save mode broadcast receiver.
  * @param appStore [AppStore] holding the Power Saving Mode state the rest of the app observes.
- * @param settings Holds the two Power Saving Mode preferences and the last observed power save mode state.
+ * @param settings Holds the Power Saving Mode preferences and the last observed power save mode state.
  * @param powerManagerInfoProvider Provides the current power save mode state.
  */
 class PowerSaveModeFeature(
@@ -56,16 +56,19 @@ class PowerSaveModeFeature(
     }
 
     /**
-     * Whether Power Saving Mode is currently active, either because it was turned on manually or because it follows the
+     * Whether Power Saving Mode is currently active: it must be allowed, and either turned on manually or following the
      * OS power save (battery saver) mode, which is on.
      */
     private val isPowerSavingModeActive: Boolean
-        get() =
-            settings.powerSavingModeManuallyEnabled ||
+        get() {
+            if (!settings.powerSavingModeAllowed) return false
+            return settings.powerSavingModeManuallyEnabled ||
                 (settings.powerSavingModeAutoEnabled && powerManagerInfoProvider.isPowerSaveMode())
+        }
 
     private val powerSavingModePreferenceKeys by lazy {
         setOf(
+            context.getPreferenceKey(R.string.pref_key_power_saving_mode_allowed),
             context.getPreferenceKey(R.string.pref_key_power_saving_mode_auto_enabled),
             context.getPreferenceKey(R.string.pref_key_power_saving_mode_manually_enabled),
         )

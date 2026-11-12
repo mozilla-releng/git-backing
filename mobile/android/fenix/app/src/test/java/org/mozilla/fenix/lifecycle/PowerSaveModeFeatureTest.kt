@@ -163,6 +163,7 @@ class PowerSaveModeFeatureTest {
 
     @Test
     fun `GIVEN Power Saving Mode is enabled manually WHEN the app starts THEN it is active`() {
+        settings.powerSavingModeAllowed = true
         settings.powerSavingModeManuallyEnabled = true
 
         feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
@@ -172,6 +173,7 @@ class PowerSaveModeFeatureTest {
 
     @Test
     fun `GIVEN Power Saving Mode follows the OS WHEN power save mode is off THEN it is not active`() {
+        settings.powerSavingModeAllowed = true
         settings.powerSavingModeAutoEnabled = true
 
         feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
@@ -181,6 +183,7 @@ class PowerSaveModeFeatureTest {
 
     @Test
     fun `GIVEN Power Saving Mode follows the OS WHEN power save mode turns on THEN it becomes active`() {
+        settings.powerSavingModeAllowed = true
         settings.powerSavingModeAutoEnabled = true
         val provider = FakePowerManagerInfoProvider(powerSaveMode = false)
         feature(provider).start()
@@ -193,6 +196,7 @@ class PowerSaveModeFeatureTest {
 
     @Test
     fun `GIVEN the app is started WHEN the manual preference is turned on THEN Power Saving Mode becomes active`() {
+        settings.powerSavingModeAllowed = true
         feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
 
         settings.powerSavingModeManuallyEnabled = true
@@ -202,11 +206,31 @@ class PowerSaveModeFeatureTest {
 
     @Test
     fun `GIVEN Power Saving Mode is active WHEN the manual preference is turned off THEN it becomes inactive`() {
+        settings.powerSavingModeAllowed = true
         settings.powerSavingModeManuallyEnabled = true
         feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
 
         settings.powerSavingModeManuallyEnabled = false
 
         assertFalse(appStore.state.isPowerSavingModeActive)
+    }
+
+    @Test
+    fun `GIVEN Power Saving Mode is enabled manually but not allowed WHEN the app starts THEN it is not active`() {
+        settings.powerSavingModeManuallyEnabled = true
+
+        feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
+
+        assertFalse(appStore.state.isPowerSavingModeActive)
+    }
+
+    @Test
+    fun `GIVEN Power Saving Mode is enabled manually but not allowed WHEN it becomes allowed THEN it becomes active`() {
+        settings.powerSavingModeManuallyEnabled = true
+        feature(FakePowerManagerInfoProvider(powerSaveMode = false)).start()
+
+        settings.powerSavingModeAllowed = true
+
+        assertTrue(appStore.state.isPowerSavingModeActive)
     }
 }
