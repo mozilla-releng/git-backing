@@ -259,6 +259,10 @@ enable-global-search-label =
     .label = Turn on search across all email accounts
     .accesskey = e
 
+gloda-encrypted-messages-label =
+    .label = Include encrypted messages (stores their decrypted content on this computer)
+    .accesskey = I
+
 gloda-results-plain-list-label =
     .label = Show search results as a plain list
     .accesskey = L

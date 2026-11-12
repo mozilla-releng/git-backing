@@ -83,6 +83,7 @@ add_task(async () => {
     {
       checkboxID: "enableGloda",
       pref: "mailnews.database.global.indexer.enabled",
+      enabledElements: ["#glodaExamineEncryptedParts"],
     },
     {
       checkboxID: "allowHWAccel",
@@ -90,6 +91,16 @@ add_task(async () => {
       prefValues: [true, false],
     }
   );
+});
+
+add_task(async () => {
+  await SpecialPowers.pushPrefEnv({
+    set: [["mailnews.database.global.indexer.enabled", true]],
+  });
+  await testCheckboxes("paneGeneral", "enableGloda", {
+    checkboxID: "glodaExamineEncryptedParts",
+    pref: "mailnews.database.global.indexer.examine_encrypted_parts",
+  });
 });
 
 add_task(async () => {

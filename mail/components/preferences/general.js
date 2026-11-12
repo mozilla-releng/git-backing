@@ -99,6 +99,10 @@ Preferences.addAll([
   { id: "font.language.group", type: "string" },
   { id: "intl.regional_prefs.use_os_locales", type: "bool" },
   { id: "mailnews.database.global.indexer.enabled", type: "bool" },
+  {
+    id: "mailnews.database.global.indexer.examine_encrypted_parts",
+    type: "bool",
+  },
   { id: "gloda.show_as_list_by_default", type: "bool" },
   { id: "mailnews.labels.color.1", type: "string" },
   { id: "mailnews.labels.color.2", type: "string" },
@@ -251,6 +255,7 @@ var gGeneralPane = {
     if (AppConstants.platform != "macosx") {
       this.updateShowAlert();
     }
+    this.updateGlodaEncryptedMessages();
     await this.updateWebSearch();
 
     // Search integration -- check whether we should hide or disable integration
@@ -692,6 +697,11 @@ var gGeneralPane = {
       systemNotification.disabled = !Preferences.get("mail.biff.show_alert")
         .value;
     }
+  },
+
+  updateGlodaEncryptedMessages() {
+    document.getElementById("glodaExamineEncryptedParts").disabled =
+      !Preferences.get("mailnews.database.global.indexer.enabled").value;
   },
 
   updateCloseToTray() {
@@ -3027,6 +3037,10 @@ Preferences.get("layers.acceleration.disabled").on(
 Preferences.get("mail.biff.show_alert").on(
   "change",
   gGeneralPane.updateShowAlert
+);
+Preferences.get("mailnews.database.global.indexer.enabled").on(
+  "change",
+  gGeneralPane.updateGlodaEncryptedMessages
 );
 if (AppConstants.platform == "win") {
   Preferences.get("mail.closeToTray").on(
