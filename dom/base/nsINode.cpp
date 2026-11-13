@@ -683,6 +683,10 @@ void nsINode::SetSlots(nsSlots* aSlots) {
 }
 
 EventListenerManager* nsINode::GetNodeListenerManager() const {
+  if (!HasFlag(NODE_HAS_LISTENERMANAGER)) {
+    return nullptr;
+  }
+
   EventListenerManager* elm;
   if (nsSlots* slots = GetExistingSlots()) {
     elm = slots->mListenerManager;
