@@ -6,8 +6,10 @@
  * tests post-plugin message filters as implemented in bug 198100
  */
 
-/* import-globals-from ../../../test/resources/POP3pump.js */
-load("../../../resources/POP3pump.js");
+const { POP3Pump } = ChromeUtils.importESModule(
+  "resource://testing-common/mailnews/POP3Pump.sys.mjs"
+);
+var gPOP3Pump = new POP3Pump();
 
 // Globals
 
@@ -206,10 +208,7 @@ function startCommand() {
     case kClass:
       // classify message
       gPOP3Pump.files = [gTest.fileName];
-      gPOP3Pump.onDone = function () {
-        do_timeout(100, startCommand);
-      };
-      gPOP3Pump.run();
+      gPOP3Pump.run().then(() => do_timeout(100, startCommand));
       break;
   }
 }
