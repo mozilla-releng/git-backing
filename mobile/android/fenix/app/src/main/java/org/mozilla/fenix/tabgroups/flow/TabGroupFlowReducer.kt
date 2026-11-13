@@ -17,7 +17,7 @@ object TabGroupFlowReducer {
                 state.copy(backStack = state.popBackStack())
             }
             is TabGroupAction.TabAddedToNewTabGroup -> {
-                state.navigateToCreateTabGroup(action.tabId)
+                state.navigateToCreateTabGroup(tabId = action.tabId, groupPendingDeletion = action.groupPendingDeletion)
             }
             is TabGroupAction.TabAddedToExistingTabGroup -> {
                 state.copy(backStack = state.popBackStack())
@@ -25,12 +25,26 @@ object TabGroupFlowReducer {
             is TabGroupAction.TabMovedToExistingTabGroup -> {
                 state.copy(backStack = state.popBackStack())
             }
-            is TabGroupAction.SaveClicked -> {
-                // Resets to root after a save
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested -> {
                 state.copy(
-                    backStack = listOf(TabGroupFlowDestination.Root),
-                    tabPendingNewGroup = null,
+                    backStack =
+                        state.backStack +
+                            TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog(
+                                sourceGroupId = action.sourceGroupId,
+                                destinationGroupId = action.destinationGroupId,
+                                sourceGroupTitle = action.sourceGroupTitle,
+                                destinationGroupTitle = action.destinationGroupTitle,
+                            )
                 )
+            }
+            is TabGroupAction.MoveTabAndDeleteGroupCanceled -> {
+                state.copy(backStack = state.popBackStack())
+            }
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmed -> {
+                state.resetBackstack()
+            }
+            is TabGroupAction.SaveClicked -> {
+                state.resetBackstack()
             }
             is TabGroupAction.TabGroupsUpdated -> {
                 state.copy(groups = action.tabGroups)
@@ -74,10 +88,18 @@ object TabGroupFlowReducer {
         }
     }
 
-    private fun TabGroupFlowState.navigateToCreateTabGroup(tabId: String) =
+    private fun TabGroupFlowState.resetBackstack(): TabGroupFlowState =
+        copy(
+            backStack = listOf(TabGroupFlowDestination.Root),
+            tabPendingNewGroup = null,
+            groupPendingDeletion = null,
+        )
+
+    private fun TabGroupFlowState.navigateToCreateTabGroup(tabId: String, groupPendingDeletion: String? = null) =
         copy(
             formState = initializeTabGroupForm(isStarterTabGroup = false),
             backStack = backStack + TabGroupFlowDestination.EditTabGroup,
             tabPendingNewGroup = tabId,
+            groupPendingDeletion = groupPendingDeletion,
         )
 }
