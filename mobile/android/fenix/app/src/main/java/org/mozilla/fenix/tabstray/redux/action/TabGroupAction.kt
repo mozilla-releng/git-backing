@@ -205,4 +205,34 @@ sealed interface TabGroupAction : TabsTrayAction {
 
     /** Pushes enriched [TabsTrayItem.TabGroup] objects from a subscription to the store */
     data class TabGroupsUpdated(val tabGroups: List<TabsTrayItem.TabGroup>) : TabGroupAction
+
+    /**
+     * Invoked when the user confirms moving the last tab out of a group and deleting the source group.
+     *
+     * @param sourceGroupId The source group, which is being deleted
+     * @param destinationGroupId THe target group that the tab is moving to.
+     */
+    data class MoveTabAndDeleteGroupConfirmed(
+        val sourceGroupId: String,
+        val destinationGroupId: String,
+        val destinationGroupTitle: String,
+    ) : TabGroupAction, TabsStorageAction
+
+    /** Invoked when the user cancels moving the last tab out of a group and deleting the source group. */
+    data object MoveTabAndDeleteGroupCanceled : TabGroupAction
+
+    /**
+     * Invoked when the user requests moving the last tab out of a group and deleting the source group.
+     *
+     * @param sourceGroupId The source group, which is being deleted
+     * @param destinationGroupId The target group that the tab is moving to.
+     * @param sourceGroupTitle The source group's title, displayed to the user in a dialog
+     * @param destinationGroupTitle The destination group's title, displayed to the user in a dialog
+     */
+    data class MoveTabAndDeleteGroupConfirmationRequested(
+        val sourceGroupId: String,
+        val destinationGroupId: String,
+        val sourceGroupTitle: String,
+        val destinationGroupTitle: String,
+    ) : TabGroupAction
 }

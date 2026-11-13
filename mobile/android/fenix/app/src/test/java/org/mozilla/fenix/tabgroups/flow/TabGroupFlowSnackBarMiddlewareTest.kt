@@ -45,6 +45,56 @@ class TabGroupFlowSnackBarMiddlewareTest {
     }
 
     @Test
+    fun `GIVEN group strip disabled WHEN moving the last tab and deleting its group is confirmed THEN the moved to group snackbar is shown`() {
+        val store = createStore(entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID))
+
+        store.dispatch(
+            TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                sourceGroupId = SOURCE_GROUP_ID,
+                destinationGroupId = GROUP_ID,
+                destinationGroupTitle = GROUP_TITLE,
+            )
+        )
+
+        appStoreActions.assertLastAction(AppAction.TabMovedToGroup::class) {
+            assertEquals(AppAction.TabMovedToGroup(groupTitle = GROUP_TITLE, groupId = GROUP_ID), it)
+        }
+    }
+
+    @Test
+    fun `GIVEN group strip disabled WHEN moving the last tab and deleting its group is requested or canceled THEN no snackbar is shown`() {
+        val store = createStore(entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID))
+
+        store.dispatch(
+            TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested(
+                sourceGroupId = SOURCE_GROUP_ID,
+                destinationGroupId = GROUP_ID,
+                sourceGroupTitle = SOURCE_GROUP_TITLE,
+                destinationGroupTitle = GROUP_TITLE,
+            )
+        )
+        store.dispatch(TabGroupAction.MoveTabAndDeleteGroupCanceled)
+
+        appStoreActions.assertNoActionDispatched()
+    }
+
+    @Test
+    fun `GIVEN group strip enabled WHEN moving the last tab and deleting its group is confirmed THEN no snackbar is shown`() {
+        val store =
+            createStore(entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID), tabGroupStripEnabled = true)
+
+        store.dispatch(
+            TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                sourceGroupId = SOURCE_GROUP_ID,
+                destinationGroupId = GROUP_ID,
+                destinationGroupTitle = GROUP_TITLE,
+            )
+        )
+
+        appStoreActions.assertNoActionDispatched()
+    }
+
+    @Test
     fun `GIVEN group strip enabled WHEN a tab is added to an existing group THEN no snackbar is shown`() {
         val store = createStore(tabGroupStripEnabled = true)
 
@@ -141,6 +191,8 @@ class TabGroupFlowSnackBarMiddlewareTest {
         const val TAB_ID = "tab-1"
         const val GROUP_ID = "group-1"
         const val GROUP_TITLE = "Work"
+        const val SOURCE_GROUP_ID = "group-0"
+        const val SOURCE_GROUP_TITLE = "Errands"
         const val NEW_GROUP_ID = "new-group"
         const val NEW_GROUP_TITLE = "Groceries"
     }

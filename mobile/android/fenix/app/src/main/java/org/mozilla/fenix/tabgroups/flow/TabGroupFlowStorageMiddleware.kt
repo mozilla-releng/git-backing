@@ -70,6 +70,13 @@ class TabGroupFlowStorageMiddleware(
                 addTabToGroup(groupId = action.groupId, tabId = action.tabId)
             is TabGroupAction.TabMovedToExistingTabGroup ->
                 addTabToGroup(groupId = action.groupId, tabId = action.tabId)
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmed ->
+                mainScope.launch {
+                    tabDataCoordinator.mergeTabGroups(
+                        sourceTabGroupId = action.sourceGroupId,
+                        destinationTabGroupId = action.destinationGroupId,
+                    )
+                }
 
             // Actions not handled outside the tabs tray currently
             is TabGroupAction.CloseTabAndDeleteGroupConfirmed,
