@@ -5,6 +5,7 @@
 #include "sandboxTarget.h"
 
 #include "mozilla/CpuInfo.h"
+#include "mozilla/DynamicallyLinkedFunctionPtr.h"
 #include "mozilla/SandboxSettings.h"
 #include "mozilla/WindowsStackWalkInitialization.h"
 #include "sandbox/win/src/sandbox.h"
@@ -32,11 +33,36 @@ void SandboxTarget::StartSandbox() {
   }
 }
 
+#if defined(_M_X64)
+static bool IsX64EmulatedOnArm64() {
+  static const StaticDynamicallyLinkedFunctionPtr<decltype(&::IsWow64Process2)>
+      isWow64Process2(L"kernel32.dll", "IsWow64Process2");
+  if (!isWow64Process2) {
+    return false;
+  }
+
+  USHORT processMachine;
+  USHORT nativeMachine;
+  return isWow64Process2(::GetCurrentProcess(), &processMachine,
+                         &nativeMachine) &&
+         nativeMachine == IMAGE_FILE_MACHINE_ARM64;
+}
+#endif  // _M_X64
+
 void SandboxTarget::LowerContentSandbox() {
   if (GetEffectiveContentSandboxLevel() > 7) {
     // Libraries required by Network Security Services (NSS).
     ::LoadLibraryW(L"freebl3.dll");
     ::LoadLibraryW(L"softokn3.dll");
+#if defined(_M_X64)
+    // When emulated on ARM64 the loader uses ARM64EC entry points that bypass
+    // our interceptions, so late loads from System32 fail.
+    if (IsX64EmulatedOnArm64()) {
+      ::LoadLibraryExW(L"TextShaping.dll", nullptr,
+                       LOAD_LIBRARY_SEARCH_SYSTEM32);
+      ::LoadLibraryExW(L"avrt.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    }
+#endif  // _M_X64
     // Cache value that is retrieved from a registry entry.
     (void)GetCpuFrequencyMHz();
   }
