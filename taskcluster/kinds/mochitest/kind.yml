@@ -65,7 +65,7 @@ task-defaults:
                 default: []
         toolchain:
             by-test-platform:
-                win.*-64.*:
+                win.*-x?64.*:
                     - win64-node
                     - win32-minidump-stackwalk
                     - win32-fix-stacks
@@ -314,7 +314,7 @@ tasks:
                         - macosx64-aarch64-fix-stacks
                         - macosx64-aarch64-samply
                         - profiler-node-tools
-                    win.*-64.*:
+                    win.*-x?64.*:
                         - win64-node
                         - win32-minidump-stackwalk
                         - win32-fix-stacks
@@ -851,7 +851,7 @@ tasks:
                         - macosx64-aarch64-fix-stacks
                         - macosx64-aarch64-samply
                         - profiler-node-tools
-                    win.*-64.*:
+                    win.*-x?64.*:
                         - win64-node
                         - win32-minidump-stackwalk
                         - win32-fix-stacks
