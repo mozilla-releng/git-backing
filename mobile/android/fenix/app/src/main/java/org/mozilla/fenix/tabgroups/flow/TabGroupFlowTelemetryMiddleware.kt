@@ -46,6 +46,12 @@ class TabGroupFlowTelemetryMiddleware : Middleware<TabGroupFlowState, TabGroupAc
                 tabGroupTelemetry.recordTabAddedToGroup(1)
             }
 
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmed -> {
+                tabGroupTelemetry.recordTabAddedToGroup(1)
+            }
+
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested,
+            TabGroupAction.MoveTabAndDeleteGroupCanceled,
             TabGroupAction.AddToNewTabGroup,
             TabGroupAction.AddToTabGroup,
             is TabGroupAction.CloseTabAndDeleteGroupConfirmed,

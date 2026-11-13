@@ -86,6 +86,9 @@ object TabGroupActionReducer {
             is TabGroupAction.TabAddedToNewTabGroup -> state
             is TabGroupAction.TabGroupsUpdated -> state
             is TabGroupAction.TabMovedToExistingTabGroup -> state
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmed -> state
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested -> state
+            is TabGroupAction.MoveTabAndDeleteGroupCanceled -> state
         }
     }
 

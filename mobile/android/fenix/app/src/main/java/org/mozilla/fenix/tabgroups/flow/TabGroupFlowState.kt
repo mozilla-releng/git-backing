@@ -58,3 +58,8 @@ fun TabGroupFlowState.initializeTabGroupForm(isStarterTabGroup: Boolean = false)
 fun TabGroupFlowState.moveTargetGroups(tabId: String): List<TabsTrayItem.TabGroup> = groups.filter { group ->
     group.tabs.none { it.id == tabId }
 }
+
+/** Returns the group [tabId] is in, if any. */
+fun TabGroupFlowState.groupContaining(tabId: String): TabsTrayItem.TabGroup? = groups.firstOrNull { group ->
+    group.tabs.any { it.id == tabId }
+}

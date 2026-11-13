@@ -156,6 +156,11 @@ class TabGroupFlowFragment : DialogFragment() {
             ) { args ->
                 ExpandedTabGroupEntry(group = args.group, state = state)
             }
+
+            entry<TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog>(metadata = DialogSceneStrategy.dialog()) {
+                args ->
+                RenderMoveLastTabAndDeleteTabGroupConfirmationDialog(dispatcher = store::dispatch, args = args)
+            }
         }
     }
 
@@ -249,12 +254,22 @@ class TabGroupFlowFragment : DialogFragment() {
                 dispatcher(TabGroupAction.TabAddedToNewTabGroup(tabId = destination.tabId))
             },
             onAddToExistingTabGroup = { group ->
+                val containingGroup = store.state.groupContaining(destination.tabId)
                 dispatcher(
-                    TabGroupAction.TabMovedToExistingTabGroup(
-                        groupId = group.id,
-                        tabId = destination.tabId,
-                        groupTitle = group.title,
-                    )
+                    if (containingGroup?.tabs?.size == 1) {
+                        TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested(
+                            sourceGroupId = containingGroup.id,
+                            destinationGroupId = group.id,
+                            sourceGroupTitle = containingGroup.title,
+                            destinationGroupTitle = group.title,
+                        )
+                    } else {
+                        TabGroupAction.TabMovedToExistingTabGroup(
+                            groupId = group.id,
+                            tabId = destination.tabId,
+                            groupTitle = group.title,
+                        )
+                    }
                 )
             },
         )
@@ -277,6 +292,29 @@ class TabGroupFlowFragment : DialogFragment() {
             },
             onConfirmSave = {
                 dispatcher(TabGroupAction.SaveClicked)
+            },
+        )
+    }
+
+    @Composable
+    private fun RenderMoveLastTabAndDeleteTabGroupConfirmationDialog(
+        dispatcher: (TabGroupAction) -> Unit,
+        args: TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog,
+    ) {
+        MoveLastTabAndDeleteTabGroupConfirmationDialog(
+            sourceTabGroupTitle = args.sourceGroupTitle,
+            destinationTabGroupTitle = args.destinationGroupTitle,
+            onConfirmDelete = {
+                dispatcher(
+                    TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                        sourceGroupId = args.sourceGroupId,
+                        destinationGroupId = args.destinationGroupId,
+                        destinationGroupTitle = args.destinationGroupTitle,
+                    )
+                )
+            },
+            onCancel = {
+                dispatcher(TabGroupAction.MoveTabAndDeleteGroupCanceled)
             },
         )
     }
