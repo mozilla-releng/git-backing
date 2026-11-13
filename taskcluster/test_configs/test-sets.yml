@@ -338,6 +338,10 @@ windows32-tests:
 windows-aarch64-tests:
     - cppunittest
 
+windows-aarch64-x64-tests:
+    - mochitest-plain
+    - mochitest-browser-chrome
+
 windows10-2009-tests:
     - cppunittest
     - gtest

@@ -158,6 +158,9 @@ WINDOWS_WORKER_TYPES = {
     "windows11-aarch64-25h2-shippable": {
         "virtual": "win11-a64-25h2",
     },
+    "windows11-aarch64-25h2-x64": {
+        "virtual": "win11-a64-25h2",
+    },
 }
 
 # os x worker types keyed by test-platform
