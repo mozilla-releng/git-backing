@@ -156,6 +156,11 @@ class TabGroupFlowFragment : DialogFragment() {
             ) { args ->
                 ExpandedTabGroupEntry(group = args.group, state = state)
             }
+
+            entry<TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog>(metadata = DialogSceneStrategy.dialog()) {
+                args ->
+                RenderMoveLastTabAndDeleteTabGroupConfirmationDialog(dispatcher = store::dispatch, args = args)
+            }
         }
     }
 
@@ -250,7 +255,7 @@ class TabGroupFlowFragment : DialogFragment() {
             },
             onAddToExistingTabGroup = { group ->
                 dispatcher(
-                    TabGroupAction.TabMovedToExistingTabGroup(
+                    TabGroupAction.ExistingGroupSelectedForMove(
                         groupId = group.id,
                         tabId = destination.tabId,
                         groupTitle = group.title,
@@ -277,6 +282,29 @@ class TabGroupFlowFragment : DialogFragment() {
             },
             onConfirmSave = {
                 dispatcher(TabGroupAction.SaveClicked)
+            },
+        )
+    }
+
+    @Composable
+    private fun RenderMoveLastTabAndDeleteTabGroupConfirmationDialog(
+        dispatcher: (TabGroupAction) -> Unit,
+        args: TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog,
+    ) {
+        MoveLastTabAndDeleteTabGroupConfirmationDialog(
+            sourceTabGroupTitle = args.sourceGroupTitle,
+            destinationTabGroupTitle = args.destinationGroupTitle,
+            onConfirmDelete = {
+                dispatcher(
+                    TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                        sourceGroupId = args.sourceGroupId,
+                        destinationGroupId = args.destinationGroupId,
+                        destinationGroupTitle = args.destinationGroupTitle,
+                    )
+                )
+            },
+            onCancel = {
+                dispatcher(TabGroupAction.MoveTabAndDeleteGroupCanceled)
             },
         )
     }
