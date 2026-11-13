@@ -276,6 +276,54 @@ class TabGroupFlowReducerTest {
     }
 
     @Test
+    fun `WHEN TabAddedToNewTabGroup invoked with tab id THEN only the tab pending group assignment is set`() {
+        val initialState = TabGroupFlowState(entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"))
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.TabAddedToNewTabGroup(tabId = "123"),
+            )
+        assertEquals(
+            expected =
+                listOf(
+                    TabGroupFlowDestination.Root,
+                    TabGroupFlowDestination.MoveToTabGroup(tabId = "123"),
+                    TabGroupFlowDestination.EditTabGroup,
+                ),
+            actual = resultState.backStack,
+        )
+        assertNotNull(resultState.formState)
+        assertEquals(expected = "123", actual = resultState.tabPendingNewGroup)
+        assertNull(resultState.groupPendingDeletion)
+    }
+
+    @Test
+    fun `WHEN TabAddedToNewTabGroup invoked with tab id AND a group pending deletion THEN both the tab pending group assignment and group pending deletion are set`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack = listOf(TabGroupFlowDestination.Root, TabGroupFlowDestination.MoveToTabGroup(tabId = "123")),
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"),
+            )
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.TabAddedToNewTabGroup(tabId = "123", groupPendingDeletion = "source"),
+            )
+        assertEquals(
+            expected =
+                listOf(
+                    TabGroupFlowDestination.Root,
+                    TabGroupFlowDestination.MoveToTabGroup(tabId = "123"),
+                    TabGroupFlowDestination.EditTabGroup,
+                ),
+            actual = resultState.backStack,
+        )
+        assertNotNull(resultState.formState)
+        assertEquals(expected = "123", actual = resultState.tabPendingNewGroup)
+        assertEquals(expected = "source", actual = resultState.groupPendingDeletion)
+    }
+
+    @Test
     fun `WHEN SaveClicked invoked THEN the pending tab is cleared`() {
         val initialState =
             TabGroupFlowState(
@@ -290,6 +338,24 @@ class TabGroupFlowReducerTest {
                 action = TabGroupAction.SaveClicked,
             )
         assertNull(resultState.tabPendingNewGroup)
+    }
+
+    @Test
+    fun `WHEN SaveClicked invoked THEN the group pending deletion is cleared`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack = listOf(TabGroupFlowDestination.Root, TabGroupFlowDestination.EditTabGroup),
+                formState = TabGroupFormState(tabGroupId = null, name = "Work"),
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"),
+                tabPendingNewGroup = "123",
+                groupPendingDeletion = "source",
+            )
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.SaveClicked,
+            )
+        assertNull(resultState.groupPendingDeletion)
     }
 
     @Test
@@ -326,5 +392,124 @@ class TabGroupFlowReducerTest {
                 groups = listOf(groupWithTabs, emptyGroup),
             )
         assertEquals(expected = listOf(groupWithTabs, emptyGroup), actual = initialState.moveTargetGroups("3"))
+    }
+
+    @Test
+    fun `WHEN a tab is part of a group THEN groupContaining returns that group`() {
+        val groupWithTab = createTabGroup(id = "GroupWithTab", tabs = listOf(createTab("mozilla.com", id = "1")))
+        val otherGroup = createTabGroup(id = "OtherGroup", tabs = listOf(createTab("wikipedia.org", id = "2")))
+        val state =
+            TabGroupFlowState(
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "1"),
+                groups = listOf(otherGroup, groupWithTab),
+            )
+
+        assertEquals(expected = groupWithTab, actual = state.groupContaining("1"))
+    }
+
+    @Test
+    fun `WHEN a tab is not part of any group THEN groupContaining returns null`() {
+        val state =
+            TabGroupFlowState(
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "3"),
+                groups = listOf(createTabGroup(id = "Group", tabs = listOf(createTab("mozilla.com", id = "1")))),
+            )
+
+        assertNull(state.groupContaining("3"))
+    }
+
+    @Test
+    fun `WHEN MoveTabAndDeleteGroupConfirmationRequested invoked THEN the confirmation dialog is added to the backstack`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack = listOf(TabGroupFlowDestination.Root, TabGroupFlowDestination.MoveToTabGroup(tabId = "123")),
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"),
+            )
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action =
+                    TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested(
+                        sourceGroupId = "source",
+                        destinationGroupId = "destination",
+                        sourceGroupTitle = "Old",
+                        destinationGroupTitle = "New",
+                    ),
+            )
+        assertEquals(
+            expected =
+                listOf(
+                    TabGroupFlowDestination.Root,
+                    TabGroupFlowDestination.MoveToTabGroup(tabId = "123"),
+                    TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog(
+                        sourceGroupId = "source",
+                        destinationGroupId = "destination",
+                        sourceGroupTitle = "Old",
+                        destinationGroupTitle = "New",
+                    ),
+                ),
+            actual = resultState.backStack,
+        )
+    }
+
+    @Test
+    fun `WHEN MoveTabAndDeleteGroupCanceled invoked THEN the user returns to the move sheet`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack =
+                    listOf(
+                        TabGroupFlowDestination.Root,
+                        TabGroupFlowDestination.MoveToTabGroup(tabId = "123"),
+                        TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog(
+                            sourceGroupId = "source",
+                            destinationGroupId = "destination",
+                            sourceGroupTitle = "Old",
+                            destinationGroupTitle = "New",
+                        ),
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"),
+            )
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action = TabGroupAction.MoveTabAndDeleteGroupCanceled,
+            )
+        assertEquals(
+            expected = listOf(TabGroupFlowDestination.Root, TabGroupFlowDestination.MoveToTabGroup(tabId = "123")),
+            actual = resultState.backStack,
+        )
+    }
+
+    @Test
+    fun `WHEN MoveTabAndDeleteGroupConfirmed invoked THEN the backstack is reset to root`() {
+        val initialState =
+            TabGroupFlowState(
+                backStack =
+                    listOf(
+                        TabGroupFlowDestination.Root,
+                        TabGroupFlowDestination.MoveToTabGroup(tabId = "123"),
+                        TabGroupFlowDestination.MoveLastTabAndDeleteGroupDialog(
+                            sourceGroupId = "source",
+                            destinationGroupId = "destination",
+                            sourceGroupTitle = "Old",
+                            destinationGroupTitle = "New",
+                        ),
+                    ),
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = "123"),
+            )
+        val resultState =
+            TabGroupFlowReducer.reduce(
+                state = initialState,
+                action =
+                    TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                        sourceGroupId = "source",
+                        destinationGroupId = "destination",
+                        destinationGroupTitle = "New",
+                    ),
+            )
+        assertEquals(
+            expected = listOf(TabGroupFlowDestination.Root),
+            actual = resultState.backStack,
+        )
     }
 }

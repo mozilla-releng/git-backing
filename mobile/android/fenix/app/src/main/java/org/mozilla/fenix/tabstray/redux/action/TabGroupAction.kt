@@ -118,8 +118,10 @@ sealed interface TabGroupAction : TabsTrayAction {
      * Fired when the user performs an action to add a single item to a new Tab Group, such as from the menu.
      *
      * @property tabId The ID of the tab.
+     * @property groupPendingDeletion The id of the group pending deletion, if the last tab is being removed.
      */
-    data class TabAddedToNewTabGroup(val tabId: String) : TabGroupAction, TabsStorageAction
+    data class TabAddedToNewTabGroup(val tabId: String, val groupPendingDeletion: String? = null) :
+        TabGroupAction, TabsStorageAction
 
     /**
      * Fired when the user performs an action to add a single item to an existing Tab Group, such as a drag and drop.
@@ -205,4 +207,35 @@ sealed interface TabGroupAction : TabsTrayAction {
 
     /** Pushes enriched [TabsTrayItem.TabGroup] objects from a subscription to the store */
     data class TabGroupsUpdated(val tabGroups: List<TabsTrayItem.TabGroup>) : TabGroupAction
+
+    /**
+     * Invoked when the user confirms moving the last tab out of a group and deleting the source group.
+     *
+     * @property sourceGroupId The group the tab is moving from, which is being deleted
+     * @property destinationGroupId The group the tab is moving to.
+     * @property destinationGroupTitle The title of the destination group.
+     */
+    data class MoveTabAndDeleteGroupConfirmed(
+        val sourceGroupId: String,
+        val destinationGroupId: String,
+        val destinationGroupTitle: String,
+    ) : TabGroupAction, TabsStorageAction
+
+    /** Invoked when the user cancels moving the last tab out of a group and deleting the source group. */
+    data object MoveTabAndDeleteGroupCanceled : TabGroupAction
+
+    /**
+     * Invoked when the user requests moving the last tab out of a group and deleting the source group.
+     *
+     * @property sourceGroupId The source group, which is being deleted
+     * @property destinationGroupId The target group that the tab is moving to.
+     * @property sourceGroupTitle The source group's title, displayed to the user in a dialog
+     * @property destinationGroupTitle The destination group's title, displayed to the user in a dialog
+     */
+    data class MoveTabAndDeleteGroupConfirmationRequested(
+        val sourceGroupId: String,
+        val destinationGroupId: String,
+        val sourceGroupTitle: String,
+        val destinationGroupTitle: String,
+    ) : TabGroupAction
 }

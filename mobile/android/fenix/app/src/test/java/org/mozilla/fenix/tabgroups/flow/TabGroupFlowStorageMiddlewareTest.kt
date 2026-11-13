@@ -85,6 +85,66 @@ class TabGroupFlowStorageMiddlewareTest {
     }
 
     @Test
+    fun `WHEN moving the last tab and deleting its group is confirmed THEN the tab is reassigned and the source group is deleted`() =
+        runTest {
+            val destinationGroup =
+                TabGroup(id = "group-2", title = "Destination", theme = TabGroupTheme.Pink.name, lastModified = 0L)
+            val repository =
+                createRepository(
+                    groups = listOf(existingGroup, destinationGroup),
+                    assignments = mapOf(TAB_ID to GROUP_ID),
+                )
+            val store =
+                createStore(
+                    repository = repository,
+                    entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID),
+                )
+
+            store.dispatch(
+                TabGroupAction.MoveTabAndDeleteGroupConfirmed(
+                    sourceGroupId = GROUP_ID,
+                    destinationGroupId = destinationGroup.id,
+                    destinationGroupTitle = destinationGroup.title,
+                )
+            )
+            runCurrent()
+
+            val data = repository.tabGroupDataFlow.first()
+            assertEquals(mapOf(TAB_ID to destinationGroup.id), data.tabGroupAssignments)
+            assertEquals(listOf(destinationGroup.id), data.tabGroups.map { it.id })
+        }
+
+    @Test
+    fun `WHEN moving the last tab and deleting its group is requested THEN storage is unchanged`() = runTest {
+        val destinationGroup =
+            TabGroup(id = "group-2", title = "Destination", theme = TabGroupTheme.Pink.name, lastModified = 0L)
+        val repository =
+            createRepository(
+                groups = listOf(existingGroup, destinationGroup),
+                assignments = mapOf(TAB_ID to GROUP_ID),
+            )
+        val initialData = repository.tabGroupDataFlow.first()
+        val store =
+            createStore(
+                repository = repository,
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID),
+            )
+
+        store.dispatch(
+            TabGroupAction.MoveTabAndDeleteGroupConfirmationRequested(
+                sourceGroupId = GROUP_ID,
+                destinationGroupId = destinationGroup.id,
+                sourceGroupTitle = GROUP_TITLE,
+                destinationGroupTitle = destinationGroup.title,
+            )
+        )
+        store.dispatch(TabGroupAction.MoveTabAndDeleteGroupCanceled)
+        runCurrent()
+
+        assertEquals(initialData, repository.tabGroupDataFlow.first())
+    }
+
+    @Test
     fun `GIVEN a new group form and a pending tab WHEN save is clicked THEN the group is created with the tab`() =
         runTest {
             val repository = createRepository()
@@ -124,6 +184,50 @@ class TabGroupFlowStorageMiddlewareTest {
                 assertEquals(storedGroup.id, it.id)
             }
         }
+
+    @Test
+    fun `GIVEN a group pending deletion WHEN save is clicked THEN the tab is moved to the new group and the source group is deleted`() =
+        runTest {
+            val repository = createRepository(groups = listOf(existingGroup), assignments = mapOf(TAB_ID to GROUP_ID))
+            val store =
+                createStore(
+                    repository = repository,
+                    entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID),
+                    formState = TabGroupFormState(tabGroupId = null, name = "Errands", theme = TabGroupTheme.Pink),
+                    tabPendingNewGroup = TAB_ID,
+                    groupPendingDeletion = GROUP_ID,
+                )
+
+            store.dispatch(TabGroupAction.SaveClicked)
+            runCurrent()
+
+            val data = repository.tabGroupDataFlow.first()
+            val newGroup = data.tabGroups.single()
+            assertEquals("Errands", newGroup.title)
+            assertEquals(mapOf(TAB_ID to newGroup.id), data.tabGroupAssignments)
+            captureMiddleware.assertLastAction(TabGroupAction.NewGroupCreated::class) {
+                assertEquals(newGroup.id, it.id)
+            }
+        }
+
+    @Test
+    fun `GIVEN no group pending deletion WHEN save is clicked THEN the tab's previous group is kept`() = runTest {
+        val repository = createRepository(groups = listOf(existingGroup), assignments = mapOf(TAB_ID to GROUP_ID))
+        val store =
+            createStore(
+                repository = repository,
+                entryPoint = TabGroupFlowEntryPoint.MoveTabToGroup(tabId = TAB_ID),
+                formState = TabGroupFormState(tabGroupId = null, name = "Errands"),
+                tabPendingNewGroup = TAB_ID,
+            )
+
+        store.dispatch(TabGroupAction.SaveClicked)
+        runCurrent()
+
+        val data = repository.tabGroupDataFlow.first()
+        assertEquals(2, data.tabGroups.size)
+        assertTrue(data.tabGroups.any { it.id == GROUP_ID })
+    }
 
     @Test
     fun `GIVEN an existing group form WHEN save is clicked THEN the group is updated and no group is created`() =
@@ -191,6 +295,7 @@ class TabGroupFlowStorageMiddlewareTest {
         entryPoint: TabGroupFlowEntryPoint = TabGroupFlowEntryPoint.AddTabToGroup(tabId = TAB_ID),
         formState: TabGroupFormState? = null,
         tabPendingNewGroup: String? = null,
+        groupPendingDeletion: String? = null,
     ): TabGroupFlowStore {
         val browserStore = BrowserStore(initialState = BrowserState(tabs = listOf(tab)))
         val appStore = AppStore()
@@ -227,6 +332,7 @@ class TabGroupFlowStorageMiddlewareTest {
                     entryPoint = entryPoint,
                     formState = formState,
                     tabPendingNewGroup = tabPendingNewGroup,
+                    groupPendingDeletion = groupPendingDeletion,
                 ),
             middlewares =
                 listOf(

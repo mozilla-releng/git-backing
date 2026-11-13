@@ -53,6 +53,7 @@ class TabGroupFlowStorageMiddleware(
             is TabGroupAction.SaveClicked -> {
                 // Read before launching, as the reducer clears the pending tab once this action goes through.
                 val form = store.state.formState ?: return
+                val groupPendingDeletion = store.state.groupPendingDeletion
                 val tabIds = if (form.inEditState) emptyList() else listOf(store.state.tabPendingNewGroup ?: return)
                 mainScope.launch {
                     val groupId =
@@ -61,6 +62,9 @@ class TabGroupFlowStorageMiddleware(
                             selectedTabIds = tabIds,
                         )
                     if (groupId != null) {
+                        if (groupPendingDeletion != null) {
+                            tabDataCoordinator.deleteTabGroupsById(listOf(groupPendingDeletion))
+                        }
                         store.dispatch(TabGroupAction.NewGroupCreated(groupId))
                     }
                 }
@@ -70,6 +74,13 @@ class TabGroupFlowStorageMiddleware(
                 addTabToGroup(groupId = action.groupId, tabId = action.tabId)
             is TabGroupAction.TabMovedToExistingTabGroup ->
                 addTabToGroup(groupId = action.groupId, tabId = action.tabId)
+            is TabGroupAction.MoveTabAndDeleteGroupConfirmed ->
+                mainScope.launch {
+                    tabDataCoordinator.mergeTabGroups(
+                        sourceTabGroupId = action.sourceGroupId,
+                        destinationTabGroupId = action.destinationGroupId,
+                    )
+                }
 
             // Actions not handled outside the tabs tray currently
             is TabGroupAction.CloseTabAndDeleteGroupConfirmed,
