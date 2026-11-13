@@ -195,10 +195,7 @@ class CallbackObjectBase {
     mCreationStack = aCreationStack;
     if (aIncumbentGlobal) {
       mIncumbentGlobal = aIncumbentGlobal;
-      // We don't want to expose to JS here (change the color).  If someone ever
-      // reads mIncumbentJSGlobal, that will expose.  If not, no need to expose
-      // here.
-      mIncumbentJSGlobal = aIncumbentGlobal->GetGlobalJSObjectPreserveColor();
+      mIncumbentJSGlobal = aIncumbentGlobal->GetGlobalJSObject();
     }
   }
 
