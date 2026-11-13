@@ -363,6 +363,11 @@ windows11-aarch64-25h2/debug:
     test-sets:
         - windows-aarch64-tests
 
+windows11-aarch64-25h2-x64/opt:
+    build-platform: win64/opt
+    test-sets:
+        - windows-aarch64-x64-tests
+
 ##
 # MacOS X platforms (matching /macosx.*/)
 
