@@ -20,6 +20,12 @@ run-if = [
 ]
 tags = "os_integration"
 
+["browser_content_sandbox_avrt.js"]
+run-if = ["os == 'win'"]
+
+["browser_content_sandbox_font_fallback.js"]
+run-if = ["os == 'win'"]
+
 ["browser_content_sandbox_fs.js"]
 skip-if = [
   "os == 'win' && os_version == '11.26200' && arch == 'x86' && debug", # bug 1379635
