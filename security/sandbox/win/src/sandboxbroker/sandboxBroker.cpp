@@ -577,7 +577,7 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
   constexpr bool isThunderbird = false;
 #endif
 
-  if (!isThunderbird &&
+  if (getenv("MOZ_TRY_ENABLE_DLL_BLOCKLIST") && !isThunderbird &&
       XRE_GetChildProcBinPathType(aProcessType) == BinPathType::Self) {
     RefPtr<DllServices> dllSvc(DllServices::Get());
     LauncherVoidResultWithLineInfo blocklistInitOk =

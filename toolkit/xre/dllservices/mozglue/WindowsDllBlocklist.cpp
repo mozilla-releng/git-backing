@@ -576,6 +576,9 @@ MFBT_API void DllBlocklist_Initialize(uint32_t aInitFlags) {
   sInitFlags = aInitFlags;
 
   glue::ModuleLoadFrame::StaticInit(&gMozglueLoaderObserver, &gWinLauncher);
+  if (!getenv("MOZ_TRY_ENABLE_DLL_BLOCKLIST")) {
+    return;
+  }
 
   // Bug 1361410: WRusr.dll will overwrite our hook and cause a crash.
   // Workaround: If we detect WRusr.dll, don't hook.
