@@ -740,14 +740,17 @@ export class VCardProperties {
    * @returns {?VCardProperties}
    */
   static fromVCard(vCard, { isGoogleCardDAV = false } = {}) {
-    const vCards = vCard.match(/BEGIN:VCARD[\s\S]*?END:VCARD/gi);
-    if (!vCards) {
+    const start = vCard.search(/BEGIN:VCARD/i);
+    const card =
+      start != -1 &&
+      /^BEGIN:VCARD[\s\S]*?END:VCARD/i.exec(vCard.slice(start))?.[0];
+    if (!card) {
       return null;
     }
-    if (vCards.length > 1) {
+    if (/BEGIN:VCARD/i.test(vCard.slice(start + card.length))) {
       console.warn(`Card data had more than one vCard ${vCard}`);
     }
-    vCard = VCardUtils.translateVCard21(vCards[0]);
+    vCard = VCardUtils.translateVCard21(card);
     // Google joins the X-APPLE-OMIT-YEAR parameter (see VCardUtils.parseDate)
     // to the VALUE parameter with a comma, as in
     // BDAY;VALUE=DATE,X-APPLE-OMIT-YEAR=1604:1604-04-15.
