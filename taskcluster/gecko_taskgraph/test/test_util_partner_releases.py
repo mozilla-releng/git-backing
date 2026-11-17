@@ -133,13 +133,108 @@ def test_missing_recorded_uploads_are_rejected(upload_config, uploads):
         list(make_beetmover_push_to_release_description(upload_config, [task]))
 
 
+@pytest.mark.parametrize(
+    "state,flavor,version,passes",
+    [
+        ("completed", "push_firefox", "160.0", True),
+        ("completed", "ship_firefox", "160.0", True),
+        ("failed", "push_firefox", "160.0", False),
+        ("running", "push_firefox", "160.0", False),
+        ("completed", "push_firefox_partner", "160.0", False),
+        ("completed", "push_firefox", "other", False),
+    ],
+)
+def test_partner_push_requires_completed_regular_push(
+    mocker, state, flavor, version, passes
+):
+    from gecko_taskgraph.util import partner_releases as releases
+
+    params = {
+        "project": "try",
+        "head_rev": "abc",
+        "version": "160.0",
+        "build_number": 2,
+    }
+    definitions = {
+        "supplied": {
+            "extra": {
+                "action": {
+                    "name": "release-promotion",
+                    "context": {"input": {"release_promotion_flavor": flavor}},
+                }
+            }
+        },
+        "push-task": {
+            "payload": {"product": "firefox", "version": version, "build_number": 2}
+        },
+    }
+    mocker.patch.object(
+        releases, "get_task_definition", side_effect=definitions.__getitem__
+    )
+    mocker.patch.object(
+        releases,
+        "get_artifact",
+        side_effect=lambda task, name: (
+            params
+            if name.endswith("parameters.yml")
+            else {"firefox-push-to-release": "push-task"}
+        ),
+    )
+    queue = mocker.Mock()
+    queue.status.return_value = {"status": {"state": state}}
+    mocker.patch.object(releases, "get_taskcluster_client", return_value=queue)
+    if passes:
+        assert (
+            releases.require_completed_release_push(["supplied"], params) == "push-task"
+        )
+    else:
+        with pytest.raises(ValueError, match="completed regular Firefox push"):
+            releases.require_completed_release_push(["supplied"], params)
+
+
+def test_partner_push_binds_all_existing_prerequisites(upload_config, mocker):
+    upload_config.params.update(
+        target_tasks_method="push_partner",
+        existing_tasks={"checksums": "completed-checksums"},
+    )
+    mocker.patch.object(
+        task_transforms,
+        "get_release_config",
+        return_value={"version": "160.0", "build_number": 2},
+    )
+    task = {
+        "worker": {"product": "firefox"},
+        "dependencies": {"checksums": "checksums"},
+    }
+    result = {}
+    task_transforms.build_beetmover_push_to_release_payload(upload_config, task, result)
+    assert task["dependencies"] == {}
+    assert result["dependencies"] == ["uploaded-partner", "completed-checksums"]
+
+
+def test_partner_push_rejects_rebuilding_release_prerequisites(upload_config, mocker):
+    import gecko_taskgraph.transforms.beetmover_push_to_release as push
+
+    mocker.patch.object(push, "get_beetmover_bucket_scope", return_value="bucket")
+    mocker.patch.object(push, "add_scope_prefix", return_value="action")
+    upload_config.params["target_tasks_method"] = "push_partner"
+    task = {
+        "name": "firefox-push-to-release",
+        "product": "firefox",
+        "treeherder-platform": "firefox/opt",
+        "dependencies": {"checksums": "checksums"},
+    }
+    with pytest.raises(ValueError, match="must reuse completed prerequisite checksums"):
+        list(make_beetmover_push_to_release_description(upload_config, [task]))
+
+
 def test_promotion_does_not_require_already_uploaded_partners(upload_config, mocker):
     import gecko_taskgraph.transforms.beetmover_push_to_release as push
 
     mocker.patch.object(push, "get_beetmover_bucket_scope", return_value="bucket")
     mocker.patch.object(push, "add_scope_prefix", return_value="action")
     upload_config.params.update(
-        target_tasks_method="promote_desktop", existing_tasks={}
+        target_tasks_method="promote_partner", existing_tasks={}
     )
     upload_config.params["release_partner_config"]["release-partner-repack"]["acme"][
         "one"

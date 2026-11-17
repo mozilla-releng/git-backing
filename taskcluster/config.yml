@@ -512,13 +512,18 @@ release-promotion:
                 - release-partner-repack-repackage
                 - release-partner-repack-repackage-signing
                 - release-partner-repack-beetmover
-            target-tasks-method: promote_desktop
+            target-tasks-method: promote_partner
         promote_firefox_partner_attribution:
             product: firefox
             rebuild-kinds:
                 - release-partner-attribution
                 - release-partner-attribution-beetmover
-            target-tasks-method: promote_desktop
+            target-tasks-method: promote_partner
+        push_firefox_partner:
+            product: firefox
+            target-tasks-method: push_partner
+            rebuild-kinds:
+                - release-beetmover-push-to-release
         push_devedition:
             product: devedition
             target-tasks-method: push_desktop

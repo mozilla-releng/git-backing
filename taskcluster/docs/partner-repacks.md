@@ -54,7 +54,7 @@ Firefox releases directory in the `push` phase, along with the regular bits.
 ## Off-cycle partner repacks
 
 To run an off-cycle partner repack, trigger the Release Promotion action and set
-`release_promotion_flavor` to one of the two partner flavors below.
+`release_promotion_flavor` to one of the three partner flavors below.
 
 ### `promote_firefox_partner_repack`
 
@@ -69,6 +69,14 @@ Use this when a campaign starts after regular promotion or needs a corrected
 attribution code. The action adds campaign attribution to the configured
 installers and uploads them to candidates. Set `release_partners` to the
 campaign names you want to rebuild.
+
+### `push_firefox_partner`
+
+Use this to publish partner candidates after the regular Firefox push has
+completed. In `previous_graph_ids`, list the decision graph, regular promotion
+graph, graph containing the completed regular push, and partner promotion graphs
+to publish, in that order. The action schedules one push task. It reuses release
+prerequisites by task ID and fails graph generation if any are missing.
 
 If the regular push is still ahead, the client (ShipIt) must append the selected
 partner promotion graph IDs to `previous_graph_ids` for `push_firefox`, after
@@ -88,6 +96,12 @@ original configuration, and attribution entries retain their source graph's defa
 The push publishes selected entries marked `publish_to_releases`. It waits for
 their upload tasks to succeed. A missing upload prevents graph generation, and
 a failed upload blocks publication even if an older build succeeded.
+
+Run pushes for the same partner and Firefox version one at a time. The releases
+path omits the partner build number. Beetmover checks both ordinary and partner
+files, skips identical files, and stops at the first content conflict. Files
+copied before the conflict remain in releases. Cached URLs can serve older
+files until they expire.
 
 ## Configuration
 

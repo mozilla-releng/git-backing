@@ -1133,6 +1133,12 @@ def build_beetmover_push_to_release_payload(config, task, task_def):
             task_def.setdefault("dependencies", []).extend(
                 get_partner_upload_tasks(config)
             )
+            if config.params.get("target_tasks_method") == "push_partner":
+                for name, label in list(task.get("dependencies", {}).items()):
+                    task_def["dependencies"].append(
+                        config.params["existing_tasks"][label]
+                    )
+                    del task["dependencies"][name]
         overrides = {
             partner: number
             for partner, number in get_partner_build_numbers(config).items()

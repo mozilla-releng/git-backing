@@ -54,6 +54,18 @@ def make_beetmover_push_to_release_description(config, jobs):
         if job["product"] == "firefox" and is_partner_publication(config.params):
             get_partner_upload_tasks(config)
 
+        if (
+            job["product"] == "firefox"
+            and config.params.get("target_tasks_method") == "push_partner"
+        ):
+            for label in job["dependencies"].values():
+                if label not in config.params[
+                    "existing_tasks"
+                ] or label in config.params.get("do_not_optimize", []):
+                    raise ValueError(
+                        f"Partner push must reuse completed prerequisite {label}"
+                    )
+
         label = job["name"]
         description = "Beetmover push to release for '{product}'".format(
             product=job["product"]

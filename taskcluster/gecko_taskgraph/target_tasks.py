@@ -747,6 +747,28 @@ def target_tasks_promote_desktop(full_task_graph, parameters, graph_config):
     return [l for l, t in full_task_graph.tasks.items() if filter(t)]
 
 
+@register_target_task("promote_partner")
+def target_tasks_promote_partner(full_task_graph, parameters, graph_config):
+    kinds = []
+    if parameters["release_enable_partner_repack"]:
+        kinds.append("release-partner-repack")
+    if parameters["release_enable_partner_attribution"]:
+        kinds.append("release-partner-attribution")
+    return [
+        label
+        for label, task in full_task_graph.tasks.items()
+        if task.kind.startswith(tuple(kinds))
+        and task.attributes.get("shipping_phase") == "promote"
+    ]
+
+
+@register_target_task("push_partner")
+def target_tasks_push_partner(full_task_graph, parameters, graph_config):
+    return [
+        label for label in full_task_graph.tasks if label == "firefox-push-to-release"
+    ]
+
+
 @register_target_task("push_desktop")
 def target_tasks_push_desktop(full_task_graph, parameters, graph_config):
     """Select the set of tasks required to push a build of desktop to cdns.

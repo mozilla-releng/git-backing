@@ -896,5 +896,44 @@ def test_try_auto_excludes_beetmover_integration(platform):
     ) == set(tasks)
 
 
+@pytest.mark.parametrize(
+    "repack,attribution,expected",
+    [(True, False, {"repack"}), (False, True, {"attribution"}), (False, False, set())],
+)
+def test_partner_targets_are_phase_specific(repack, attribution, expected):
+    from pytest_taskgraph import make_graph, make_task
+
+    from gecko_taskgraph import target_tasks
+
+    graph = make_graph(
+        make_task(
+            label="repack",
+            kind="release-partner-repack",
+            attributes={"shipping_phase": "promote"},
+        ),
+        make_task(
+            label="attribution",
+            kind="release-partner-attribution",
+            attributes={"shipping_phase": "promote"},
+        ),
+        make_task(
+            label="firefox-push-to-release",
+            kind="release-beetmover-push-to-release",
+            attributes={"shipping_phase": "push"},
+        ),
+        make_task(
+            label="unrelated", kind="build", attributes={"shipping_phase": "promote"}
+        ),
+    )
+    params = {
+        "release_enable_partner_repack": repack,
+        "release_enable_partner_attribution": attribution,
+    }
+    assert set(target_tasks.target_tasks_promote_partner(graph, params, {})) == expected
+    assert target_tasks.target_tasks_push_partner(graph, params, {}) == [
+        "firefox-push-to-release"
+    ]
+
+
 if __name__ == "__main__":
     main()
