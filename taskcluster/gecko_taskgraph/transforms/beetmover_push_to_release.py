@@ -11,6 +11,10 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import Schema, taskref_or_string_msgspec
 
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
+from gecko_taskgraph.util.partner_releases import (
+    get_partner_upload_tasks,
+    is_partner_publication,
+)
 from gecko_taskgraph.util.scriptworker import (
     add_scope_prefix,
     get_beetmover_bucket_scope,
@@ -46,6 +50,9 @@ def make_beetmover_push_to_release_description(config, jobs):
         treeherder.setdefault("tier", 1)
         treeherder.setdefault("kind", "build")
         treeherder.setdefault("platform", job["treeherder-platform"])
+
+        if job["product"] == "firefox" and is_partner_publication(config.params):
+            get_partner_upload_tasks(config)
 
         label = job["name"]
         description = "Beetmover push to release for '{product}'".format(

@@ -39,25 +39,55 @@ logic. It's usually looked up during the release promotion action task, using th
 GraphQL API in the `gecko_taskgraph.util.partners.get_partner_config_by_url()` function, with the
 url defined in [taskcluster/config.yml](https://searchfox.org/mozilla-release/search?q=regexp%3A^partner+path%3Aconfig.yml&redirect=true).
 
-That lookup happens only once per release, in the first promotion action that needs it —
-normally `promote`. Later phases inherit the resolved config from the most recent previous
-graph's `parameters.yml`, so that every phase repacks and publishes the same set of partners.
-A partner added to a `default.xml` manifest partway through a release is therefore not picked
-up by that release's `push` and `ship` phases; without this, they would create repack tasks
-depending on cached tasks whose artifacts predate the new partner (bug 2071912). Use the next
-release, or an off-cycle `promote_firefox_partner_repack` run — those flavors deliberately look
-the config up again — to build a newly added partner.
+Promotion saves the resolved configuration in `public/parameters.yml`. To pick up
+manifest changes made after regular promotion, run an off-cycle partner promotion.
 
-Each partner entry in `release_partner_config` has a positive integer
-`build_number`, defaulting to 1. It selects the `v<build_number>` upload directory
-in candidates independently of the Firefox release build number.
-`release_partners` selects a subset of partner names (campaigns for attribution).
-More information on that can be found in the
-[RelEng Docs](https://moz-releng-docs.readthedocs.io/en/latest/procedures/misc-operations/off-cycle-partner-repacks-and-funnelcake.html).
+Each partner entry has its own positive integer `build_number`. It defaults to 1
+and selects the partner's `v<build_number>` directory under the Firefox build in
+candidates. Use `release_partners` to select repacks by partner name or attribution
+builds by campaign. An empty list selects all entries of the enabled kinds.
 
 Most of the machine time for generating partner repacks takes place in the `promote` phase of the
 automation, or `promote_rc` in the case of X.0 release candidates. The EME-free builds are copied into the
 Firefox releases directory in the `push` phase, along with the regular bits.
+
+## Off-cycle partner repacks
+
+To run an off-cycle partner repack, trigger the Release Promotion action and set
+`release_promotion_flavor` to one of the two partner flavors below.
+
+### `promote_firefox_partner_repack`
+
+Use this when a partner joins after regular promotion or changes its distribution
+files. The action repackages Firefox with the selected partners' customizations
+and uploads the configured builds to candidates. Set `release_partners` to the
+partner names you want to rebuild.
+
+### `promote_firefox_partner_attribution`
+
+Use this when a campaign starts after regular promotion or needs a corrected
+attribution code. The action adds campaign attribution to the configured
+installers and uploads them to candidates. Set `release_partners` to the
+campaign names you want to rebuild.
+
+If the regular push is still ahead, the client (ShipIt) must append the selected
+partner promotion graph IDs to `previous_graph_ids` for `push_firefox`, after
+the decision and regular promotion graph IDs.
+
+### Shared configuration and publication rules
+
+Both promotions read the current manifests unless you supply `release_partner_config`.
+Apply overrides during promotion. Publication uses the saved entries from the
+graphs you supply. See the [off-cycle repack procedure](https://moz-releng-docs.readthedocs.io/en/latest/procedures/misc-operations/off-cycle-partner-repacks-and-funnelcake.html).
+
+All graphs must match the project, revision, Firefox version, and Firefox build
+number. Later graphs replace entries with the same partner and subpartner
+(repacks) or campaign and content (attribution). Other entries keep their
+original configuration, and attribution entries retain their source graph's defaults.
+
+The push publishes selected entries marked `publish_to_releases`. It waits for
+their upload tasks to succeed. A missing upload prevents graph generation, and
+a failed upload blocks publication even if an older build succeeded.
 
 ## Configuration
 

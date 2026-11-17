@@ -933,7 +933,11 @@ DECISION_PARAMETERS = {
 }
 
 
-PARTNER_DECISION_PARAMETERS = DECISION_PARAMETERS | {"release_type": "release"}
+PARTNER_DECISION_PARAMETERS = DECISION_PARAMETERS | {
+    "release_type": "release",
+    "version": "160.0",
+    "build_number": 1,
+}
 
 # Only en-US: fix_partner_config() intersects locales with l10n-changesets.json,
 # whose contents vary by branch and get trimmed altogether by `mach try release`.
@@ -1360,6 +1364,112 @@ def test_release_promotion_partner_repack_flavor_refreshes_partner_config(
     )
 
     get_partner_config.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("project", "other"),
+        ("head_rev", "other"),
+        ("version", "other"),
+        ("build_number", 9),
+    ],
+)
+def test_previous_partner_graph_identity(responses, key, value):
+    from gecko_taskgraph.actions.release_promotion import get_previous_partner_config
+
+    previous = PARTNER_DECISION_PARAMETERS | {
+        "release_partner_config": PARTNER_CONFIG,
+        key: value,
+    }
+    mock_parameters_artifact(responses, "other-graph", previous)
+    with pytest.raises(ValueError, match=f"different {key}"):
+        get_previous_partner_config(["other-graph"], PARTNER_DECISION_PARAMETERS)
+
+
+def test_previous_partner_graphs_preserve_colliding_upload_labels(responses):
+    from gecko_taskgraph.actions.release_promotion import get_previous_partner_config
+
+    graphs = {}
+    for graph_id, campaign, number in [
+        ("first-graph", "first", 3),
+        ("second-graph", "second", 7),
+    ]:
+        config = {
+            "release-partner-attribution": {
+                "defaults": {},
+                "configs": [
+                    {
+                        "campaign": campaign,
+                        "content": "one",
+                        "locales": ["en-US"],
+                        "platforms": ["win32-shippable"],
+                        "publish_to_releases": True,
+                        "build_number": number,
+                    }
+                ],
+            }
+        }
+        mock_parameters_artifact(
+            responses,
+            graph_id,
+            PARTNER_DECISION_PARAMETERS | {"release_partner_config": config},
+        )
+        mock_artifact(
+            responses,
+            graph_id,
+            "label-to-taskid.json",
+            json={"shared-platform-label": f"{campaign}-upload"},
+        )
+        graphs[graph_id] = {
+            "shared-platform-label": {
+                "kind": "release-partner-attribution-beetmover",
+                "task": {
+                    "payload": {
+                        "upstreamArtifacts": [
+                            {
+                                "locale": f"partner-repacks/{campaign}/one/v{number}/win32/en-US"
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    result = get_previous_partner_config(
+        list(graphs), PARTNER_DECISION_PARAMETERS, graphs
+    )
+    assert {
+        entry["campaign"]: entry["upload_tasks"]
+        for entry in result["release-partner-attribution"]["configs"]
+    } == {"first": ["first-upload"], "second": ["second-upload"]}
+
+
+def test_previous_partner_graphs_merge_selected_partners(responses):
+    from copy import deepcopy
+
+    from gecko_taskgraph.actions.release_promotion import get_previous_partner_config
+
+    initial = deepcopy(PARTNER_CONFIG)
+    initial["release-partner-repack"]["other"] = {"two": {"build_number": 2}}
+    respin = deepcopy(PARTNER_CONFIG)
+    respin["release-partner-repack"]["acme"]["acme-001"]["build_number"] = 7
+    respin["release-partner-repack"]["other"] = {"two": {"build_number": 99}}
+    mock_parameters_artifact(
+        responses,
+        "initial",
+        PARTNER_DECISION_PARAMETERS | {"release_partner_config": initial},
+    )
+    mock_parameters_artifact(
+        responses,
+        "respin",
+        PARTNER_DECISION_PARAMETERS
+        | {"release_partner_config": respin, "release_partners": ["acme"]},
+    )
+    result = get_previous_partner_config(
+        ["initial", "respin"], PARTNER_DECISION_PARAMETERS
+    )
+    assert result["release-partner-repack"]["acme"]["acme-001"]["build_number"] == 7
+    assert result["release-partner-repack"]["other"]["two"]["build_number"] == 2
 
 
 def test_backfill_standard(mocker, run_action):

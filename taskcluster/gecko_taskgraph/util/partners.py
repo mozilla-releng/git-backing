@@ -410,6 +410,52 @@ def get_partner_config_entries(partner_config):
                     yield kind, partner, subpartner, entry
 
 
+def get_partner_config_subset(partner_config, partners=None, kinds=None):
+    selected = deepcopy(partner_config)
+    for kind in list(selected):
+        if kinds is not None and kind not in kinds:
+            del selected[kind]
+        elif partners:
+            if kind == "release-partner-attribution":
+                selected[kind]["configs"] = [
+                    entry
+                    for entry in selected[kind].get("configs", [])
+                    if entry["campaign"] in partners
+                ]
+            elif kind == "release-partner-repack":
+                selected[kind] = {
+                    name: entries
+                    for name, entries in selected[kind].items()
+                    if name in partners
+                }
+    return selected
+
+
+def merge_partner_configs(configs):
+    """Merge saved configurations in caller order, replacing complete partner entries."""
+    result = {}
+    for config in configs:
+        for kind, entries in config.items():
+            if kind == "release-partner-attribution":
+                combined = result.setdefault(kind, {"defaults": {}, "configs": []})
+                indexed = {
+                    (entry["campaign"], entry["content"]): entry
+                    for entry in combined["configs"]
+                }
+                defaults = entries.get("defaults", {})
+                for entry in entries.get("configs", []):
+                    indexed[(entry["campaign"], entry["content"])] = deepcopy(
+                        defaults | entry
+                    )
+                combined["configs"] = list(indexed.values())
+                combined["defaults"].update(deepcopy(defaults))
+            else:
+                combined = result.setdefault(kind, {})
+                for partner, subpartners in entries.items():
+                    combined.setdefault(partner, {}).update(deepcopy(subpartners))
+    return result
+
+
 def get_partner_config_from_parameters(parameters):
     """Read saved config, including build numbers from older promotion graphs."""
     config = deepcopy(parameters.get("release_partner_config") or {})
@@ -625,9 +671,10 @@ def apply_partner_priority(config, jobs):
 
 
 def generate_attribution_code(defaults, partner):
+    effective = defaults | partner
     params = {
-        "medium": defaults["medium"],
-        "source": defaults["source"],
+        "medium": effective["medium"],
+        "source": effective["source"],
         "campaign": partner["campaign"],
         "content": partner["content"],
     }

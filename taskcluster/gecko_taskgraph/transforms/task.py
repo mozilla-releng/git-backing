@@ -48,6 +48,10 @@ from gecko_taskgraph.util import docker as dockerutil
 from gecko_taskgraph.util.attributes import TRUNK_PROJECTS
 from gecko_taskgraph.util.chunking import TEST_VARIANTS
 from gecko_taskgraph.util.hash import hash_path
+from gecko_taskgraph.util.partner_releases import (
+    get_partner_upload_tasks,
+    is_partner_publication,
+)
 from gecko_taskgraph.util.partners import (
     get_partner_build_numbers,
     get_partners_to_be_published,
@@ -1125,6 +1129,10 @@ def build_beetmover_push_to_release_payload(config, task, task_def):
         "partners": partners,
     }
     if worker["product"] == "firefox":
+        if is_partner_publication(config.params):
+            task_def.setdefault("dependencies", []).extend(
+                get_partner_upload_tasks(config)
+            )
         overrides = {
             partner: number
             for partner, number in get_partner_build_numbers(config).items()
