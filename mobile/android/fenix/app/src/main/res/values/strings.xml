@@ -1917,18 +1917,12 @@
     <!-- Unsubmitted crash dialog checkbox label for automatically sending reports in the future -->
     <string name="unsubmitted_crash_dialog_checkbox_label">Automatically send crash reports</string>
     <!-- Unsubmitted crash dialog negative button to dismiss the dialog -->
-    <string name="unsubmitted_crash_dialog_negative_button">Close</string>
-    <!-- Unsubmitted crash dialog negative button to dismiss the dialog -->
     <string name="unsubmitted_crash_dialog_negative_button_2">CLOSE</string>
 
-    <!-- Unsubmitted crash dialog negative button to never be asked for the submission -->
-    <string name="unsubmitted_crash_requested_by_devs_dialog_never_button">Never show again</string>
     <!-- Unsubmitted crash dialog negative button to never be asked for the submission, displayed in all capital letters. -->
     <string name="unsubmitted_crash_requested_by_devs_dialog_never_button_2">NEVER SHOW AGAIN</string>
     <!-- Unsubmitted crash dialog positive button to submit crash report -->
     <string name="unsubmitted_crash_dialog_positive_button_2">SEND</string>
-    <!-- Unsubmitted crash dialog positive button to submit crash report -->
-    <string name="unsubmitted_crash_dialog_positive_button">Send crash report</string>
     <!-- Unsubmitted crash dialog positive button to submit crash report, displayed in all capital letters. -->
     <string name="unsubmitted_crash_dialog_positive_button_3">SEND CRASH REPORT</string>
 
@@ -1936,8 +1930,6 @@
     <string name="unsubmitted_crash_dialog_body">Crash reports help us to diagnose and fix issues with the browser. Reports may include personal or sensitive data. %s</string>
 
     <string name="unsubmitted_crash_dialog_learn_more">Learn more</string>
-    <!-- Unsubmitted crash dialog button to open a web page with more details on the feature and privacy policy -->
-    <string name="unsubmitted_crash_requested_by_devs_learn_more">Learn More</string>
     <!-- Unsubmitted crash dialog button to open a web page with more details on the feature and privacy policy, displayed in all capital letters. -->
     <string name="unsubmitted_crash_requested_by_devs_learn_more_2">LEARN MORE</string>
 

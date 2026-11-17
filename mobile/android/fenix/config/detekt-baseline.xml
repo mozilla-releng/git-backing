@@ -18,7 +18,6 @@
     <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction$RequestQWAC : TrustPanelAction</ID>
     <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction$UpdateQWAC : TrustPanelAction</ID>
     <ID>ClassAcronymCasing:TrustPanelAction.kt$TrustPanelAction.Navigate$QWAC : Navigate</ID>
-    <ID>DisplayedTextCasing:UnsubmittedCrashDialog.kt$uppercase()</ID>
     <ID>ForbiddenSuppress:AccountSettingsFragment.kt$AccountSettingsFragment$@Suppress("LongMethod", "CyclomaticComplexMethod")</ID>
     <ID>ForbiddenSuppress:AddonPermissionsScreen.kt$@Suppress("LongParameterList", "LongMethod", "CognitiveComplexMethod")</ID>
     <ID>ForbiddenSuppress:AddonPopupBaseFragment.kt$AddonPopupBaseFragment$@Suppress("DEPRECATION", "LongMethod")</ID>

@@ -294,7 +294,7 @@ private fun CrashPullDialog(
         ) {
             val context = LocalContext.current
             Text(
-                text = stringResource(R.string.unsubmitted_crash_requested_by_devs_learn_more).uppercase(),
+                text = stringResource(R.string.unsubmitted_crash_requested_by_devs_learn_more_2),
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier =
                     Modifier.clickable {
@@ -310,7 +310,7 @@ private fun CrashPullDialog(
             )
 
             Text(
-                text = stringResource(R.string.unsubmitted_crash_requested_by_devs_dialog_never_button).uppercase(),
+                text = stringResource(R.string.unsubmitted_crash_requested_by_devs_dialog_never_button_2),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
                     Modifier.clickable {
@@ -327,7 +327,7 @@ private fun CrashPullDialog(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = stringResource(R.string.unsubmitted_crash_dialog_negative_button).uppercase(),
+                text = stringResource(R.string.unsubmitted_crash_dialog_negative_button_2),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
                     Modifier.clickable {
@@ -337,7 +337,7 @@ private fun CrashPullDialog(
             )
 
             Text(
-                text = stringResource(R.string.unsubmitted_crash_dialog_positive_button).uppercase(),
+                text = stringResource(R.string.unsubmitted_crash_dialog_positive_button_3),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
                     Modifier.clickable {

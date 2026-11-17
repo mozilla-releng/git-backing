@@ -438,9 +438,9 @@
     <!-- Button label that opens the JSON report view in the debug info bottom sheet. -->
     <string name="debug_info_view_json_report" translatable="false">View JSON report</string>
     <!-- Status badge label shown when a debug info item is enabled. -->
-    <string name="debug_info_enabled" translatable="false">Enabled</string>
+    <string name="debug_info_enabled" translatable="false">ENABLED</string>
     <!-- Status badge label shown when a debug info item is disabled. -->
-    <string name="debug_info_disabled" translatable="false">Disabled</string>
+    <string name="debug_info_disabled" translatable="false">DISABLED</string>
 
     <!-- Label for the secret settings preference to enable Import Passwords -->
     <string name="preferences_debug_settings_import_passwords">Enable Import Passwords</string>

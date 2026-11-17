@@ -63,10 +63,10 @@ class UnsubmittedCrashDialogTest {
         TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_dialog_negative_button_2)
 
     private fun submitUnsubmittedCrashPull(): String =
-        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_dialog_positive_button)
+        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_dialog_positive_button_3)
 
     private fun cancelUnsubmittedCrashPull(): String =
-        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_dialog_negative_button)
+        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_dialog_negative_button_2)
 
     private fun getUnsubmittedCrashPullOne(): String =
         TestHelper.appContext.resources.getString(
@@ -89,7 +89,7 @@ class UnsubmittedCrashDialogTest {
         )
 
     private fun cancelForEverUnsubmittedCrashPull(): String =
-        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_requested_by_devs_dialog_never_button)
+        TestHelper.appContext.resources.getString(R.string.unsubmitted_crash_requested_by_devs_dialog_never_button_2)
 
     @OptIn(ExperimentalTestApi::class)
     private fun clickButton(text: String) {

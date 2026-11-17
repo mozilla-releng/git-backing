@@ -149,7 +149,7 @@ private fun IconCategoryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = title.uppercase(),
+            text = title,
             style = AcornTheme.typography.subtitle2,
             textAlign = TextAlign.End,
             modifier = Modifier.width(CATEGORY_LABEL_WIDTH.dp),

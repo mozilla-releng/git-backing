@@ -61,10 +61,7 @@ fun StatusBadge(
 /**
  * A badge component used to communicate status.
  *
- * This is an opinionated component that applies the following styling. The text is:
- * - displayed uppercase,
- * - single-line, and
- * - ellipsized if needed.
+ * This is an opinionated component that displays the text single-line and ellipsized if needed.
  *
  * For more flexibility, use the overloaded [StatusBadge] component.
  *
@@ -89,7 +86,7 @@ fun StatusBadge(
         shape = shape,
     ) {
         Text(
-            text = status.uppercase(),
+            text = status,
             overflow = TextOverflow.Ellipsis,
             maxLines = 1,
         )
@@ -170,32 +167,32 @@ private data class StatusPreviewParameter(
         fun values(): List<StatusPreviewParameter> {
             return listOf(
                 StatusPreviewParameter(
-                    status = "New",
+                    status = "NEW",
                     containerColor = MaterialTheme.colorScheme.information,
                     contentColor = MaterialTheme.colorScheme.onInformation,
                 ),
                 StatusPreviewParameter(
-                    status = "In flight",
+                    status = "IN FLIGHT",
                     containerColor = MaterialTheme.colorScheme.information,
                     contentColor = MaterialTheme.colorScheme.onInformation,
                 ),
                 StatusPreviewParameter(
-                    status = "Arrived",
+                    status = "ARRIVED",
                     containerColor = MaterialTheme.colorScheme.success,
                     contentColor = MaterialTheme.colorScheme.onSuccess,
                 ),
                 StatusPreviewParameter(
-                    status = "On time",
+                    status = "ON TIME",
                     containerColor = MaterialTheme.colorScheme.success,
                     contentColor = MaterialTheme.colorScheme.onSuccess,
                 ),
                 StatusPreviewParameter(
-                    status = "Delayed",
+                    status = "DELAYED",
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
                 ),
                 StatusPreviewParameter(
-                    status = "Cancelled",
+                    status = "CANCELLED",
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
                 ),

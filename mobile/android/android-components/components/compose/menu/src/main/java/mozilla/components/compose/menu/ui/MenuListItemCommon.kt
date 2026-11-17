@@ -92,7 +92,7 @@ internal fun MenuListItemNewIndicator(
     if (showNewIndicator) {
         StatusBadge(
             containerColor = state.newIndicatorContainerColor,
-            status = stringResource(R.string.mozac_menu_item_new_indicator_label),
+            status = stringResource(R.string.mozac_menu_item_new_indicator_label_2),
         )
     }
 }

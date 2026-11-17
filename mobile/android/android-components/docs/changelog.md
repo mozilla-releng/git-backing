@@ -5,6 +5,8 @@ permalink: /changelog/
 ---
 
 # 162.0 (In Development)
+* **compose-base**
+  * ⚠️ **Behavior change**: `StatusBadge(status: String, ...)` no longer uppercases `status`. Pass a string that is already cased for display. [Bug 2092187](https://bugzilla.mozilla.org/show_bug.cgi?id=2092187)
 * **concept-engine**
   * Added an optional `title` to `HitResult.IMAGE_SRC`.
   * 🆕 Added `EngineSession.requestPictureInPicture` and `EngineSession.exitPictureInPicture` to ask the engine for a picture-in-picture window for the video a session is playing, and to tell it the window has been closed so it can release the state it holds. [Bug 2075323](https://bugzilla.mozilla.org/show_bug.cgi?id=2075323)
