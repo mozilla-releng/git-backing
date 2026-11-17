@@ -439,7 +439,6 @@ def get_decision_parameters(graph_config, options):
     parameters["release_enable_partner_attribution"] = False
     parameters["release_partners"] = []
     parameters["release_partner_config"] = {}
-    parameters["release_partner_build_number"] = 1
     parameters["release_enable_emefree"] = False
     parameters["release_product"] = None
     parameters["test_manifest_loader"] = "default"

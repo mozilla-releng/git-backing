@@ -940,7 +940,13 @@ PARTNER_DECISION_PARAMETERS = DECISION_PARAMETERS | {"release_type": "release"}
 # en-US is the one locale it always appends.
 PARTNER_CONFIG = {
     "release-partner-repack": {
-        "acme": {"acme-001": {"locales": ["en-US"], "platforms": ["win64-shippable"]}}
+        "acme": {
+            "acme-001": {
+                "locales": ["en-US"],
+                "platforms": ["win64-shippable"],
+                "build_number": 1,
+            }
+        }
     }
 }
 

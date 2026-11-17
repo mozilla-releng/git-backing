@@ -26,4 +26,4 @@ tasks:
         from-deps:
             group-by: single-with-filters
         shipping-phase: promote
-        partner-path: "partner-repacks/{partner}/{subpartner}/v{release_partner_build_number}/{platform}/{locale}"
+        partner-path: "partner-repacks/{partner}/{subpartner}/v{partner_build_number}/{platform}/{locale}"

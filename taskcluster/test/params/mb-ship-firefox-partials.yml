@@ -14383,7 +14383,6 @@ release_history:
         previousBuildNumber: 1
         previousVersion: 150.0b9
         product: Firefox
-release_partner_build_number: 1
 release_partner_config:
   release-eme-free-repack:
     mozilla-EME-free:

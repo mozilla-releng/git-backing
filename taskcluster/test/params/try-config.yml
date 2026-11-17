@@ -28,7 +28,6 @@ release_history: {}
 release_eta: ""
 release_enable_partners: false
 release_partners: []
-release_partner_build_number: 1
 release_partner_config: null
 release_enable_emefree: false
 target_tasks_method: try_tasks

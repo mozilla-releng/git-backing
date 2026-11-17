@@ -19,4 +19,4 @@ tasks:
             group-by: single-with-filters
         shipping-product: firefox
         shipping-phase: promote
-        partner-path: "partner-repacks/{partner}/{subpartner}/v{release_partner_build_number}/{platform}/{locale}"
+        partner-path: "partner-repacks/{partner}/{subpartner}/v{partner_build_number}/{platform}/{locale}"

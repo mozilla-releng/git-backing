@@ -14392,7 +14392,6 @@ release_history:
         previousBuildNumber: 1
         previousVersion: 149.0b9
         product: Devedition
-release_partner_build_number: 1
 release_partner_config: {}
 release_partners: null
 release_product: devedition

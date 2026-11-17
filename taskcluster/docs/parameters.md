@@ -276,10 +276,8 @@ syntax or reading a project-specific configuration file).
 `release_partner_config`
 
 : Configuration for partner repacks & attribution, as well as EME-free repacks.
-
-`release_partner_build_number`
-
-: The build number for partner repacks. We sometimes have multiple partner build numbers per release build number; this parameter lets us bump them independently. Defaults to 1.
+Each repack subpartner or attribution config entry contains a positive integer
+`build_number`, defaulting to 1, which selects its versioned candidates directory.
 
 `release_product`
 

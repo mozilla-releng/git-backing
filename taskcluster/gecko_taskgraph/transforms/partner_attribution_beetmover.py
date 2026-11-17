@@ -18,6 +18,7 @@ from gecko_taskgraph.transforms.beetmover import craft_release_properties
 from gecko_taskgraph.transforms.task import TaskDescriptionSchema
 from gecko_taskgraph.util.partners import (
     apply_partner_priority,
+    get_partner_config_by_kind,
 )
 from gecko_taskgraph.util.scriptworker import (
     add_scope_prefix,
@@ -68,9 +69,7 @@ def populate_scopes_and_upstream_artifacts(config, jobs):
         bucket_scope = get_beetmover_bucket_scope(config)
         repl_dict = {
             "build_number": config.params["build_number"],
-            "release_partner_build_number": config.params[
-                "release_partner_build_number"
-            ],
+            "partner_build_number": "{partner_build_number}",
             "version": config.params["version"],
             "partner": "{partner}",  # we'll replace these later, per artifact
             "subpartner": "{subpartner}",
@@ -80,8 +79,15 @@ def populate_scopes_and_upstream_artifacts(config, jobs):
         job["scopes"] = [bucket_scope, action_scope]
 
         partner_path = job["partner-path"].format(**repl_dict)
+        partner_config = get_partner_config_by_kind(config, config.kind)
+        partner_build_numbers = {
+            (entry["campaign"], entry["content"]): entry.get("build_number", 1)
+            for entry in partner_config.get("configs", [])
+        }
         job.setdefault("worker", {})["upstream-artifacts"] = (
-            generate_upstream_artifacts(dep_job.kind, artifacts, partner_path)
+            generate_upstream_artifacts(
+                dep_job.kind, artifacts, partner_path, partner_build_numbers
+            )
         )
 
         yield job
@@ -126,7 +132,9 @@ def make_task_description(config, jobs):
         yield task
 
 
-def generate_upstream_artifacts(attribution_task_kind, artifacts, partner_path):
+def generate_upstream_artifacts(
+    attribution_task_kind, artifacts, partner_path, partner_build_numbers
+):
     upstream_artifacts = []
     for artifact, partner, subpartner, platform, locale in artifacts:
         upstream_artifacts.append({
@@ -134,6 +142,7 @@ def generate_upstream_artifacts(attribution_task_kind, artifacts, partner_path):
             "taskType": "repackage",
             "paths": [artifact],
             "locale": partner_path.format(
+                partner_build_number=partner_build_numbers[(partner, subpartner)],
                 partner=partner,
                 subpartner=subpartner,
                 platform=platform,

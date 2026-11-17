@@ -20,6 +20,7 @@ from gecko_taskgraph.util.partials import populate_release_history
 from gecko_taskgraph.util.partners import (
     fix_partner_config,
     get_partner_config_by_url,
+    get_partner_config_from_parameters,
     get_partner_url_config,
     get_token,
 )
@@ -67,7 +68,7 @@ def get_previous_partner_config(previous_graph_ids):
     # The rightmost graph wins, as with the combined full task graphs below.
     for graph_id in reversed(previous_graph_ids):
         previous_parameters = get_artifact(graph_id, "public/parameters.yml")
-        partner_config = previous_parameters.get("release_partner_config")
+        partner_config = get_partner_config_from_parameters(previous_parameters)
         if partner_config:
             logger.info("Re-using the partner config resolved by %s", graph_id)
             return partner_config
@@ -228,16 +229,6 @@ def get_flavors(graph_config, param):
                 "default": False,
                 "description": "Toggle for creating partner attribution",
             },
-            "release_partner_build_number": {
-                "type": "integer",
-                "default": 1,
-                "minimum": 1,
-                "description": (
-                    "The partner build number. This translates to, e.g. "
-                    "`v1` in the path. We generally only have to "
-                    "bump this on off-cycle partner rebuilds."
-                ),
-            },
             "release_partners": {
                 "type": "array",
                 "description": (
@@ -264,6 +255,11 @@ def get_flavors(graph_config, param):
     },
 )
 def release_promotion_action(parameters, graph_config, input, task_group_id, task_id):
+    if "release_partner_build_number" in input:
+        raise ValueError(
+            "Set build_number on release_partner_config entries instead of "
+            "release_partner_build_number"
+        )
     release_promotion_flavor = input["release_promotion_flavor"]
     promotion_config = graph_config["release-promotion"]["flavors"][
         release_promotion_flavor
@@ -340,6 +336,10 @@ def release_promotion_action(parameters, graph_config, input, task_group_id, tas
 
     # Download parameters from the first decision task
     parameters = get_artifact(previous_graph_ids[0], "public/parameters.yml")
+    parameters["release_partner_config"] = get_partner_config_from_parameters(
+        parameters
+    )
+    parameters.pop("release_partner_build_number", None)
 
     # Download and combine full task graphs from each of the previous_graph_ids.
     # Sometimes previous relpro action tasks will add tasks, like partials,
@@ -423,10 +423,6 @@ def release_promotion_action(parameters, graph_config, input, task_group_id, tas
     if partner_config:
         parameters["release_partner_config"] = fix_partner_config(partner_config)
     parameters["release_partners"] = input.get("release_partners")
-    if input.get("release_partner_build_number"):
-        parameters["release_partner_build_number"] = input[
-            "release_partner_build_number"
-        ]
 
     if input["version"]:
         parameters["version"] = input["version"]

@@ -10057,7 +10057,6 @@ release_enable_partner_attribution: false
 release_enable_partner_repack: true
 release_eta: '2025-10-14T13:00:09.674Z'
 release_history: {}
-release_partner_build_number: 1
 release_partner_config:
   release-partner-attribution: {}
   release-partner-repack:

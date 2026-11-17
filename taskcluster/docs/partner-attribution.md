@@ -18,7 +18,6 @@ Partner attribution uses a number of parameters to control how they work:
 
 - `release_enable_partner_attribution`
 - `release_partner_config`
-- `release_partner_build_number`
 - `release_partners`
 
 The enable parameter is a boolean, a simple on/off switch. We set it in shipit's
@@ -31,10 +30,11 @@ logic. It's usually looked up during the release promotion action task, using th
 GraphQL API in the `gecko_taskgraph.util.partners.get_partner_config_by_url()` function, with the
 url defined in [taskcluster/config.yml](https://searchfox.org/mozilla-central/search?q=partner-urls&path=taskcluster%2Fconfig.yml&case=true&regexp=false&redirect=true).
 
-`release_partner_build_number` is an integer used to create unique upload paths in the firefox
-candidates directory, while `release_partners` is a list of partners that should be
-attributed (i.e. a subset of the whole config). Both are intended for use when respinning a partner after
-the regular Firefox has shipped. More information on that can be found in the
+Each partner entry in `release_partner_config` has a positive integer
+`build_number`, defaulting to 1. It selects the `v<build_number>` upload directory
+in candidates independently of the Firefox release build number.
+`release_partners` selects a subset of partner names (campaigns for attribution).
+More information on that can be found in the
 [RelEng Docs](https://moz-releng-docs.readthedocs.io/en/latest/procedures/misc-operations/off-cycle-partner-repacks-and-funnelcake.html).
 
 `release_partners` is shared with partner repacks but we don't support doing both at the same time.

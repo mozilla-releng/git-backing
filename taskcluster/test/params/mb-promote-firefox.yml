@@ -2644,7 +2644,6 @@ release_enable_partner_attribution: false
 release_enable_partner_repack: false
 release_eta: null
 release_history: {}
-release_partner_build_number: 1
 release_partner_config: {}
 release_partners: null
 release_product: firefox

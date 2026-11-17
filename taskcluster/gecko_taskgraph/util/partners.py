@@ -377,7 +377,7 @@ def get_partner_config_by_kind(config, kind):
     # TODO eme-free should be a partner; we shouldn't care about per-kind
     for k in partner_configs:
         if kind.startswith(k):
-            kind_config = partner_configs[k]
+            kind_config = deepcopy(partner_configs[k])
             break
     else:
         return {}
@@ -396,6 +396,43 @@ def get_partner_config_by_kind(config, kind):
                 if this_config["campaign"] in partner_subset:
                     kind_config["configs"].append(this_config)
     return kind_config
+
+
+def get_partner_config_entries(partner_config):
+    """Yield kind, partner, subpartner and config for repacks and attribution."""
+    for kind, configs in partner_config.items():
+        if kind == "release-partner-attribution":
+            for entry in configs.get("configs", []):
+                yield kind, entry["campaign"], entry["content"], entry
+        else:
+            for partner, subpartners in configs.items():
+                for subpartner, entry in subpartners.items():
+                    yield kind, partner, subpartner, entry
+
+
+def get_partner_config_from_parameters(parameters):
+    """Read saved config, including build numbers from older promotion graphs."""
+    config = deepcopy(parameters.get("release_partner_config") or {})
+    legacy_number = parameters.get("release_partner_build_number", 1)
+    for _, _, _, entry in get_partner_config_entries(config):
+        entry.setdefault("build_number", legacy_number)
+    return config
+
+
+def get_partner_build_numbers(config):
+    numbers = {}
+    for kind in ("release-partner-repack", "release-partner-attribution"):
+        selected = get_partner_config_by_kind(config, kind)
+        for _, partner, subpartner, entry in get_partner_config_entries({
+            kind: selected
+        }):
+            if entry.get("publish_to_releases"):
+                name = f"{partner}/{subpartner}"
+                number = entry.get("build_number", 1)
+                if name in numbers and numbers[name] != number:
+                    raise ValueError(f"Conflicting partner build numbers for {name}")
+                numbers[name] = number
+    return numbers
 
 
 def _fix_subpartner_locales(orig_config, all_locales):
@@ -434,6 +471,12 @@ def fix_partner_config(orig_config):
                     pc.setdefault(kind, {}).setdefault(partner, {})[subpartner] = (
                         _fix_subpartner_locales(subpartner_config, all_locales)
                     )
+    for _, partner, subpartner, entry in get_partner_config_entries(pc):
+        number = entry.setdefault("build_number", 1)
+        if type(number) is not int or number < 1:
+            raise ValueError(
+                f"Invalid partner build number for {partner}/{subpartner}: {number!r}"
+            )
     return pc
 
 

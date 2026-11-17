@@ -26,7 +26,6 @@ Partner repacks have a number of parameters which control how they work:
 - `release_enable_emefree`
 - `release_enable_partner_repack`
 - `release_partner_config`
-- `release_partner_build_number`
 - `release_partners`
 
 We split the repacks into two 'paths', EME-free and everything else, to retain some
@@ -49,10 +48,11 @@ depending on cached tasks whose artifacts predate the new partner (bug 2071912).
 release, or an off-cycle `promote_firefox_partner_repack` run — those flavors deliberately look
 the config up again — to build a newly added partner.
 
-`release_partner_build_number` is an integer used to create unique upload paths in the firefox
-candidates directory, while `release_partners` is a list of partners that should be
-repacked (i.e. a subset of the whole config). Both are intended for use when respinning a few partners after
-the regular Firefox has shipped. More information on that can be found in the
+Each partner entry in `release_partner_config` has a positive integer
+`build_number`, defaulting to 1. It selects the `v<build_number>` upload directory
+in candidates independently of the Firefox release build number.
+`release_partners` selects a subset of partner names (campaigns for attribution).
+More information on that can be found in the
 [RelEng Docs](https://moz-releng-docs.readthedocs.io/en/latest/procedures/misc-operations/off-cycle-partner-repacks-and-funnelcake.html).
 
 Most of the machine time for generating partner repacks takes place in the `promote` phase of the

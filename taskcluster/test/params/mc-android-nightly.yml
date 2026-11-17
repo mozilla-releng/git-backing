@@ -11401,7 +11401,6 @@ release_history:
       target.partial-4.mar:
         buildid: '20260329093051'
         mar_url: https://archive.mozilla.org/pub/firefox/nightly/2026/03/2026-03-29-09-30-51-mozilla-central-l10n/firefox-151.0a1.zh-TW.win64.complete.mar
-release_partner_build_number: 1
 release_partner_config: {}
 release_partners: []
 release_product: null
