@@ -16,6 +16,8 @@ from tryselect import push
 from tryselect.util.taskcluster import TC_ROOT_URL
 from tryselect.util.taskcluster import get_client as real_get_client
 
+real_check_tree_status = push.check_tree_status
+
 
 @pytest.mark.parametrize(
     "method,labels,params,routes,expected",
@@ -610,6 +612,161 @@ def test_push_to_try_skips_git_backing_when_disabled():
     config = json.loads(call_kwargs["changed_files"]["try_task_config.json"])
     assert "head_git_repository" not in config.get("parameters", {})
     assert "head_git_rev" not in config.get("parameters", {})
+
+
+@pytest.mark.parametrize(
+    "remote,resolved_url,push_to_vcs,expected",
+    (
+        pytest.param("ssh://hg.mozilla.org/try", None, False, "try", id="lando"),
+        pytest.param("ssh://hg.mozilla.org/try", None, True, "try", id="hg"),
+        pytest.param(
+            "ssh://hg.mozilla.org/try-comm-central/",
+            None,
+            True,
+            "try-comm-central",
+            id="hg_trailing_slash",
+        ),
+        pytest.param(
+            "try",
+            "https://github.com/mozilla/enterprise-firefox-try.git",
+            True,
+            "enterprise-firefox-try",
+            id="git_remote_name",
+        ),
+        pytest.param(
+            "git@github.com:mozilla/firefox-try.git",
+            None,
+            True,
+            "firefox-try",
+            id="git_ssh",
+        ),
+    ),
+)
+def test_get_tree_name(remote, resolved_url, push_to_vcs, expected):
+    push.vcs.get_remote_url.return_value = resolved_url
+    with patch("tryselect.push.is_thunderbird_try", return_value=False):
+        assert push.get_tree_name(remote, push_to_vcs) == expected
+
+
+@pytest.mark.parametrize(
+    "status,body,expected",
+    (
+        pytest.param(
+            200,
+            {"result": {"tree": "try", "status": "closed", "reason": "infra"}},
+            {"tree": "try", "status": "closed", "reason": "infra"},
+            id="known",
+        ),
+        pytest.param(200, {"result": None}, None, id="null"),
+        pytest.param(404, {"detail": "No tree foo found."}, None, id="not_found"),
+    ),
+)
+def test_get_tree_status(responses, status, body, expected):
+    responses.add(
+        responses.GET,
+        push.TREESTATUS_URL.format(domain="lando.moz.tools", tree="try"),
+        json=body,
+        status=status,
+    )
+    assert push.get_tree_status("try") == expected
+
+
+@pytest.mark.parametrize(
+    "config,vcs_name,expected",
+    (
+        pytest.param(None, "git", "lando.moz.tools", id="default"),
+        pytest.param("lando-dev", "git", "lando-dev.allizom.org", id="dev"),
+        pytest.param(None, "hg", "lando.moz.tools", id="hg"),
+    ),
+)
+def test_get_tree_status_domain(responses, monkeypatch, config, vcs_name, expected):
+    if config:
+        monkeypatch.setenv("LANDO_TRY_CONFIG", config)
+    else:
+        monkeypatch.delenv("LANDO_TRY_CONFIG", raising=False)
+    push.vcs.name = vcs_name
+    responses.add(
+        responses.GET,
+        push.TREESTATUS_URL.format(domain=expected, tree="try"),
+        json={"result": {"status": "open"}},
+    )
+    assert push.get_tree_status("try") == {"status": "open"}
+
+
+def test_get_tree_status_error(responses, capsys):
+    responses.add(
+        responses.GET,
+        push.TREESTATUS_URL.format(domain="lando.moz.tools", tree="try"),
+        status=500,
+    )
+    assert push.get_tree_status("try") is None
+    assert "could not query treestatus for 'try'" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "result,closed",
+    (
+        pytest.param(None, False, id="unknown"),
+        pytest.param({"status": "open", "reason": ""}, False, id="open"),
+        pytest.param({"status": "closed", "reason": "bustage"}, True, id="closed"),
+        pytest.param(
+            {"status": "approval required", "reason": ""}, True, id="approval"
+        ),
+    ),
+)
+def test_check_tree_status(capsys, result, closed):
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.get_tree_name", return_value="try"))
+        stack.enter_context(
+            patch("tryselect.push.get_tree_status", return_value=result)
+        )
+        if closed:
+            with pytest.raises(SystemExit):
+                real_check_tree_status("try", True)
+            out = capsys.readouterr().out
+            assert f"the 'try' tree is {result['status']}" in out
+            assert "--closed-tree" in out
+        else:
+            real_check_tree_status("try", True)
+
+
+@pytest.mark.parametrize(
+    "url,closed_tree,checked,suffix",
+    (
+        pytest.param("ssh://hg.mozilla.org/try", False, True, False, id="hg"),
+        pytest.param("ssh://hg.mozilla.org/try", True, False, True, id="hg_closed"),
+        pytest.param(
+            "https://github.com/mozilla/firefox-try", False, True, False, id="git"
+        ),
+        pytest.param(
+            "https://github.com/mozilla/firefox-try",
+            True,
+            False,
+            False,
+            id="git_closed",
+        ),
+    ),
+)
+def test_push_to_try_closed_tree(url, closed_tree, checked, suffix):
+    push.vcs.get_remote_url.return_value = url
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("tryselect.push.MACH_TRY_REMOTE", url))
+        stack.enter_context(patch("tryselect.push.check_working_directory"))
+        stack.enter_context(patch("tryselect.push.write_task_config_history"))
+        push._is_hg_try.cache_clear()
+
+        push.push_to_try(
+            "fuzzy",
+            "try: test",
+            MagicMock(),
+            closed_tree=closed_tree,
+            push_to_vcs=True,
+        )
+
+    assert push.check_tree_status.called == checked
+    commit_message = push.vcs.push_to_try.call_args.args[0]
+    assert ("ON A CLOSED TREE" in commit_message) == suffix
 
 
 if __name__ == "__main__":
