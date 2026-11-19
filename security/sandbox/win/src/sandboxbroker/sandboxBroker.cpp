@@ -460,16 +460,18 @@ Result<Ok, mozilla::ipc::LaunchError> SandboxBroker::LaunchApp(
 
   auto* config = mPolicy->GetConfig();
 
-  // If we're running from a network drive then we can't block loading from
-  // remote locations. Strangely using MITIGATION_IMAGE_LOAD_NO_LOW_LABEL in
-  // this situation also means the process fails to start (bug 1423296).
-  if (sRunningFromNetworkDrive) {
+  // If we're running from a network drive or the child needs to load DLLs from
+  // one, then we can't block loading from remote locations. Strangely using
+  // MITIGATION_IMAGE_LOAD_NO_LOW_LABEL in this situation also means the process
+  // fails to start (bug 1423296).
+  if (sRunningFromNetworkDrive || mAllowRemoteImageLoads) {
     sandbox::MitigationFlags mitigations = config->GetProcessMitigations();
     mitigations &= ~(sandbox::MITIGATION_IMAGE_LOAD_NO_REMOTE |
                      sandbox::MITIGATION_IMAGE_LOAD_NO_LOW_LABEL);
-    MOZ_RELEASE_ASSERT(
-        config->SetProcessMitigations(mitigations) == sandbox::SBOX_ALL_OK,
-        "Setting the reduced set of flags should always succeed");
+    if (config->SetProcessMitigations(mitigations) != sandbox::SBOX_ALL_OK) {
+      NS_ERROR("Failed to remove the remote image load mitigations.");
+      LOG_E("Failed to remove the remote image load mitigations.");
+    }
   }
 
   sandbox::MitigationFlags delayedMitigations =

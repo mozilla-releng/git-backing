@@ -170,7 +170,8 @@ class BaseProcessLauncher {
         mAllowedFilesRead(aHost->mAllowedFilesRead),
         mSandboxLevel(aHost->mSandboxLevel),
         mIsFileContent(aHost->mIsFileContent),
-        mEnableSandboxLogging(aHost->mEnableSandboxLogging)
+        mEnableSandboxLogging(aHost->mEnableSandboxLogging),
+        mAllowRemoteImageLoads(aHost->mAllowRemoteImageLoads)
 #endif
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
         ,
@@ -239,6 +240,7 @@ class BaseProcessLauncher {
   int32_t mSandboxLevel;
   bool mIsFileContent;
   bool mEnableSandboxLogging;
+  bool mAllowRemoteImageLoads;
 #endif
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   // Controls whether or not the process will be launched with
@@ -1812,6 +1814,10 @@ Result<Ok, LaunchError> WindowsProcessLauncher::DoSetup() {
     for (auto it = mAllowedFilesRead.begin(); it != mAllowedFilesRead.end();
          ++it) {
       mResults.mSandboxBroker->AllowReadFile(it->c_str());
+    }
+
+    if (mAllowRemoteImageLoads) {
+      mResults.mSandboxBroker->AllowRemoteImageLoads();
     }
 
     if (mResults.mSandboxBroker->IsWin32kLockedDown()) {

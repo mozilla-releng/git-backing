@@ -207,12 +207,16 @@ bool GMPProcessParent::Launch(int32_t aTimeoutMs) {
                 NS_ConvertUTF16toUTF8(wGMPPath.c_str()).get());
 
 #  ifdef MOZ_SANDBOX
-  // If the GMP path is a network path that is not mapped to a drive letter,
-  // then we need to fix the path format for the sandbox rule.
+  // If the GMP is on a network drive, the sandbox needs to allow it to be
+  // loaded from there.
   wchar_t volPath[MAX_PATH];
-  if (::GetVolumePathNameW(wGMPPath.c_str(), volPath, MAX_PATH) &&
-      ::GetDriveTypeW(volPath) == DRIVE_REMOTE &&
-      wGMPPath.compare(0, 2, L"\\\\") == 0) {
+  mAllowRemoteImageLoads =
+      ::GetVolumePathNameW(wGMPPath.c_str(), volPath, MAX_PATH) &&
+      ::GetDriveTypeW(volPath) == DRIVE_REMOTE;
+
+  // If the GMP path is a UNC network path, then we need to fix the path format
+  // for the sandbox rule.
+  if (mAllowRemoteImageLoads && wGMPPath.compare(0, 2, L"\\\\") == 0) {
     std::wstring sandboxGMPPath(wGMPPath);
     sandboxGMPPath.insert(1, L"??\\UNC");
     mAllowedFilesRead.push_back(sandboxGMPPath + L"\\*");

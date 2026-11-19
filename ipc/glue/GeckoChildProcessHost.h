@@ -266,6 +266,9 @@ class GeckoChildProcessHost
 #  ifdef MOZ_SANDBOX
   UniquePtr<SandboxBroker> mSandboxBroker;
   std::vector<std::wstring> mAllowedFilesRead;
+  // Set when the child needs to load a DLL from a network location, for
+  // example a GMP in a profile on a network share.
+  bool mAllowRemoteImageLoads = false;
   bool mEnableSandboxLogging;
   int32_t mSandboxLevel;
 #  endif

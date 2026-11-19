@@ -60,6 +60,10 @@ class SandboxBroker {
   // File system permissions
   bool AllowReadFile(wchar_t const* file);
 
+  // Allow the child to load DLLs from network locations, for example a GMP in
+  // a profile on a network share.
+  void AllowRemoteImageLoads() { mAllowRemoteImageLoads = true; }
+
   /**
    * Share a HANDLE with the child process. The HANDLE will be made available
    * in the child process at the memory address
@@ -76,6 +80,7 @@ class SandboxBroker {
  private:
   static bool sRunningFromNetworkDrive;
   std::unique_ptr<sandbox::TargetPolicy> mPolicy;
+  bool mAllowRemoteImageLoads = false;
 };
 
 }  // namespace mozilla
