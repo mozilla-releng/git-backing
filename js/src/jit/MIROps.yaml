@@ -1143,6 +1143,9 @@
 - name: BitXor
   gen_boilerplate: false
 
+- name: BitAndNot
+  gen_boilerplate: false
+
 - name: Lsh
   gen_boilerplate: false
 

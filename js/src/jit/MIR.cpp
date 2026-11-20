@@ -21,6 +21,7 @@
 #include "jit/AtomicOperations.h"
 #include "jit/CompileInfo.h"
 #include "jit/KnownClass.h"
+#include "jit/MacroAssembler.h"
 #include "jit/MIR-wasm.h"
 #include "jit/MIRGraph.h"
 #include "jit/RangeAnalysis.h"
@@ -190,6 +191,9 @@ static MConstant* EvaluateIntConstantOperands(TempAllocator& alloc,
     case MDefinition::Opcode::BitXor:
     case MDefinition::Opcode::BigIntPtrBitXor:
       ret = lhs ^ rhs;
+      break;
+    case MDefinition::Opcode::BitAndNot:
+      ret = lhs & ~rhs;
       break;
     case MDefinition::Opcode::Lsh:
       // Left-hand side operand must be non-negative, otherwise the behavior is
@@ -2851,6 +2855,19 @@ MDefinition* MBinaryBitwiseInstruction::foldsTo(TempAllocator& alloc) {
   return this;
 }
 
+MDefinition* MBitAnd::foldsTo(TempAllocator& alloc) {
+  MDefinition* folded = MBinaryBitwiseInstruction::foldsTo(alloc);
+  if (folded != this) {
+    return folded;
+  }
+
+  if (MDefinition* r =
+          MBitAndNot::MaybeFoldFromAnd(alloc, lhs(), rhs(), type())) {
+    return r;
+  }
+  return this;
+}
+
 MDefinition* MBitOr::foldsTo(TempAllocator& alloc) {
   MDefinition* folded = MBinaryBitwiseInstruction::foldsTo(alloc);
   if (folded != this || type() != MIRType::Int32) {
@@ -2895,6 +2912,23 @@ MDefinition* MBitOr::foldsTo(TempAllocator& alloc) {
     }
   }
   return this;
+}
+
+/* static */
+MBitAndNot* MBitAndNot::MaybeFoldFromAnd(TempAllocator& alloc, MDefinition* a,
+                                         MDefinition* b, MIRType type) {
+  MOZ_ASSERT(type == MIRType::Int32 || type == MIRType::Int64);
+  // On platforms without ANDN support, don't bother trying.
+  if (!MacroAssembler::SupportsAndNot()) {
+    return nullptr;
+  }
+  if (a->isBitNot() && a->hasOneDefUse()) {
+    return MBitAndNot::New(alloc, b, a->toBitNot()->input(), type);
+  }
+  if (b->isBitNot() && b->hasOneDefUse()) {
+    return MBitAndNot::New(alloc, a, b->toBitNot()->input(), type);
+  }
+  return nullptr;
 }
 
 MDefinition* MBinaryBitwiseInstruction::foldUnnecessaryBitop() {
@@ -2970,6 +3004,7 @@ static inline bool CanProduceNegativeZero(MDefinition* def) {
     case MDefinition::Opcode::BitOr:
     case MDefinition::Opcode::BitXor:
     case MDefinition::Opcode::BitNot:
+    case MDefinition::Opcode::BitAndNot:
     case MDefinition::Opcode::Lsh:
     case MDefinition::Opcode::Rsh:
       return false;
@@ -3085,6 +3120,7 @@ static inline bool NeedNegativeZeroCheck(MDefinition* def) {
       case MDefinition::Opcode::BitAnd:
       case MDefinition::Opcode::BitOr:
       case MDefinition::Opcode::BitXor:
+      case MDefinition::Opcode::BitAndNot:
       case MDefinition::Opcode::Abs:
       case MDefinition::Opcode::TruncateToInt32:
         // Always allowed to remove check. No matter which operand.

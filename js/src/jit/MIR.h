@@ -4079,6 +4079,7 @@ class MBitAnd : public MBinaryBitwiseInstruction {
   INSTRUCTION_HEADER(BitAnd)
   TRIVIAL_NEW_WRAPPERS
 
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   MDefinition* foldIfZero(size_t operand) override {
     return getOperand(operand);  // 0 & x => 0;
   }
@@ -4154,6 +4155,35 @@ class MBitXor : public MBinaryBitwiseInstruction {
   bool canRecoverOnBailout() const override { return type() != MIRType::Int64; }
 
   ALLOW_CLONE(MBitXor)
+};
+
+class MBitAndNot : public MBinaryBitwiseInstruction {
+  MBitAndNot(MDefinition* left, MDefinition* right, MIRType type)
+      : MBinaryBitwiseInstruction(classOpcode, left, right, type) {}
+
+ public:
+  INSTRUCTION_HEADER(BitAndNot)
+  TRIVIAL_NEW_WRAPPERS
+
+  static MBitAndNot* MaybeFoldFromAnd(TempAllocator& alloc, MDefinition* a,
+                                      MDefinition* b, MIRType type);
+
+  MDefinition* foldIfZero(size_t operand) override {
+    // 0 & ~x => 0
+    // x & ~0 => x
+    return getOperand(0);
+  }
+  MDefinition* foldIfNegOne(size_t operand) override { return this; }
+  MDefinition* foldIfEqual() override { return this; }
+  MDefinition* foldIfAllBitsSet(size_t operand) override { return this; }
+
+  void computeRange(TempAllocator& alloc) override;
+
+  [[nodiscard]] bool writeRecoverData(
+      CompactBufferWriter& writer) const override;
+  bool canRecoverOnBailout() const override { return type() != MIRType::Int64; }
+
+  ALLOW_CLONE(MBitAndNot)
 };
 
 class MShiftInstruction : public MBinaryBitwiseInstruction {

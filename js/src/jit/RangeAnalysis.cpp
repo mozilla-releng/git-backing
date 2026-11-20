@@ -1408,6 +1408,19 @@ void MBitNot::computeRange(TempAllocator& alloc) {
   setRange(Range::not_(alloc, &op));
 }
 
+void MBitAndNot::computeRange(TempAllocator& alloc) {
+  if (type() != MIRType::Int32) {
+    return;
+  }
+
+  Range left(getOperand(0));
+  Range right(getOperand(1));
+  left.wrapAroundToInt32();
+  right.wrapAroundToInt32();
+
+  setRange(Range::and_(alloc, &left, Range::not_(alloc, &right)));
+}
+
 void MLsh::computeRange(TempAllocator& alloc) {
   if (type() != MIRType::Int32) {
     return;
@@ -3260,6 +3273,7 @@ bool RangeAnalysis::truncate() {
         case MDefinition::Opcode::BitAnd:
         case MDefinition::Opcode::BitOr:
         case MDefinition::Opcode::BitXor:
+        case MDefinition::Opcode::BitAndNot:
         case MDefinition::Opcode::Lsh:
         case MDefinition::Opcode::Rsh:
         case MDefinition::Opcode::Ursh:

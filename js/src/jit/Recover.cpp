@@ -216,6 +216,32 @@ bool RBitXor::recover(JSContext* cx, SnapshotIterator& iter) const {
   return true;
 }
 
+bool MBitAndNot::writeRecoverData(CompactBufferWriter& writer) const {
+  MOZ_ASSERT(canRecoverOnBailout());
+  writer.writeUnsigned(uint32_t(RInstruction::Recover_BitAndNot));
+  return true;
+}
+
+RBitAndNot::RBitAndNot(CompactBufferReader& reader) {}
+
+bool RBitAndNot::recover(JSContext* cx, SnapshotIterator& iter) const {
+  RootedValue lhs(cx, iter.read());
+  RootedValue rhs(cx, iter.read());
+  RootedValue notRhs(cx);
+  RootedValue result(cx);
+  MOZ_ASSERT(!lhs.isObject() && !rhs.isObject());
+
+  if (!js::BitNot(cx, &rhs, &notRhs)) {
+    return false;
+  }
+  if (!js::BitAnd(cx, &lhs, &notRhs, &result)) {
+    return false;
+  }
+
+  iter.storeInstructionResult(result);
+  return true;
+}
+
 bool MLsh::writeRecoverData(CompactBufferWriter& writer) const {
   MOZ_ASSERT(canRecoverOnBailout());
   writer.writeUnsigned(uint32_t(RInstruction::Recover_Lsh));

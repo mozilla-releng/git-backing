@@ -923,6 +923,20 @@
   extra_name: true
   defer_init: true
 
+- name: BitAndNotI
+  result_type: WordSized
+  operands:
+    lhs: WordSized
+    rhs: WordSized
+  mir_op: BitAndNot
+
+- name: BitAndNotI64
+  result_type: Int64
+  operands:
+    lhs: Int64
+    rhs: Int64
+  mir_op: BitAndNot
+
 # Shift operation, taking two 32-bit integers as inputs and returning
 # a 32-bit integer result as an output.
 - name: ShiftI

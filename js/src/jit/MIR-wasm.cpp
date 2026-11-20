@@ -272,6 +272,13 @@ MDefinition* MWasmBinaryBitwise::foldsTo(TempAllocator& alloc) {
     }
   }
 
+  if (subOpcode() == SubOpcode::And) {
+    if (MDefinition* r =
+            MBitAndNot::MaybeFoldFromAnd(alloc, argL, argR, type())) {
+      return r;
+    }
+  }
+
   return this;
 }
 

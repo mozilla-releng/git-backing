@@ -59,6 +59,7 @@ namespace jit {
   _(BitAnd)                       \
   _(BitOr)                        \
   _(BitXor)                       \
+  _(BitAndNot)                    \
   _(Lsh)                          \
   _(Rsh)                          \
   _(Ursh)                         \
@@ -279,6 +280,14 @@ class RBitOr final : public RInstruction {
 class RBitXor final : public RInstruction {
  public:
   RINSTRUCTION_HEADER_NUM_OP_(BitXor, 2)
+
+  [[nodiscard]] bool recover(JSContext* cx,
+                             SnapshotIterator& iter) const override;
+};
+
+class RBitAndNot final : public RInstruction {
+ public:
+  RINSTRUCTION_HEADER_NUM_OP_(BitAndNot, 2)
 
   [[nodiscard]] bool recover(JSContext* cx,
                              SnapshotIterator& iter) const override;

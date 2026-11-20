@@ -1822,6 +1822,42 @@ void LIRGenerator::visitBitOr(MBitOr* ins) { lowerBitOp(JSOp::BitOr, ins); }
 
 void LIRGenerator::visitBitXor(MBitXor* ins) { lowerBitOp(JSOp::BitXor, ins); }
 
+void LIRGenerator::visitBitAndNot(MBitAndNot* ins) {
+  MDefinition* lhs = ins->lhs();
+  MDefinition* rhs = ins->rhs();
+
+  if (ins->type() == MIRType::Int32) {
+    MOZ_ASSERT(lhs->type() == MIRType::Int32);
+    MOZ_ASSERT(rhs->type() == MIRType::Int32);
+    auto* lir = new (alloc())
+        LBitAndNotI(useRegisterAtStart(lhs), useRegisterAtStart(rhs));
+    define(lir, ins);
+    return;
+  }
+
+  if (ins->type() == MIRType::Int64) {
+    MOZ_ASSERT(lhs->type() == MIRType::Int64);
+    MOZ_ASSERT(rhs->type() == MIRType::Int64);
+#if defined(JS_NUNBOX32)
+    // We process upper and lower lane separately, so avoid overwriting.
+    auto* lir = new (alloc()) LBitAndNotI64(useInt64RegisterAtStart(lhs),
+                                            willHaveDifferentLIRNodes(lhs, rhs)
+                                                ? useInt64Register(rhs)
+                                                : useInt64RegisterAtStart(rhs));
+    defineInt64ReuseInput(lir, ins, 0);
+#elif defined(JS_PUNBOX64)
+    auto* lir = new (alloc()) LBitAndNotI64(useInt64RegisterAtStart(lhs),
+                                            useInt64RegisterAtStart(rhs));
+    defineInt64(lir, ins);
+#else
+#  error expected either JS_NUNBOX32 or JS_PUNBOX64
+#endif
+    return;
+  }
+
+  MOZ_CRASH("Unhandled integer specialization");
+}
+
 void LIRGenerator::visitWasmBinaryBitwise(MWasmBinaryBitwise* ins) {
   switch (ins->subOpcode()) {
     case MWasmBinaryBitwise::SubOpcode::And:
