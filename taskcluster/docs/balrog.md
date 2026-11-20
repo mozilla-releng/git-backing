@@ -8,7 +8,7 @@ The basic interactions that Release Promotion has with Balrog are as follows:
 
 1. Submit new release metadata to Balrog with a number of `balrog` tasks and the `release-balrog-submit-toplevel` task.
 2. Update test channels to point at the new release in the `release-balrog-submit-toplevel` task.
-3. Verify the new release updates with `release-update-verify` and `release-final-verify` tasks.
+3. Verify the new release updates with `test-update-integrity`, `update-test`, and `release-final-verify` tasks.
 4. Schedule the new release to be shipped in the `release-balrog-scheduling` task.
 
 ## Submit New Release Metadata
@@ -32,7 +32,7 @@ Balrog has "test" channels that we use to allow verification of new release upda
 
 ## Verify the Release
 
-Once a release is live on a test channel `release-update-verify` begins and performs same sanity checks. This happens in the `promote` phase.
+`test-update-integrity` tasks verify that applying the new update MARs produces the same files as the new installers. Once a release is live on a test channel, `update-test` tasks exercise updates served from it. Both happen in the `promote` phase.
 
 After a release has been pushed to cdns, `release-final-verify` runs and performs some additional checks. This happens in the `push` phase.
 
