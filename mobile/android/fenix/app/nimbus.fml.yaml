@@ -912,6 +912,10 @@ features:
           and shrinking it into its spot in the Tab Manager.
         type: Boolean
         default: false
+      show_tab_groups_in_menu:
+        description: Whether or not Tab Group options are shown in the browser menu.
+        type: Boolean
+        default: false
     defaults:
       - channel: release
         value:
