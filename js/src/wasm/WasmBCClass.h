@@ -127,7 +127,8 @@ struct AccessCheck {
   AccessCheck()
       : omitBoundsCheck(false),
         omitAlignmentCheck(false),
-        onlyPointerAlignment(false) {}
+        onlyPointerAlignment(false),
+        addressPromoted(false) {}
 
   // If `omitAlignmentCheck` is true then we need check neither the
   // pointer nor the offset.  Otherwise, if `onlyPointerAlignment` is true
@@ -137,6 +138,9 @@ struct AccessCheck {
   bool omitBoundsCheck;
   bool omitAlignmentCheck;
   bool onlyPointerAlignment;
+
+  // The popped address is already a valid unsigned 64-bit index.
+  bool addressPromoted;
 };
 
 // Encapsulate all the information about a function call.
