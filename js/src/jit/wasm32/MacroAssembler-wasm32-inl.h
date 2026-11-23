@@ -65,6 +65,10 @@ void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
   MOZ_CRASH();
 }
 
+void MacroAssembler::load32ZeroExtendToPtr(const Address& src, Register dest) {
+  MOZ_CRASH();
+}
+
 void MacroAssembler::notPtr(Register reg) { MOZ_CRASH(); }
 
 void MacroAssembler::andPtr(Register src, Register dest) { MOZ_CRASH(); }

@@ -1596,6 +1596,11 @@ void MacroAssembler::inc64(AbsoluteAddress dest) {
 void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
   load32(src, dest);
 }
+
+void MacroAssembler::load32ZeroExtendToPtr(const Address& src, Register dest) {
+  ma_load(dest, src, SizeWord, ZeroExtend);
+}
+
 void MacroAssembler::loadAbiReturnAddress(Register dest) { movePtr(ra, dest); }
 
 void MacroAssembler::lshift32(Register src, Register dest) {

@@ -115,6 +115,10 @@ void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
   Ldrsw(ARMRegister(dest, 64), toMemOperand(src));
 }
 
+void MacroAssembler::load32ZeroExtendToPtr(const Address& src, Register dest) {
+  Ldr(ARMRegister(dest, 32), toMemOperand(src));
+}
+
 void MacroAssembler::loadAbiReturnAddress(Register dest) { movePtr(lr, dest); }
 
 // ===============================================================

@@ -77,6 +77,10 @@ void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
   load32(src, dest);
 }
 
+void MacroAssembler::load32ZeroExtendToPtr(const Address& src, Register dest) {
+  ma_load(dest, src, SizeWord, ZeroExtend);
+}
+
 // ===============================================================
 // Logical instructions
 
