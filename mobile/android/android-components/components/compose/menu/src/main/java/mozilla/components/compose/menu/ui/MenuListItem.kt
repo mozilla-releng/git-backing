@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
@@ -34,6 +33,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import mozilla.components.compose.base.button.IconButton
+import mozilla.components.compose.base.modifier.onImpression
+import mozilla.components.compose.base.modifier.thenConditional
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.text.value
 import mozilla.components.compose.base.theme.AcornTheme
@@ -43,6 +44,7 @@ import mozilla.components.compose.menu.data.MenuItemBadge
 import mozilla.components.compose.menu.data.MenuItemSummary
 import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.store.MenuEvent
+import mozilla.components.compose.menu.store.MenuImpressionEvent
 import mozilla.components.compose.menu.ui.MenuItemState.ACTIVE
 import mozilla.components.compose.menu.ui.MenuItemState.DEFAULT
 import mozilla.components.compose.menu.ui.MenuItemState.DISABLED
@@ -58,7 +60,8 @@ import mozilla.components.ui.icons.R as iconsR
  * @param onClickEvent An optional [MenuEvent] to dispatch when the menu item is clicked.
  * @param onInteraction The callback to invoke when the menu item is interacted with.
  * @param contentDescription An optional content description for the menu item.
- * @param onShownEvent An optional [MenuEvent] to dispatch when the menu item is shown.
+ * @param onShownEvent An optional [MenuEvent] to dispatch once at least half of the menu item has been visible in the
+ *   menu for at least 500ms. Dispatched at most once per menu open.
  * @param role The [Role] of the menu item.
  * @param summary An optional summary of the menu item.
  * @param icon An optional icon of the menu item.
@@ -77,7 +80,7 @@ internal fun MenuListItem(
     onClickEvent: MenuEvent?,
     onInteraction: (MenuEvent) -> Unit,
     contentDescription: Text?,
-    onShownEvent: MenuEvent? = null,
+    onShownEvent: MenuImpressionEvent? = null,
     role: Role = Button,
     summary: MenuItemSummary? = null,
     icon: MenuItemIcon? = null,
@@ -87,14 +90,22 @@ internal fun MenuListItem(
     @DrawableRes trailingIcon: Int? = null,
     state: MenuItemState = DEFAULT,
 ) {
-    LaunchedEffect(onShownEvent) {
-        onShownEvent?.let {
-            onInteraction(onShownEvent)
-        }
-    }
-
+    val impressionsEnabled = LocalMenuImpressionsEnabled.current
+    val viewport = LocalMenuViewport.current
     Row(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceBright).height(IntrinsicSize.Min),
+        modifier =
+            modifier
+                .background(MaterialTheme.colorScheme.surfaceBright)
+                .height(IntrinsicSize.Min)
+                // Impression timing will be canceled and restarted if it is removed and re-added to the composition
+                // based on impressions being enabled or disabled
+                .thenConditional(
+                    modifier =
+                        Modifier.onImpression(viewportBounds = viewport) {
+                            onShownEvent?.let(onInteraction)
+                        },
+                    predicate = { onShownEvent != null && impressionsEnabled },
+                ),
         verticalAlignment = CenterVertically,
     ) {
         val contentDescriptionValue = contentDescription?.value

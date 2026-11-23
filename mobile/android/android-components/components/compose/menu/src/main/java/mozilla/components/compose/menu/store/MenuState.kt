@@ -17,4 +17,5 @@ import mozilla.components.lib.state.State
 data class MenuState(
     val menuGroups: List<MenuItemsGroup>,
     val attribution: MenuAttribution? = null,
+    val recordedImpressions: Set<String> = emptySet(),
 ) : State
