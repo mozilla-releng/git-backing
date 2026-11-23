@@ -3781,7 +3781,11 @@ void BaseCompiler::emitExtendI32ToI64() {
 void BaseCompiler::emitExtendU32ToI64() {
   RegI32 rs = popI32();
   RegI64 rd = widenI32(rs);
+#ifdef RABALDR_ZERO_EXTENDS
+  masm.debugAssertCanonicalInt32(rs);
+#else
   masm.move32To64ZeroExtend(rs, rd);
+#endif
   pushI64(rd);
 }
 
