@@ -17,11 +17,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutBoundsHolder
+import androidx.compose.ui.layout.layoutBounds
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.Dp
@@ -34,6 +37,7 @@ import mozilla.components.compose.menu.store.MenuEvent
 import mozilla.components.compose.menu.store.MenuState
 import mozilla.components.compose.menu.store.MenuStore
 import mozilla.components.compose.menu.ui.ListMenuItemsGroup
+import mozilla.components.compose.menu.ui.LocalMenuViewport
 import mozilla.components.compose.menu.ui.MenuAttribution
 import mozilla.components.compose.menu.ui.MenuGridContainer
 import mozilla.components.compose.menu.ui.MenuItemIconRes
@@ -134,23 +138,26 @@ private fun MenuContent(
     bottomPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxWidth(),
-        contentPadding =
-            PaddingValues(
-                top = topPadding,
-                bottom = bottomPadding,
-            ),
-        verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static150),
-    ) {
-        scrollableGroups.forEach { group ->
-            item(key = group.id) {
-                MenuGroupContent(
-                    group,
-                    onInteraction,
-                    Modifier.padding(horizontal = AcornTheme.layout.space.static100),
-                )
+    val viewport = remember { LayoutBoundsHolder() }
+    CompositionLocalProvider(LocalMenuViewport provides viewport) {
+        LazyColumn(
+            state = listState,
+            modifier = modifier.fillMaxWidth().layoutBounds(viewport),
+            contentPadding =
+                PaddingValues(
+                    top = topPadding,
+                    bottom = bottomPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static150),
+        ) {
+            scrollableGroups.forEach { group ->
+                item(key = group.id) {
+                    MenuGroupContent(
+                        group,
+                        onInteraction,
+                        Modifier.padding(horizontal = AcornTheme.layout.space.static100),
+                    )
+                }
             }
         }
     }

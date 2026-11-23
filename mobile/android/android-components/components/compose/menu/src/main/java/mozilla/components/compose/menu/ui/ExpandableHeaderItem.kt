@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterVertically
@@ -60,6 +61,7 @@ import mozilla.components.compose.menu.ui.MenuItemState.DEFAULT
 import mozilla.components.ui.icons.R as iconsR
 
 private const val ANIMATION_DURATION_MS = 300
+private const val SUB_ITEMS_STATE_KEY = "sub_items"
 
 /**
  * A menu item that can be expanded to show others or collapsed to hide them.
@@ -188,6 +190,7 @@ private fun MenuItemAnimation(
     initialHeight: Int,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val subItemsState = rememberSaveableStateHolder()
     AnimatedVisibility(
         visible = isExpanded,
         enter =
@@ -224,8 +227,11 @@ private fun MenuItemAnimation(
                         )
                 ),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25)) {
-            content()
+        // Collapsing drops the sub-items from composition, which would otherwise lose their saved state.
+        subItemsState.SaveableStateProvider(SUB_ITEMS_STATE_KEY) {
+            Column(verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25)) {
+                content()
+            }
         }
     }
 }

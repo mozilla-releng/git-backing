@@ -16,11 +16,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.LayoutBoundsHolder
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CollectionInfo
@@ -248,3 +250,5 @@ internal fun Modifier.menuListGroupSemantics(itemCount: Int): Modifier =
         isTraversalGroup = true
         collectionInfo = CollectionInfo(rowCount = itemCount, columnCount = 1)
     }
+
+internal val LocalMenuViewport = staticCompositionLocalOf<LayoutBoundsHolder?> { null }

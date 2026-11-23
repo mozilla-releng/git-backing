@@ -67,7 +67,8 @@ data class ExpandableMenuItem(
  *
  * @param title The title of the menu item.
  * @param onClickEvent An optional [MenuEvent] to dispatch when the menu item is clicked.
- * @param onShownEvent An optional [MenuEvent] to dispatch when the menu item is shown.
+ * @param onShownEvent An optional [MenuEvent] to dispatch once more than half of the menu item has been visible in the
+ *   menu for at least 500ms. Dispatched at most once per menu open.
  * @param contentDescription Optional custom content description for the menu item.
  * @param role The [Role] of the menu item.
  * @param summary An optional summary of the menu item.
