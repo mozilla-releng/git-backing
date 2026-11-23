@@ -15,13 +15,16 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -29,6 +32,7 @@ import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.compose.menu.R as MozacMenuR
 import mozilla.components.compose.menu.data.BannerMenuItem
+import mozilla.components.compose.menu.data.ExpandableMenuItem
 import mozilla.components.compose.menu.data.MenuAttribution
 import mozilla.components.compose.menu.data.MenuItemSummary
 import mozilla.components.compose.menu.data.MenuItemTitle
@@ -260,6 +264,94 @@ class MenuTest {
         }
     }
 
+    @Test
+    fun `GIVEN a visible item with a shown event THEN dispatch it only after the item was visible long enough`() {
+        composeTestRule.mainClock.autoAdvance = false
+        val events = mutableListOf<MenuAction>()
+        setMenu(listOf(row("Item"), shownRow()), middleware = recording(events))
+
+        composeTestRule.mainClock.advanceTimeBy(SHORTER_THAN_SHOWN_DURATION_MS)
+        assertEquals(emptyList<MenuAction>(), events.filterIsInstance<MenuEvent>())
+
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+        assertEquals(listOf<MenuAction>(ItemShown), events.filterIsInstance<MenuEvent>())
+    }
+
+    @Test
+    fun `GIVEN an item with a shown event WHEN scrolling it out of the menu and back THEN dispatch it only once`() {
+        val events = mutableListOf<MenuAction>()
+        setMenu(listOf(shownRow()) + List(20) { row("Item $it") }, middleware = recording(events))
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("Item 19"))
+        composeTestRule.onNodeWithText(SHOWN_TITLE).assertDoesNotExist()
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText(SHOWN_TITLE))
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        assertEquals(listOf<MenuAction>(ItemShown), events.filterIsInstance<MenuEvent>())
+    }
+
+    @Test
+    fun `GIVEN an item with a shown event laid out below the visible part of the menu THEN dispatch it only once scrolled into view`() {
+        val events = mutableListOf<MenuAction>()
+        val group = MenuItemsGroup.Row(id = "group", items = List(4) { item("Item $it") } + shownItem())
+        setMenu(listOf(group), middleware = recording(events), maxHeight = 150.dp)
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        val listBounds = composeTestRule.onNode(hasScrollAction()).getUnclippedBoundsInRoot()
+        val itemBounds = composeTestRule.onNodeWithText(SHOWN_TITLE).getUnclippedBoundsInRoot()
+        val windowBounds = composeTestRule.onRoot().getUnclippedBoundsInRoot()
+        assertTrue(itemBounds.top >= listBounds.bottom)
+        assertTrue(itemBounds.bottom <= windowBounds.bottom)
+        assertEquals(emptyList<MenuAction>(), events.filterIsInstance<MenuEvent>())
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText(SHOWN_TITLE))
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        assertEquals(listOf<MenuAction>(ItemShown), events.filterIsInstance<MenuEvent>())
+    }
+
+    @Test
+    fun `GIVEN a sub-item with a shown event WHEN its parent is expanded THEN dispatch it only after the sub-item was visible long enough`() {
+        val events = mutableListOf<MenuAction>()
+        val more =
+            ExpandableMenuItem(
+                title = MenuItemTitle(Text.String("More")),
+                onClickEvent = object : MenuEvent {},
+                subMenuItems = listOf(shownItem()),
+                hideOnExpand = true,
+            )
+        setMenu(listOf(MenuItemsGroup.Row(id = "more", items = listOf(more))), middleware = recording(events))
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+        assertEquals(emptyList<MenuAction>(), events.filterIsInstance<ItemShown>())
+
+        composeTestRule.onNodeWithText("More").performClick()
+        composeTestRule.onNodeWithText(SHOWN_TITLE).assertIsDisplayed()
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        assertEquals(listOf<MenuAction>(ItemShown), events.filterIsInstance<ItemShown>())
+    }
+
+    @Test
+    fun `GIVEN an item whose shown event was dispatched WHEN the menu is recreated THEN don't dispatch it again`() {
+        val events = mutableListOf<MenuAction>()
+        val store = MenuStore(initialState = MenuState(listOf(shownRow())), middleware = recording(events))
+        val restorationTester = StateRestorationTester(composeTestRule)
+        restorationTester.setContent {
+            AcornTheme {
+                Box(Modifier.fillMaxSize()) {
+                    Menu(store, Modifier.width(320.dp).heightIn(max = 300.dp))
+                }
+            }
+        }
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        restorationTester.emulateSavedInstanceStateRestore()
+        composeTestRule.mainClock.advanceTimeBy(SHOWN_DURATION_MS)
+
+        assertEquals(listOf<MenuAction>(ItemShown), events.filterIsInstance<MenuEvent>())
+    }
+
     private fun recording(events: MutableList<MenuAction>): List<Middleware<MenuState, MenuAction>> =
         listOf { _, next, action ->
             events += action
@@ -270,12 +362,13 @@ class MenuTest {
         groups: List<MenuItemsGroup>,
         attribution: MenuAttribution? = null,
         middleware: List<Middleware<MenuState, MenuAction>> = emptyList(),
+        maxHeight: Dp = 300.dp,
     ): MenuStore {
         val store = MenuStore(initialState = MenuState(groups, attribution), middleware = middleware)
         composeTestRule.setContent {
             AcornTheme {
                 Box(Modifier.fillMaxSize()) {
-                    Menu(store, Modifier.width(320.dp).heightIn(max = 300.dp).testTag("menu"))
+                    Menu(store, Modifier.width(320.dp).heightIn(max = maxHeight).testTag("menu"))
                 }
             }
         }
@@ -286,6 +379,12 @@ class MenuTest {
 
     private fun stickyGroup(title: String) =
         MenuItemsGroup.Grid(id = title, items = listOf(item(title)), isSticky = true)
+
+    private fun shownRow() = MenuItemsGroup.Row(id = SHOWN_TITLE, items = listOf(shownItem()))
+
+    private fun shownItem() = item(SHOWN_TITLE).copy(onShownEvent = ItemShown)
+
+    private data object ItemShown : MenuEvent
 
     private data object BannerClicked : MenuEvent
 
@@ -310,5 +409,8 @@ class MenuTest {
     private companion object {
         const val BANNER_TITLE = "Banner title"
         const val BANNER_SUBTITLE = "Banner subtitle"
+        const val SHOWN_TITLE = "Shown item"
+        const val SHOWN_DURATION_MS = 600L
+        const val SHORTER_THAN_SHOWN_DURATION_MS = 300L
     }
 }
