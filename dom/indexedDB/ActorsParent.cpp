@@ -9710,6 +9710,13 @@ Database::AllocPBackgroundIDBDatabaseFileParent(const IPCBlob& aIPCBlob) {
     actor = new DatabaseFile(std::move(fileInfo));
   } else {
     // This is a blob we haven't seen before.
+
+    // The child can still send blobs after the origin was cleared, before it
+    // has processed the database invalidation.
+    if (mFileManager->Invalidated()) {
+      return nullptr;
+    }
+
     fileInfo = mFileManager->CreateFileInfo();
     if (NS_WARN_IF(!fileInfo)) {
       return nullptr;
