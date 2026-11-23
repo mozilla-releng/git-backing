@@ -20,9 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CollectionItemInfo
@@ -49,6 +53,9 @@ import mozilla.components.compose.menu.ui.MenuItemState.DISABLED
 import mozilla.components.compose.menu.ui.MenuItemState.WARNING
 import mozilla.components.ui.icons.R as iconsR
 
+private const val MIN_DURATION_MS = 500L
+private const val MIN_FRACTION_VISIBLE = 0.5f
+
 /**
  * A menu item shown as a row in a vertical list.
  *
@@ -58,7 +65,8 @@ import mozilla.components.ui.icons.R as iconsR
  * @param onClickEvent An optional [MenuEvent] to dispatch when the menu item is clicked.
  * @param onInteraction The callback to invoke when the menu item is interacted with.
  * @param contentDescription An optional content description for the menu item.
- * @param onShownEvent An optional [MenuEvent] to dispatch when the menu item is shown.
+ * @param onShownEvent An optional [MenuEvent] to dispatch once more than half of the menu item has been visible in the
+ *   menu for at least 500ms. Dispatched at most once per menu open.
  * @param role The [Role] of the menu item.
  * @param summary An optional summary of the menu item.
  * @param icon An optional icon of the menu item.
@@ -87,14 +95,25 @@ internal fun MenuListItem(
     @DrawableRes trailingIcon: Int? = null,
     state: MenuItemState = DEFAULT,
 ) {
-    LaunchedEffect(onShownEvent) {
-        onShownEvent?.let {
-            onInteraction(onShownEvent)
+    var hasBeenShown by rememberSaveable { mutableStateOf(false) }
+    val shownModifier =
+        if (onShownEvent != null && !hasBeenShown) {
+            Modifier.onVisibilityChanged(
+                minDurationMs = MIN_DURATION_MS,
+                minFractionVisible = MIN_FRACTION_VISIBLE,
+                viewportBounds = LocalMenuViewport.current,
+            ) { visible ->
+                if (visible && !hasBeenShown) {
+                    hasBeenShown = true
+                    onInteraction(onShownEvent)
+                }
+            }
+        } else {
+            Modifier
         }
-    }
-
     Row(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceBright).height(IntrinsicSize.Min),
+        modifier =
+            modifier.background(MaterialTheme.colorScheme.surfaceBright).height(IntrinsicSize.Min).then(shownModifier),
         verticalAlignment = CenterVertically,
     ) {
         val contentDescriptionValue = contentDescription?.value
