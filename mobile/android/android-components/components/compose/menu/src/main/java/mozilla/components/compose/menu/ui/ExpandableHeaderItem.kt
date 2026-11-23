@@ -5,6 +5,7 @@
 package mozilla.components.compose.menu.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -24,6 +25,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -175,6 +178,8 @@ fun ExpandableHeaderItem(
     }
 }
 
+val LocalMenuImpressionsEnabled = compositionLocalOf { true }
+
 /**
  * Animates showing or hiding sub-items.
  *
@@ -224,8 +229,14 @@ private fun MenuItemAnimation(
                         )
                 ),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25)) {
-            content()
+        // Impression tracking is disabled while animations are playing -
+        // we start counting visible time only after the animation has finished
+        val impressionsEnabled =
+            transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible
+        CompositionLocalProvider(LocalMenuImpressionsEnabled provides impressionsEnabled) {
+            Column(verticalArrangement = Arrangement.spacedBy(AcornTheme.layout.space.static25)) {
+                content()
+            }
         }
     }
 }

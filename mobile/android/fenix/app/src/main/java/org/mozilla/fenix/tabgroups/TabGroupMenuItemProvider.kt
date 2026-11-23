@@ -64,7 +64,10 @@ class TabGroupMenuItemProvider(
                 title = MenuItemTitle(Text.Resource(title)),
                 icon = MenuItemIconRes(iconsR.drawable.mozac_ic_tab_group_24, isHighlighted = isHighlighted),
                 showNewIndicator = isHighlighted,
-                onShownEvent = entryPoint?.let { MenuAction.OnTabGroupMenuItemExposed },
+                onShownEvent =
+                    entryPoint?.let {
+                        MenuAction.OnTabGroupMenuItemExposed
+                    },
                 onClickEvent = entryPoint?.let { MenuAction.Navigate.OpenTabGroupFlow(it) },
             )
         }

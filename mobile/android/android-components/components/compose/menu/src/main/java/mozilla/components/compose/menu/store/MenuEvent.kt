@@ -8,3 +8,9 @@ import mozilla.components.lib.state.Action
 
 /** [Action]s to be dispatched on [MenuStore] when the user interacts with a menu item. */
 interface MenuEvent : MenuAction, CustomizableMenuAction
+
+/** Contract to represent an action for recording an item impression. Consumers must provide a unique impressionId */
+interface MenuImpressionEvent : MenuEvent {
+    /** Identifies this menu impression. Each id recorded at most once per menu open. */
+    val impressionId: String
+}

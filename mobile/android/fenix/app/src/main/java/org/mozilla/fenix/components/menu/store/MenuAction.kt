@@ -6,6 +6,7 @@ package org.mozilla.fenix.components.menu.store
 
 import android.app.PendingIntent
 import mozilla.components.compose.menu.store.MenuEvent
+import mozilla.components.compose.menu.store.MenuImpressionEvent
 import mozilla.components.feature.addons.Addon
 import mozilla.components.service.fxa.manager.AccountState
 import org.mozilla.fenix.components.menu.MenuAccessPoint
@@ -100,10 +101,14 @@ sealed class MenuAction : MenuEvent {
     data object OnMoreMenuClicked : MenuAction()
 
     /** [MenuAction] dispatched to record that the summarize page menu has been exposed to the user */
-    data object OnSummarizationMenuExposed : MenuAction()
+    data object OnSummarizationMenuExposed : MenuImpressionEvent, MenuAction() {
+        override val impressionId: String = "Summarize"
+    }
 
     /** [MenuAction] dispatched to record that the tab group menu item has been exposed to the user */
-    data object OnTabGroupMenuItemExposed : MenuAction()
+    data object OnTabGroupMenuItemExposed : MenuImpressionEvent, MenuAction() {
+        override val impressionId: String = "TabGroup"
+    }
 
     /**
      * [MenuAction] dispatched to update the IP protection menu item state.
