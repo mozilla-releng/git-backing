@@ -2698,17 +2698,6 @@ RegI64 BaseCompiler::popI64RhsForRotate() {
 #endif
 }
 
-void BaseCompiler::popI32ForSignExtendI64(RegI64* r0) {
-#if defined(JS_CODEGEN_X86)
-  // r0 must be edx:eax for cdq
-  need2xI32(specific_.edx, specific_.eax);
-  *r0 = specific_.edx_eax;
-  popI32ToSpecific(specific_.eax);
-#else
-  *r0 = widenI32(popI32());
-#endif
-}
-
 void BaseCompiler::popI64ForSignExtendI64(RegI64* r0) {
 #if defined(JS_CODEGEN_X86)
   // r0 must be edx:eax for cdq
@@ -2719,6 +2708,58 @@ void BaseCompiler::popI64ForSignExtendI64(RegI64* r0) {
   *r0 = popI64();
 #endif
 }
+
+template <bool ZeroExtend>
+void BaseCompiler::popI32ExtendI64(RegI64* r0) {
+#if defined(JS_CODEGEN_X86)
+  if constexpr (!ZeroExtend) {
+    // r0 must be edx:eax for cdq
+    need2xI32(specific_.edx, specific_.eax);
+    *r0 = specific_.edx_eax;
+    popI32ToSpecific(specific_.eax);
+    masm.move32To64SignExtend(lowPart(*r0), *r0);
+    return;
+  }
+#endif
+#if defined(JS_64BIT)
+  Stk& v = stk_.back();
+  if (v.kind() != Stk::RegisterI32) {
+    // Allocating may sync, which materializes a local into memory.  Re-read
+    // the kind afterwards so that the load matches what popI32 would do.
+    RegI32 rs = needI32();
+    if (v.kind() == Stk::LocalI32) {
+      if constexpr (ZeroExtend) {
+        fr.loadLocalI32ZeroExtend(localFromSlot(v.slot(), MIRType::Int32), rs);
+      } else {
+        fr.loadLocalI32SignExtend(localFromSlot(v.slot(), MIRType::Int32), rs);
+      }
+      stk_.popBack();
+      *r0 = widenI32(rs);
+      return;
+    }
+    popI32(v, rs);
+    stk_.popBack();
+    *r0 = widenI32(rs);
+  } else {
+    *r0 = widenI32(v.i32reg());
+    stk_.popBack();
+  }
+#else
+  *r0 = widenI32(popI32());
+#endif
+  if constexpr (ZeroExtend) {
+#ifdef RABALDR_ZERO_EXTENDS
+    masm.debugAssertCanonicalInt32(lowPart(*r0));
+#else
+    masm.move32To64ZeroExtend(lowPart(*r0), *r0);
+#endif
+  } else {
+    masm.move32To64SignExtend(lowPart(*r0), *r0);
+  }
+}
+
+template void BaseCompiler::popI32ExtendI64<false>(RegI64* r0);
+template void BaseCompiler::popI32ExtendI64<true>(RegI64* r0);
 
 class OutOfLineTruncateCheckF32OrF64ToI32 : public OutOfLineCode {
   AnyReg src;
@@ -3773,20 +3814,14 @@ void BaseCompiler::emitExtendI64_32() {
 
 void BaseCompiler::emitExtendI32ToI64() {
   RegI64 r;
-  popI32ForSignExtendI64(&r);
-  masm.move32To64SignExtend(lowPart(r), r);
+  popI32ExtendI64<false>(&r);
   pushI64(r);
 }
 
 void BaseCompiler::emitExtendU32ToI64() {
-  RegI32 rs = popI32();
-  RegI64 rd = widenI32(rs);
-#ifdef RABALDR_ZERO_EXTENDS
-  masm.debugAssertCanonicalInt32(rs);
-#else
-  masm.move32To64ZeroExtend(rs, rd);
-#endif
-  pushI64(rd);
+  RegI64 r;
+  popI32ExtendI64<true>(&r);
+  pushI64(r);
 }
 
 #ifndef RABALDR_I64_TO_FLOAT_CALLOUT
@@ -7375,8 +7410,7 @@ bool BaseCompiler::emitTableGrow() {
 
   if (addressType == AddressType::I64) {
     RegI64 r;
-    popI32ForSignExtendI64(&r);
-    masm.move32To64SignExtend(lowPart(r), r);
+    popI32ExtendI64<false>(&r);
     pushI64(r);
   }
 

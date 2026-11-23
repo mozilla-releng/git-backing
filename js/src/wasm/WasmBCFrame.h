@@ -633,6 +633,14 @@ class BaseStackFrame final : public BaseStackFrameAllocator {
     masm.load32(addressOfLocal(src), dest);
   }
 
+  void loadLocalI32ZeroExtend(const Local& src, RegI32 dest) {
+    masm.load32ZeroExtendToPtr(addressOfLocal(src), dest);
+  }
+
+  void loadLocalI32SignExtend(const Local& src, RegI32 dest) {
+    masm.load32SignExtendToPtr(addressOfLocal(src), dest);
+  }
+
 #ifndef JS_PUNBOX64
   void loadLocalI64Low(const Local& src, RegI32 dest) {
     masm.load32(addressOfLocal(src, INT64LOW_OFFSET), dest);
