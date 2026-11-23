@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.Role.Companion.Button
 import mozilla.components.compose.base.text.Text
 import mozilla.components.compose.menu.store.MenuEvent
+import mozilla.components.compose.menu.store.MenuImpressionEvent
 import mozilla.components.compose.menu.ui.MenuItemIcon
 import mozilla.components.compose.menu.ui.MenuItemState
 import mozilla.components.compose.menu.ui.MenuItemState.DEFAULT
@@ -67,7 +68,8 @@ data class ExpandableMenuItem(
  *
  * @param title The title of the menu item.
  * @param onClickEvent An optional [MenuEvent] to dispatch when the menu item is clicked.
- * @param onShownEvent An optional [MenuEvent] to dispatch when the menu item is shown.
+ * @param onShownEvent An optional [MenuImpressionEvent] to dispatch once at least half of the menu item has been
+ *   visible in the menu for at least 500ms. Dispatched at most once per menu open.
  * @param contentDescription Optional custom content description for the menu item.
  * @param role The [Role] of the menu item.
  * @param summary An optional summary of the menu item.
@@ -83,7 +85,7 @@ data class ExpandableMenuItem(
 data class StandardMenuItem(
     override val title: MenuItemTitle,
     override val onClickEvent: MenuEvent? = null,
-    val onShownEvent: MenuEvent? = null,
+    val onShownEvent: MenuImpressionEvent? = null,
     override val contentDescription: Text? = null,
     override val role: Role = Button,
     override val summary: MenuItemSummary? = null,

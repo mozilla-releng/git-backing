@@ -56,6 +56,7 @@ internal fun ListMenuItemsGroup(
                         trailingIcon = it.trailingIcon,
                         state = it.state,
                         onClickEvent = it.onClickEvent,
+                        onShownEvent = it.onShownEvent,
                         onInteraction = onClick,
                     )
 

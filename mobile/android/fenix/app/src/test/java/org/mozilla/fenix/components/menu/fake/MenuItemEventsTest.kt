@@ -13,6 +13,7 @@ import mozilla.components.compose.menu.data.MenuItemSummary
 import mozilla.components.compose.menu.data.MenuItemTitle
 import mozilla.components.compose.menu.data.StandardMenuItem
 import mozilla.components.compose.menu.store.MenuEvent
+import mozilla.components.compose.menu.store.MenuImpressionEvent
 import mozilla.components.compose.menu.ui.MenuItemIconRes
 import org.junit.Test
 
@@ -23,7 +24,7 @@ class MenuItemEventsTest {
             StandardMenuItem(
                 title = MenuItemTitle(Text.String("Item")),
                 onClickEvent = TestEvent("click"),
-                onShownEvent = TestEvent("shown"),
+                onShownEvent = TestImpressionEvent,
                 onLongClickEvent = TestEvent("long click"),
                 actionButton =
                     MenuItemActionButton(
@@ -34,7 +35,7 @@ class MenuItemEventsTest {
             )
 
         assertEquals(
-            listOf(TestEvent("click"), TestEvent("long click"), TestEvent("shown"), TestEvent("action")),
+            listOf(TestEvent("click"), TestEvent("long click"), TestImpressionEvent, TestEvent("action")),
             item.reachableEvents(),
         )
     }
@@ -80,4 +81,8 @@ class MenuItemEventsTest {
     }
 
     private data class TestEvent(val name: String) : MenuEvent
+
+    private object TestImpressionEvent : MenuImpressionEvent {
+        override val impressionId: String = "TestImpression"
+    }
 }

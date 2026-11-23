@@ -17,7 +17,7 @@ class MenuStore(
     Store<MenuState, MenuAction>(
         initialState = initialState,
         reducer = ::reduce,
-        middleware = middleware,
+        middleware = listOf(ImpressionFilteringMiddleware()) + middleware,
     ) {
 
     init {
@@ -27,6 +27,7 @@ class MenuStore(
 
 private fun reduce(state: MenuState, action: MenuAction): MenuState =
     when (action) {
+        is MenuImpressionEvent -> state.copy(recordedImpressions = state.recordedImpressions + action.impressionId)
         is Update -> state.copy(menuGroups = action.items)
         is Init,
         is MenuEvent -> state
