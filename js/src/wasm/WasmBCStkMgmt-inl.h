@@ -1371,6 +1371,44 @@ void BaseCompiler::dropValue() {
 Stk& BaseCompiler::peek(uint32_t relativeDepth) {
   return stk_[stk_.length() - 1 - relativeDepth];
 }
+
+#ifdef JS_64BIT
+template <bool ZeroExtend>
+RegI32 BaseCompiler::popI32ExtendToPtr() {
+  Stk& v = stk_.back();
+  RegI32 rs;
+  if (v.kind() == Stk::RegisterI32) {
+    rs = v.i32reg();
+    stk_.popBack();
+  } else {
+    // Allocating may sync, which materializes a local into memory.  Re-read
+    // the kind afterwards so that the load matches what popI32 would do.
+    rs = needI32();
+    if (v.kind() == Stk::LocalI32) {
+      if constexpr (ZeroExtend) {
+        fr.loadLocalI32ZeroExtend(localFromSlot(v.slot(), MIRType::Int32), rs);
+      } else {
+        fr.loadLocalI32SignExtend(localFromSlot(v.slot(), MIRType::Int32), rs);
+      }
+      stk_.popBack();
+      return rs;
+    }
+    popI32(v, rs);
+    stk_.popBack();
+  }
+  if constexpr (ZeroExtend) {
+#  ifdef RABALDR_ZERO_EXTENDS
+    masm.debugAssertCanonicalInt32(rs);
+#  else
+    masm.move32To64ZeroExtend(rs, Register64(rs));
+#  endif
+  } else {
+    masm.move32To64SignExtend(rs, Register64(rs));
+  }
+  return rs;
+}
+#endif
+
 }  // namespace wasm
 }  // namespace js
 

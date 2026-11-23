@@ -1378,8 +1378,14 @@ struct BaseCompiler final {
   RegI64 popI64RhsForShift();
   RegI32 popI32RhsForRotate();
   RegI64 popI64RhsForRotate();
-  void popI32ForSignExtendI64(RegI64* r0);
   void popI64ForSignExtendI64(RegI64* r0);
+
+#ifdef JS_64BIT
+  template <bool ZeroExtend>
+  RegI32 popI32ExtendToPtr();
+#endif
+  template <bool ZeroExtend>
+  void popI32ExtendI64(RegI64* r0);
 
   ////////////////////////////////////////////////////////////
   //
