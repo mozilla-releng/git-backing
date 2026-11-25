@@ -82,3 +82,40 @@ sandbox:
     notification_emails:
       - bowen@mozilla.com
     expires: never
+
+  font_file_allowed:
+    type: boolean
+    lifetime: application
+    description: |
+      Set to true the first time the Windows sandbox broker allows access to a
+      font file, because it is in the set of installed font file paths.
+      Font files in the standard system and per-user Fonts directories are
+      allowed by other rules and are not counted. Not set otherwise.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: 189
+
+  font_file_denied:
+    type: boolean
+    lifetime: application
+    description: |
+      Set to true the first time the Windows sandbox broker denies access to a
+      path with a font file extension, because it is not in the set of
+      installed font file paths, including after waiting for the set to be
+      rebuilt. Font files in the standard system and per-user Fonts directories
+      are allowed by other rules and are not counted. Not set otherwise.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - bowen@mozilla.com
+    expires: 189

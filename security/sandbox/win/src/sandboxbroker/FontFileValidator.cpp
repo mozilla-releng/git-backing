@@ -7,6 +7,7 @@
 #include "mozilla/TextUtils.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/gfx/FontPathSet.h"
+#include "mozilla/glean/SecuritySandboxMetrics.h"
 #include "nsString.h"
 #include "nsUnicharUtils.h"
 
@@ -68,12 +69,22 @@ bool ValidateFontFile(std::wstring_view aNtPath) {
 
   // Only wait for the font path set to be rebuilt if the path is likely to be a
   // font.
+  bool hasFontFileExtension = HasFontFileExtension(path);
   TimeDuration maxWait;
-  if (HasFontFileExtension(path)) {
+  if (hasFontFileExtension) {
     maxWait = TimeDuration::FromMilliseconds(kMaxRebuildWaitMs);
   }
 
-  return FontPathSet::Contains(path, maxWait);
+  if (FontPathSet::Contains(path, maxWait)) {
+    glean::sandbox::font_file_allowed.Set(true);
+    return true;
+  }
+
+  if (hasFontFileExtension) {
+    glean::sandbox::font_file_denied.Set(true);
+  }
+
+  return false;
 }
 
 }  // namespace mozilla::sandboxing

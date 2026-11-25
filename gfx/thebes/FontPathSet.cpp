@@ -14,6 +14,7 @@
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticMonitor.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/glean/GfxMetrics.h"
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 
@@ -94,6 +95,10 @@ void FontPathSet::Build() {
   TimeStamp start = TimeStamp::Now();
   nsTHashSet<nsString> paths;
   bool collected = CollectFontPaths(collection, paths);
+  if (collected) {
+    glean::fontlist::font_path_set_build_time.AccumulateRawDuration(
+        TimeStamp::Now() - start);
+  }
   // Background task queue threads are not usually profiled, so we add the
   // marker to the main thread.
   PROFILER_MARKER_TEXT("FontPathSet build (background)", GRAPHICS,
@@ -116,6 +121,7 @@ void FontPathSet::Build() {
   if (set) {
     oldSet = sCurrent.forget();
     sCurrent = set.forget();
+    glean::fontlist::font_path_set_built.Set(true);
   }
 
   // If RebuildFrom was called during the build, another build will have been
@@ -157,6 +163,7 @@ void FontPathSet::Enable() {
   // enabled.
   sCurrent = new FontPathSet(nsTHashSet<nsString>());
   sEnabled = true;
+  glean::fontlist::font_path_set_built.Set(false);
 }
 
 /* static */

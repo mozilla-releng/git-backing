@@ -12,6 +12,8 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/FontPathSet.h"
+#include "mozilla/glean/GfxMetrics.h"
+#include "mozilla/glean/fog_ffi_generated.h"
 
 using namespace mozilla;
 using namespace mozilla::gfx;
@@ -71,4 +73,26 @@ TEST(FontPathSet, MissWithoutMaxWaitDoesNotWait)
   TimeStamp start = TimeStamp::Now();
   EXPECT_FALSE(FontPathSet::Contains(GetSystemFontPath(u"notafont.ttf"_ns)));
   EXPECT_LT((TimeStamp::Now() - start).ToSeconds(), 1.0);
+}
+
+TEST(FontPathSet, RecordsBuildTelemetry)
+{
+  FontPathSet::Enable();
+  // Waits for any build started by an earlier test to finish.
+  ASSERT_FALSE(
+      FontPathSet::Contains(GetSystemFontPath(u"notafont.ttf"_ns), MaxWait()));
+  nsCString empty;
+  ASSERT_EQ(NS_OK, glean::impl::fog_test_reset(&empty, &empty));
+  RebuildFromSystemFonts();
+  // Waits for the build to finish.
+  ASSERT_FALSE(
+      FontPathSet::Contains(GetSystemFontPath(u"notafont.ttf"_ns), MaxWait()));
+
+  EXPECT_TRUE(
+      glean::fontlist::font_path_set_built.TestGetValue().unwrap().ref());
+  EXPECT_EQ(glean::fontlist::font_path_set_build_time.TestGetValue()
+                .unwrap()
+                .ref()
+                .count,
+            1UL);
 }
