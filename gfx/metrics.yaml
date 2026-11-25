@@ -1603,6 +1603,42 @@ fontlist:
       - gfx-telemetry-alerts@mozilla.com
     expires: never
 
+  font_path_set_built:
+    type: boolean
+    lifetime: application
+    description: >
+      Whether the set of installed font file paths, used to validate font file
+      access by sandboxed processes on Windows, has been successfully built.
+      Set to false when the set is enabled and to true after the first
+      successful build. Not set if the set is not enabled.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - bowen@mozilla.com
+    expires: 189
+
+  font_path_set_build_time:
+    type: timing_distribution
+    description: >
+      Time spent successfully building the set of installed font file paths,
+      used to validate font file access by sandboxed processes on Windows.
+    time_unit: microsecond
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2097719
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - bowen@mozilla.com
+    expires: 189
+
 apz_zoom:
   activity:
     type: labeled_counter

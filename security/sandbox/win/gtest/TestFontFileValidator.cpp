@@ -10,6 +10,8 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/FontPathSet.h"
+#include "mozilla/glean/SecuritySandboxMetrics.h"
+#include "mozilla/glean/fog_ffi_generated.h"
 #include "nsString.h"
 
 // clang-format off
@@ -111,4 +113,27 @@ TEST(SandboxFontFileValidator, NonFontExtensionMissDoesNotWait)
   TimeStamp start = TimeStamp::Now();
   EXPECT_FALSE(ValidateFontFile(GetSystemFontNtPath(L"notafont.dll")));
   EXPECT_LT((TimeStamp::Now() - start).ToSeconds(), 1.0);
+}
+
+TEST(SandboxFontFileValidator, RecordsTelemetry)
+{
+  gfx::FontPathSet::Enable();
+  ASSERT_TRUE(gfx::FontPathSet::IsEnabled());
+  nsCString empty;
+  ASSERT_EQ(NS_OK, glean::impl::fog_test_reset(&empty, &empty));
+  RebuildFromSystemFonts();
+
+  EXPECT_FALSE(ValidateFontFile(GetSystemFontNtPath(L"notafont.dll")));
+  EXPECT_TRUE(
+      glean::sandbox::font_file_allowed.TestGetValue().unwrap().isNothing());
+  EXPECT_TRUE(
+      glean::sandbox::font_file_denied.TestGetValue().unwrap().isNothing());
+
+  EXPECT_FALSE(ValidateFontFile(GetSystemFontNtPath(L"notafont.ttf")));
+  EXPECT_TRUE(
+      glean::sandbox::font_file_allowed.TestGetValue().unwrap().isNothing());
+  EXPECT_TRUE(glean::sandbox::font_file_denied.TestGetValue().unwrap().ref());
+
+  EXPECT_TRUE(ValidateFontFile(GetSystemFontNtPath(L"arial.ttf")));
+  EXPECT_TRUE(glean::sandbox::font_file_allowed.TestGetValue().unwrap().ref());
 }
