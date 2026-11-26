@@ -252,7 +252,8 @@ class nsBaseClipboard : public nsIClipboard {
 
   // Called on the main thread when a deferred copy's verdict arrives.
   void OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
-                                   PendingCopy* aPendingCopy, bool aAllowed);
+                                   PendingCopy* aPendingCopy,
+                                   int32_t aSequenceNumber, bool aAllowed);
 
   // Replaces the clipboard contents with a localized notice that the copy was
   // not permitted.

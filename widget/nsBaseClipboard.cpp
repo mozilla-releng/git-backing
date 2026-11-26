@@ -470,21 +470,41 @@ void nsBaseClipboard::WriteCopyBlockedPlaceholder(
 
 void nsBaseClipboard::OnCopyContentAnalysisResult(ClipboardType aWhichClipboard,
                                                   PendingCopy* aPendingCopy,
+                                                  int32_t aSequenceNumber,
                                                   bool aAllowed) {
   MOZ_ASSERT(NS_IsMainThread());
-  // We only analyze copies to the global clipboard
-  MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
+  MOZ_ASSERT(aWhichClipboard == kGlobalClipboard,
+             "Only copies to the global clipboard should be analyzed");
 
   if (mPendingCopy != aPendingCopy) {
     // A write issued after this one already superseded it.  The newer write
     // wins regardless of which verdict came back first.
     MOZ_CLIPBOARD_LOG("%s: ignoring stale copy verdict, clipboard=%d",
                       __FUNCTION__, aWhichClipboard);
+    // XXX: CancelPendingCopy() already completed it when it was
+    // superseded, and Complete() only fires once, so this is a no-op.
     aPendingCopy->Complete(NS_ERROR_ABORT);
     return;
   }
 
   RefPtr<PendingCopy> pendingCopy = std::move(mPendingCopy);
+  auto sequenceNumberOrError =
+      GetNativeClipboardSequenceNumber(aWhichClipboard);
+  if (sequenceNumberOrError.isErr()) {
+    MOZ_CLIPBOARD_LOG("%s: unable to get sequence number for clipboard %d.",
+                      __FUNCTION__, aWhichClipboard);
+    pendingCopy->Complete(NS_ERROR_ABORT);
+    return;
+  }
+
+  if (sequenceNumberOrError.unwrap() != aSequenceNumber) {
+    MOZ_CLIPBOARD_LOG(
+        "%s: ignoring stale copy verdict, clipboard %d changed during content "
+        "analysis.",
+        __FUNCTION__, aWhichClipboard);
+    pendingCopy->Complete(NS_ERROR_ABORT);
+    return;
+  }
 
   if (!aAllowed) {
     MOZ_CLIPBOARD_LOG("%s: copy blocked by content analysis, clipboard=%d",
@@ -570,15 +590,24 @@ nsresult nsBaseClipboard::SetDataImpl(
                "Only copies to the global clipboard should be analyzed");
     MOZ_ASSERT(!mPendingCopy, "Any pending copy should have been cancelled");
 
+    auto sequenceNumberOrError =
+        GetNativeClipboardSequenceNumber(aWhichClipboard);
+    if (sequenceNumberOrError.isErr()) {
+      MOZ_CLIPBOARD_LOG("%s: unable to get sequence number for clipboard %d.",
+                        __FUNCTION__, aWhichClipboard);
+      return finish(NS_ERROR_ABORT);
+    }
+
     mPendingCopy = mozilla::MakeRefPtr<PendingCopy>(
         aTransferable, aOwner, aWindowContext, std::move(aCompletion));
 
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
-            [self = RefPtr{this}, aWhichClipboard,
-             pendingCopy = mPendingCopy](nsIContentAnalysisResult* aResult) {
+            [self = RefPtr{this}, aWhichClipboard, pendingCopy = mPendingCopy,
+             sequenceNumber = sequenceNumberOrError.unwrap()](
+                nsIContentAnalysisResult* aResult) {
               self->OnCopyContentAnalysisResult(
-                  aWhichClipboard, pendingCopy,
+                  aWhichClipboard, pendingCopy, sequenceNumber,
                   aResult->GetShouldAllowContent());
             });
     mozilla::contentanalysis::ContentAnalysis::
