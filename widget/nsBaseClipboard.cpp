@@ -566,17 +566,17 @@ nsresult nsBaseClipboard::SetDataImpl(
   if (aCheckContentAnalysis &&
       NeedsCopyContentAnalysis(aTransferable, aWhichClipboard,
                                aWindowContext)) {
-    CancelPendingCopy(aWhichClipboard, NS_ERROR_ABORT);
-    auto pendingCopy = mozilla::MakeRefPtr<PendingCopy>(
+    MOZ_ASSERT(aWhichClipboard == kGlobalClipboard,
+               "Only copies to the global clipboard should be analyzed");
+    MOZ_ASSERT(!mPendingCopy, "Any pending copy should have been cancelled");
+
+    mPendingCopy = mozilla::MakeRefPtr<PendingCopy>(
         aTransferable, aOwner, aWindowContext, std::move(aCompletion));
-    // We only analyze copies to the global clipboard
-    MOZ_ASSERT(aWhichClipboard == kGlobalClipboard);
-    mPendingCopy = pendingCopy;
 
     auto callback =
         mozilla::MakeRefPtr<mozilla::contentanalysis::ContentAnalysisCallback>(
             [self = RefPtr{this}, aWhichClipboard,
-             pendingCopy](nsIContentAnalysisResult* aResult) {
+             pendingCopy = mPendingCopy](nsIContentAnalysisResult* aResult) {
               self->OnCopyContentAnalysisResult(
                   aWhichClipboard, pendingCopy,
                   aResult->GetShouldAllowContent());
