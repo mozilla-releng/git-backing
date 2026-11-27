@@ -109,9 +109,7 @@ profile-file-picker-directory = Choose a profile folder
 
 profile-file-picker-archive = Choose a <strong>ZIP</strong> file
 
-profile-file-picker-archive-description = The ZIP file must be smaller than 2GB.
-
-profile-file-picker-archive-title = Choose a ZIP file (smaller than 2GB)
+profile-file-picker-archive-dialog-title = Choose a ZIP file
 
 items-pane-title2 = Choose what to import:
 
@@ -263,7 +261,7 @@ csv-target-field = Address book field
 
 export-profile-title = Export accounts, messages, address books, and settings to a ZIP file.
 
-export-profile-description = If your current profile is larger than 2GB, we suggest you back it up by yourself.
+export-profile-folder-backup-description = Alternatively, create a backup by copying the profile folder.
 
 export-open-profile-folder = Open profile folder
 

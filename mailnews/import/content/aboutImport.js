@@ -490,7 +490,7 @@ class ProfileImporterController extends ImporterController {
     const [filePickerTitleDir, filePickerTitleZip] =
       await document.l10n.formatValues([
         "profile-file-picker-directory",
-        "profile-file-picker-archive-title",
+        "profile-file-picker-archive-dialog-title",
       ]);
     if (type == "zip") {
       filePicker.init(
