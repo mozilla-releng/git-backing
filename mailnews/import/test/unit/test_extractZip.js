@@ -113,7 +113,7 @@ add_task(async function testExtractFromLevel0() {
   ]);
   const importer = new (class extends BaseProfileImporter {
     IGNORE_DIRS = ["bar"];
-    validateZipSource(_zipReader, _prefix = "") {
+    validateZipSource(_entryNames, _prefix = "") {
       return false;
     }
   })();
@@ -175,4 +175,31 @@ add_task(async function testExtractManyFiles() {
     1,
     "progress should have been reported at the end of extraction"
   );
+});
+
+/**
+ * Tests that a zip file with names reaching outside the target directory is
+ * refused, and nothing is written outside the target directory.
+ */
+add_task(async function testExtractUnsafeNames() {
+  for (const unsafeName of [
+    "../escaped.txt",
+    "baz/../../escaped.txt",
+    "/escaped.txt",
+  ]) {
+    const zipFile = createZipProfile(["good.txt", unsafeName]);
+    const importer = new BaseProfileImporter();
+    await Assert.rejects(
+      importer.extractZipFile(zipFile, () => {}),
+      /Unsafe filename/,
+      `Zip file containing ${unsafeName} should be refused`
+    );
+    const escaped = zipFile.parent.clone();
+    escaped.append("escaped.txt");
+    Assert.ok(!escaped.exists(), `file ${escaped.path} should not exist`);
+    Assert.ok(
+      !(await IOUtils.exists("/escaped.txt")),
+      "Nothing should have been written at the root of the file system"
+    );
+  }
 });

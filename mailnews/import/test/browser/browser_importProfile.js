@@ -310,7 +310,7 @@ add_task(async function testProfileImport() {
   );
 });
 
-add_task(async function testImportLargeZIP() {
+add_task(async function testLargeZIPIsNotRejectedForSize() {
   const profileDir = await IOUtils.createUniqueDirectory(
     PathUtils.tempDir,
     "profile-tmp"
@@ -321,8 +321,10 @@ add_task(async function testImportLargeZIP() {
       recursive: true,
     });
   });
-  // Create a sparse file just over 2 GB. The importer rejects files based on
-  // fileSize metadata, so we don't need to actually write 2 GB of bytes.
+  // Create a sparse file just over 2 GB. The importer used to refuse any file
+  // this size before looking at it. It should now be read like any other, and
+  // since it is all zeros, be reported as not a valid profile rather than as
+  // too big. Being sparse, it does not cost 2 GB of disk.
   const zipNsFile = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
   zipNsFile.initWithPath(profileZip);
   const fos = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(
@@ -393,13 +395,25 @@ add_task(async function testImportLargeZIP() {
     .scrollIntoView({ block: "end", behavior: "instant" });
   importDocument.getElementById("profileNextButton").click();
 
-  const notificationBox = importDocument.getElementById("errorNotifications");
+  const itemsStep = importDocument.getElementById("app-items");
   await BrowserTestUtils.waitForMutationCondition(
-    notificationBox,
+    itemsStep,
     {
-      childList: true,
+      attributes: true,
     },
-    () => notificationBox.childElementCount > 0
+    () => BrowserTestUtils.isVisible(itemsStep)
+  );
+  checkVisiblePane(importDocument, "tabPane-app", "app-items");
+  Assert.ok(
+    BrowserTestUtils.isVisible(
+      importDocument.getElementById("appSourceInvalid")
+    ),
+    "A file over 2 GB should be examined, and found not to be a valid profile"
+  );
+  Assert.equal(
+    importDocument.getElementById("errorNotifications").childElementCount,
+    0,
+    "No error should be shown for the size of the file"
   );
 
   document.getElementById("tabmail").closeTab(tab);

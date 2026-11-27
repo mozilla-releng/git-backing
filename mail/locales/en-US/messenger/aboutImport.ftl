@@ -235,8 +235,6 @@ progress-pane-finished-desc2 = Complete.
 
 error-pane-title = Error
 
-error-message-zip-file-too-big2 = The selected ZIP file is larger than 2GB. Please extract it first, then import from the extracted folder instead.
-
 error-message-extract-zip-file-failed2 = Failed to extract the ZIP file. Please extract it manually, then import from the extracted folder instead.
 
 error-message-failed = Import failed unexpectedly, more information may be available in the Error Console.

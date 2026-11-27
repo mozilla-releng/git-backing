@@ -8,6 +8,8 @@ EXTRA_JS_MODULES += [
     "CalendarFileImporter.sys.mjs",
     "SeamonkeyProfileImporter.sys.mjs",
     "ThunderbirdProfileImporter.sys.mjs",
+    "ZipArchive.sys.mjs",
+    "ZipArchive.worker.mjs",
 ]
 
 if CONFIG["OS_ARCH"] == "WINNT":

@@ -511,11 +511,6 @@ class ProfileImporterController extends ImporterController {
     }
     const selectedFile = filePicker.file;
     if (!selectedFile.isDirectory()) {
-      if (selectedFile.fileSize > 2147483647) {
-        // nsIZipReader only supports zip file less than 2GB.
-        this.showError("error-message-zip-file-too-big2");
-        return;
-      }
       this._importingFromZip = true;
     }
     this._showItems({ dir: selectedFile });
@@ -551,7 +546,7 @@ class ProfileImporterController extends ImporterController {
         this._sourceProfile.name;
     }
 
-    if (this._importer.validateSource(this._sourceProfile.dir)) {
+    if (await this._importer.validateSource(this._sourceProfile.dir)) {
       this._setItemsChecked(this._importer.SUPPORTED_ITEMS);
     } else {
       this._setItemsChecked({});

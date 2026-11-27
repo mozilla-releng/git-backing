@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { ZipArchive } from "resource:///modules/ZipArchive.sys.mjs";
 
 /**
  * An object to represent a source profile to import from.
@@ -63,22 +64,46 @@ export class BaseProfileImporter {
    *
    * @param {nsIFile} _sourceProfileDir - A directory or file (likely but not
    *   necessarily a zip file) to be imported.
-   * @returns {boolean} False if importing this source should not continue.
+   * @returns {Promise<boolean>} false if importing this source should not
+   *   continue.
    */
-  validateSource(_sourceProfileDir) {
+  async validateSource(_sourceProfileDir) {
     return true;
   }
 
   /**
    * Test a zip file for required files.
    *
-   * @param {nsIZipReader} _zipReader - A reader already opened on the file
+   * @param {string[]} _entryNames - The names of the entries in the zip file
    *   to be imported.
    * @param {string} [_prefix=""] - A prefix to apply to all paths being checked.
-   * @returns {boolean} False if importing this source should not continue.
+   * @returns {boolean} false if importing this source should not continue.
    */
-  validateZipSource(_zipReader, _prefix = "") {
+  validateZipSource(_entryNames, _prefix = "") {
     return true;
+  }
+
+  /**
+   * Get the names of the entries of a zip file, as nsIZipReader did:
+   * directories are included even when the zip file only has entries for
+   * files inside them.
+   *
+   * @param {ZipArchiveEntry[]} entries - The entries of the zip file.
+   * @returns {string[]} Entry names. Directory names end with "/".
+   */
+  zipEntryNames(entries) {
+    const names = new Set();
+    for (const { name } of entries) {
+      names.add(name);
+      for (
+        let slash = name.indexOf("/");
+        slash != -1 && slash < name.length - 1;
+        slash = name.indexOf("/", slash + 1)
+      ) {
+        names.add(name.slice(0, slash + 1));
+      }
+    }
+    return [...names];
   }
 
   /**
@@ -93,65 +118,69 @@ export class BaseProfileImporter {
    * @returns {nsIFile}
    */
   async extractZipFile(sourceFile, progressCallback) {
+    const entries = await ZipArchive.listEntries(sourceFile.path);
+
     // Extract the zip file to a tmp dir.
     const targetDir = Services.dirsvc.get("TmpD", Ci.nsIFile);
     targetDir.append("tmp-profile");
     targetDir.createUnique(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
 
-    const zipReader = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(
-      Ci.nsIZipReader
-    );
-    zipReader.open(sourceFile);
-
     // The profile data could be at the top level, or inside a lone folder at
     // the top level. Find out which.
     let depth = 0;
-    const entries = [...zipReader.findEntries(null)];
-    const rootEntries = entries.filter(e => e.match(/^[^\/]*\/?$/));
+    const entryNames = this.zipEntryNames(entries);
+    const rootEntries = entryNames.filter(e => e.match(/^[^\/]*\/?$/));
     if (
-      entries.length > 1 &&
+      entryNames.length > 1 &&
       rootEntries.length == 1 &&
       rootEntries[0].endsWith("/") &&
-      this.validateZipSource(zipReader, rootEntries[0])
+      this.validateZipSource(entryNames, rootEntries[0])
     ) {
       this._logger.debug(`Found an inner directory ${rootEntries[0]}`);
       depth = 1;
     }
 
-    let extractedFileCount = 0;
-    for (const entry of entries) {
-      extractedFileCount++;
-      const parts = entry.split("/").slice(depth);
+    const toExtract = [];
+    for (const { name, directory } of entries) {
+      const parts = name.split("/").slice(depth);
       if (
         parts.length == 0 ||
         this.IGNORE_DIRS.includes(parts[0]) ||
-        entry.endsWith("/")
+        directory
       ) {
-        this._logger.debug(`Skipping ${entry}`);
+        this._logger.debug(`Skipping ${name}`);
         continue;
       }
-      // Folders can not be unzipped recursively, have to iterate and
-      // extract all file entries one by one.
+      // Drop the root folder name in the zip file. Never write outside the
+      // target directory: append() rejects names containing a separator.
       const target = targetDir.clone();
-      for (const part of parts) {
-        // Drop the root folder name in the zip file.
-        target.append(part);
-      }
-      if (!target.parent.exists()) {
-        target.parent.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
-      }
       try {
-        this._logger.debug(`Extracting ${entry} to ${target.path}`);
-        zipReader.extract(entry, target);
-        // Update the progress callback, and yield the main thread to avoid jank.
-        if (extractedFileCount % 10 == 0) {
-          const progress = Math.min(extractedFileCount / entries.length, 1);
-          progressCallback(progress);
-          await new Promise(resolve => setTimeout(resolve));
+        const unsafePart = parts.find(part => ["", ".", ".."].includes(part));
+        if (unsafePart !== undefined) {
+          throw new Error(`Unsafe path part "${unsafePart}"`);
+        }
+        for (const part of parts) {
+          target.append(part);
         }
       } catch (e) {
-        this._logger.error(e);
+        this._logger.warn(`Skipping ${name}: ${e}`);
+        continue;
       }
+      this._logger.debug(`Extracting ${name} to ${target.path}`);
+      toExtract.push({ name, path: target.path });
+    }
+
+    const failures = await ZipArchive.extract(
+      sourceFile.path,
+      toExtract,
+      (doneBytes, totalBytes) => {
+        if (totalBytes) {
+          progressCallback(doneBytes / totalBytes);
+        }
+      }
+    );
+    for (const { name, message } of failures) {
+      this._logger.error(`Failed to extract ${name}: ${message}`);
     }
     progressCallback(1);
     return targetDir;

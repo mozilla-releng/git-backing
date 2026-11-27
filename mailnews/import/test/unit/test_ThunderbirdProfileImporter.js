@@ -105,13 +105,13 @@ add_task(async function test_validateSourceDirectory() {
 
   const importer = new ThunderbirdProfileImporter();
   Assert.ok(
-    importer.validateSource(tmpProfileDir),
+    await importer.validateSource(tmpProfileDir),
     "profile with a prefs.js file should be valid"
   );
 
   await IOUtils.remove(PathUtils.join(tmpProfileDir.path, "prefs.js"));
   Assert.ok(
-    !importer.validateSource(tmpProfileDir),
+    !(await importer.validateSource(tmpProfileDir)),
     "profile without prefs.js file should be invalid"
   );
 
@@ -121,7 +121,7 @@ add_task(async function test_validateSourceDirectory() {
       "pretend mail file"
     );
     Assert.ok(
-      importer.validateSource(tmpProfileDir),
+      await importer.validateSource(tmpProfileDir),
       `profile with ${candidate} directory should be valid`
     );
     await IOUtils.remove(PathUtils.join(tmpProfileDir.path, candidate), {
@@ -130,7 +130,7 @@ add_task(async function test_validateSourceDirectory() {
   }
 
   Assert.ok(
-    !importer.validateSource(tmpProfileDir),
+    !(await importer.validateSource(tmpProfileDir)),
     "profile without prefs.js file or mail directory should be invalid"
   );
 
@@ -139,7 +139,7 @@ add_task(async function test_validateSourceDirectory() {
     "there's nothing interesting here"
   );
   Assert.ok(
-    !importer.validateSource(tmpProfileDir),
+    !(await importer.validateSource(tmpProfileDir)),
     "profile without prefs.js file or mail directory should be invalid"
   );
 });
@@ -152,20 +152,20 @@ add_task(async function test_validateSourceDirectory() {
 add_task(async function test_validateSourceZipAtRoot() {
   const importer = new ThunderbirdProfileImporter();
   Assert.ok(
-    !importer.validateSource(createZipProfile([])),
+    !(await importer.validateSource(createZipProfile([]))),
     "zipped profile without prefs.js file should be invalid"
   );
   Assert.ok(
-    importer.validateSource(createZipProfile(["prefs.js"])),
+    await importer.validateSource(createZipProfile(["prefs.js"])),
     "zipped profile with a prefs.js file should be valid"
   );
   for (const candidate of ["ImapMail", "News", "Mail"]) {
     Assert.ok(
-      importer.validateSource(createZipProfile([`${candidate}/`])),
+      await importer.validateSource(createZipProfile([`${candidate}/`])),
       `zipped profile with ${candidate} directory should be valid`
     );
     Assert.ok(
-      importer.validateSource(createZipProfile([`${candidate}/test`])),
+      await importer.validateSource(createZipProfile([`${candidate}/test`])),
       `zipped profile with ${candidate} directory should be valid`
     );
   }
@@ -178,20 +178,22 @@ add_task(async function test_validateSourceZipAtRoot() {
 add_task(async function test_validateSourceZipAtLevel1() {
   const importer = new ThunderbirdProfileImporter();
   Assert.ok(
-    !importer.validateSource(createZipProfile([])),
+    !(await importer.validateSource(createZipProfile([]))),
     "zipped profile without prefs.js file should be invalid"
   );
   Assert.ok(
-    importer.validateSource(createZipProfile(["foo1234.bar/prefs.js"])),
+    await importer.validateSource(createZipProfile(["foo1234.bar/prefs.js"])),
     "zipped profile with a prefs.js file should be valid"
   );
   for (const candidate of ["ImapMail", "News", "Mail"]) {
     Assert.ok(
-      importer.validateSource(createZipProfile([`foo1234.bar/${candidate}/`])),
+      await importer.validateSource(
+        createZipProfile([`foo1234.bar/${candidate}/`])
+      ),
       `zipped profile with ${candidate} directory should be valid`
     );
     Assert.ok(
-      importer.validateSource(
+      await importer.validateSource(
         createZipProfile([`foo1234.bar/${candidate}/test`])
       ),
       `zipped profile with ${candidate} directory should be valid`

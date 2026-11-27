@@ -22,6 +22,8 @@ support-files = [
   "../../../../mail/components/addrbook/test/browser/data/import.sql",
 ]
 
+["test_ZipArchive.js"]
+
 ["test_extractZip.js"]
 
 ["test_outlook_settings.js"]

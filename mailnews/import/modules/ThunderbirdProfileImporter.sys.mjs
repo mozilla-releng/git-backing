@@ -6,6 +6,7 @@ import { MailServices } from "resource:///modules/MailServices.sys.mjs";
 
 import { BaseProfileImporter } from "resource:///modules/BaseProfileImporter.sys.mjs";
 import { AddrBookFileImporter } from "resource:///modules/AddrBookFileImporter.sys.mjs";
+import { ZipArchive } from "resource:///modules/ZipArchive.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(
@@ -108,9 +109,10 @@ export class ThunderbirdProfileImporter extends BaseProfileImporter {
    *
    * @param {nsIFile} sourceProfileDir - A directory or file (likely but not
    *   necessarily a zip file) to be imported.
-   * @returns {boolean} False if importing this source should not continue.
+   * @returns {Promise<boolean>} false if importing this source should not
+   *   continue.
    */
-  validateSource(sourceProfileDir) {
+  async validateSource(sourceProfileDir) {
     this._logger.debug(
       `Validating ${sourceProfileDir.path} is a Thunderbird profile`
     );
@@ -118,39 +120,37 @@ export class ThunderbirdProfileImporter extends BaseProfileImporter {
       return this.validateDirectorySource(sourceProfileDir);
     }
 
-    const zipReader = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(
-      Ci.nsIZipReader
-    );
+    let entryNames;
     try {
-      zipReader.open(sourceProfileDir);
-      zipReader.test(null);
-    } catch {
+      entryNames = this.zipEntryNames(
+        await ZipArchive.listEntries(sourceProfileDir.path)
+      );
+    } catch (e) {
       this._logger.debug(
-        `${sourceProfileDir.leafName} is not a zip file, too big to be opened, or corrupt`
+        `${sourceProfileDir.leafName} is not a zip file or is corrupt: ${e}`
       );
       return false;
     }
 
     // The profile data could be at the top level, or inside a lone folder at
     // the top level. Find out which.
-    const entries = [...zipReader.findEntries(null)];
-    const rootDirs = entries.filter(e => /^[^\/]*\/$/.test(e));
+    const rootDirs = entryNames.filter(e => /^[^\/]*\/$/.test(e));
     if (
-      entries.length > 1 &&
+      entryNames.length > 1 &&
       rootDirs.length == 1 &&
-      this.validateZipSource(zipReader, rootDirs[0])
+      this.validateZipSource(entryNames, rootDirs[0])
     ) {
       return true;
     }
 
-    return this.validateZipSource(zipReader);
+    return this.validateZipSource(entryNames);
   }
 
   /**
    * Test `sourceProfileDir` for required files.
    *
    * @param {nsIFile} sourceProfileDir - A directory to be imported.
-   * @returns {boolean} False if importing this source should not continue.
+   * @returns {boolean} false if importing this source should not continue.
    */
   validateDirectorySource(sourceProfileDir) {
     const candidates = ["prefs.js", "ImapMail", "Mail", "News"];
@@ -173,30 +173,34 @@ export class ThunderbirdProfileImporter extends BaseProfileImporter {
   /**
    * Test a zip file for required files.
    *
-   * @param {nsIZipReader} zipReader - A reader already opened on the file
+   * @param {string[]} entryNames - The names of the entries in the zip file
    *   to be imported.
    * @param {string} [prefix=""] - A prefix to apply to all paths being checked.
-   * @returns {boolean} False if importing this source should not continue.
+   * @returns {boolean} false if importing this source should not continue.
    */
-  validateZipSource(zipReader, prefix = "") {
-    // Directory entries are optional and end with a slash. Helpfully
-    // our zip reader says there ARE entries (for non-empty directories)
-    // even if there are not.
+  validateZipSource(entryNames, prefix = "") {
     const candidates = ["prefs.js", "ImapMail/", "Mail/", "News/"];
     if (prefix && candidates.includes(prefix)) {
       return false;
     }
 
     for (const candidate of candidates) {
-      if (zipReader.hasEntry(prefix + candidate)) {
+      const path = prefix + candidate;
+      // Directory entries are optional and end with a slash. A directory is
+      // also present if any entry is inside it.
+      if (
+        entryNames.some(name =>
+          path.endsWith("/") ? name.startsWith(path) : name == path
+        )
+      ) {
         this._logger.debug(
-          `${zipReader.file.leafName} is a zip file containing ${prefix}${candidate}, assuming it is a Thunderbird profile`
+          `The zip file contains ${path}, assuming it is a Thunderbird profile`
         );
         return true;
       }
     }
     this._logger.debug(
-      `${zipReader.file.leafName} contains none of the candidate files, it is not a Thunderbird profile`
+      "The zip file contains none of the candidate files, it is not a Thunderbird profile"
     );
     return false;
   }
