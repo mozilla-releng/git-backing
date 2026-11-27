@@ -11,6 +11,30 @@ skip-if = [
   "headless", # HeadlessClipboard doesn't support text/x-moz-url-priv
 ]
 
+["browser_custom_format_clipboard_write_clipboard_read.js"]
+support-files = ["head_custom_format.js"]
+skip-if = [
+  "headless", # HeadlessClipboard does not support web custom formats
+]
+
+["browser_custom_format_clipboard_write_command_paste.js"]
+support-files = ["head_custom_format.js"]
+skip-if = [
+  "headless", # HeadlessClipboard does not support web custom formats
+]
+
+["browser_custom_format_command_copy_clipboard_read.js"]
+support-files = ["head_custom_format.js"]
+skip-if = [
+  "headless", # HeadlessClipboard does not support web custom formats
+]
+
+["browser_custom_format_command_copy_command_paste.js"]
+support-files = ["head_custom_format.js"]
+skip-if = [
+  "headless", # HeadlessClipboard does not support web custom formats
+]
+
 ["browser_document_command_copy.js"]
 
 ["browser_document_command_cut.js"]
@@ -113,11 +137,6 @@ support-files = [
 ]
 skip-if = [
   "headless", # bug 1989339
-]
-
-["browser_navigator_clipboard_read_custom_format_origin.js"]
-skip-if = [
-  "headless", # HeadlessClipboard does not support web custom formats
 ]
 
 ["browser_navigator_clipboard_read_ext.js"]
