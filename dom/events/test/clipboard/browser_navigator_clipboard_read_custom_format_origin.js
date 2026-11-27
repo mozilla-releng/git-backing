@@ -49,6 +49,7 @@ add_setup(async function () {
     set: [
       ["dom.events.testing.asyncClipboard", true],
       ["dom.clipboard.customFormatSupport.enabled", true],
+      ["clipboard.readCustomFormatsFromClipboard.enabled", true],
     ],
   });
 });

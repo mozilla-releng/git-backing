@@ -328,11 +328,16 @@ clipboardTypes.forEach(function (clipboardType) {
   }
 });
 
-// Verify that web custom formats Firefox wrote are readable through the
-// system-clipboard path. The in-process cache is disabled here so reads
-// exercise the system-clipboard path. HeadlessClipboard doesn't support web
-// custom formats, so this test requires a real platform pasteboard.
-add_task(async function test_read_custom_formats_from_clipboard() {
+// Verify that web custom formats Firefox wrote are always readable through
+// the system-clipboard path regardless of
+// clipboard.readCustomFormatsFromClipboard.enabled. The pref only gates web
+// custom flavors written by other applications, and the gate detects "our
+// own write" via the clipboard cache's sequence number (which is populated
+// independently of widget.clipboard.use-cached-data.enabled). The in-process
+// cache is disabled here so reads exercise the system-clipboard path.
+// HeadlessClipboard doesn't support web custom formats, so this test
+// requires a real platform pasteboard.
+add_task(async function test_read_custom_formats_from_clipboard_pref() {
   if (SpecialPowers.isHeadless) {
     info("Skipping: HeadlessClipboard does not support web custom formats");
     return;
@@ -345,14 +350,20 @@ add_task(async function test_read_custom_formats_from_clipboard() {
   let inputFormats = ["web text/plain"];
   writeMultipleDataToClipboard(inputFormats, clipboard.kGlobalClipboard);
 
-  let request = clipboard.getDataSnapshotSync(
-    ["application/x-moz-web-custom-format-map"],
-    clipboard.kGlobalClipboard
-  );
-  ok(
-    request.flavorList.includes("web text/plain"),
-    "Own web custom format should be exposed"
-  );
+  for (let prefValue of [true, false]) {
+    await SpecialPowers.pushPrefEnv({
+      set: [["clipboard.readCustomFormatsFromClipboard.enabled", prefValue]],
+    });
+    let request = clipboard.getDataSnapshotSync(
+      ["application/x-moz-web-custom-format-map"],
+      clipboard.kGlobalClipboard
+    );
+    ok(
+      request.flavorList.includes("web text/plain"),
+      `Own web custom format should be exposed when pref is ${prefValue}`
+    );
+    await SpecialPowers.popPrefEnv();
+  }
 
   await SpecialPowers.popPrefEnv();
 });

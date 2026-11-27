@@ -1268,6 +1268,22 @@ nsTArray<nsCString> nsBaseClipboard::GetWebCustomFormatsFromClipboard(
 
   nsTArray<nsCString> results;
 
+  // The clipboard.readCustomFormatsFromClipboard.enabled pref hides web
+  // custom flavors originating from other applications. We still want a page
+  // to read back its own writes regardless of the pref. To distinguish the
+  // two cases, consult the clipboard cache: SetData() populates the cache
+  // (and snapshots the native clipboard's sequence number) on every write,
+  // independent of widget.clipboard.use-cached-data.enabled, so a valid
+  // cache entry means this Firefox process owns the current clipboard data.
+  // When the cache is valid, allow the read; otherwise honour the pref.
+  // This makes the gate work consistently on Windows and Linux, where the
+  // read path doesn't otherwise consult the cache.
+  if (!GetClipboardCacheIfValid(aWhichClipboard) &&
+      !mozilla::StaticPrefs::
+          clipboard_readCustomFormatsFromClipboard_enabled()) {
+    return results;
+  }
+
   auto customFormatsOrErr = GetNativeClipboardData(
       nsLiteralCString(kWebCustomFormatMapType), aWhichClipboard);
 
@@ -1851,8 +1867,14 @@ bool nsBaseClipboard::CanReadWebCustomFormats(
 
   // Data not written by us has no data principal, so it is cross-origin.
   const auto* clipboardCache = GetClipboardCacheIfValid(aClipboardType);
-  if (!clipboardCache || allowCrossOrigin) {
-    return allowCrossOrigin;
+  if (!clipboardCache) {
+    return allowCrossOrigin &&
+           mozilla::StaticPrefs::
+               clipboard_readCustomFormatsFromClipboard_enabled();
+  }
+
+  if (allowCrossOrigin) {
+    return true;
   }
 
   if (!aRequestingPrincipal) {
