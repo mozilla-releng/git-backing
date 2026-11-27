@@ -14,6 +14,8 @@ run-if = [
   "os == 'mac'",
 ]
 
+["test_ProfileExporter.js"]
+
 ["test_SeamonkeyProfileImporter.js"]
 
 ["test_ThunderbirdProfileImporter.js"]

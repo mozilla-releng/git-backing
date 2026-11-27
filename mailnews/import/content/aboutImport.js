@@ -22,6 +22,18 @@ ChromeUtils.defineESModuleGetters(this, {
   cal: "resource:///modules/calendar/calUtils.sys.mjs",
 });
 
+// Before this long has passed and this much is done, the rate so far is too
+// unsteady to estimate the time left from.
+const TIME_LEFT_MIN_ELAPSED_MS = 5000;
+const TIME_LEFT_MIN_PROGRESS = 0.01;
+
+// The shortest time between two changes of the estimated time left, so that
+// it does not flicker.
+const TIME_LEFT_UPDATE_INTERVAL_MS = 2000;
+
+const MS_PER_MINUTE = 60 * 1000;
+const MINUTES_PER_HOUR = 60;
+
 /**
  * An object to represent a source profile to import from.
  *
@@ -209,9 +221,18 @@ class ImporterController {
    * @param {string} progressL10nId - Fluent ID to use for the progress
    *  description. Should have a |progressPercent| variable expecting the
    *  current progress like "50%".
+   * @param {string} [timeLeftL10nId] - Fluent ID to use instead once the time
+   *  left can be estimated. Should have |progressPercent|, a |minutesLeft|
+   *  number that is 0 for under a minute, and a |timeLeft| variable expecting
+   *  a duration like "5 minutes". Only suitable when progress moves at a
+   *  steady rate, such as when counted in bytes.
    */
-  showProgress(progressL10nId) {
+  showProgress(progressL10nId, timeLeftL10nId) {
     this._progressL10nId = progressL10nId;
+    this._timeLeftL10nId = timeLeftL10nId;
+    this._progressStart = Date.now();
+    this._timeLeft = null;
+    this._timeLeftUpdated = 0;
     this.updateProgress(0);
     this._el.classList.add("progress");
     this._toggleBackButton(false);
@@ -225,13 +246,52 @@ class ImporterController {
    */
   updateProgress(value) {
     this._el.querySelector(".progressPaneProgressBar").value = value;
+    const progressPercent = ImporterController.percentFormatter.format(value);
+    const timeLeft = this._timeLeftL10nId && this._estimateTimeLeft(value);
     document.l10n.setAttributes(
       this._el.querySelector(".progressPaneDesc"),
-      this._progressL10nId,
-      {
-        progressPercent: ImporterController.percentFormatter.format(value),
-      }
+      timeLeft ? this._timeLeftL10nId : this._progressL10nId,
+      { progressPercent, ...timeLeft }
     );
+  }
+
+  /**
+   * Estimate the time left from the average rate since the progress bar was
+   * shown, rounded to whole minutes.
+   *
+   * @param {number} value - A number between 0 and 1 to represent the progress.
+   * @returns {?{minutesLeft: number, timeLeft: string}} The minutes left, 0
+   *  for under a minute, and the time left formatted like "1 hour, 5
+   *  minutes"; or null if it is too early to tell.
+   */
+  _estimateTimeLeft(value) {
+    const now = Date.now();
+    const elapsed = now - this._progressStart;
+    if (
+      value >= 1 ||
+      value < TIME_LEFT_MIN_PROGRESS ||
+      elapsed < TIME_LEFT_MIN_ELAPSED_MS
+    ) {
+      return null;
+    }
+    if (
+      this._timeLeft &&
+      now - this._timeLeftUpdated < TIME_LEFT_UPDATE_INTERVAL_MS
+    ) {
+      return this._timeLeft;
+    }
+    const msLeft = (elapsed * (1 - value)) / value;
+    const minutesLeft =
+      msLeft < MS_PER_MINUTE ? 0 : Math.round(msLeft / MS_PER_MINUTE);
+    this._timeLeft = {
+      minutesLeft,
+      timeLeft: ImporterController.durationFormatter.format({
+        hours: Math.floor(minutesLeft / MINUTES_PER_HOUR),
+        minutes: minutesLeft % MINUTES_PER_HOUR,
+      }),
+    };
+    this._timeLeftUpdated = now;
+    return this._timeLeft;
   }
 
   /**
@@ -298,6 +358,11 @@ ChromeUtils.defineLazyGetter(
     new Intl.NumberFormat(undefined, {
       style: "percent",
     })
+);
+ChromeUtils.defineLazyGetter(
+  ImporterController,
+  "durationFormatter",
+  () => new Intl.DurationFormat(undefined, { style: "long" })
 );
 ChromeUtils.defineLazyGetter(
   ImporterController,
@@ -1581,7 +1646,10 @@ class ExportController extends ImporterController {
     }
 
     const exporter = new ProfileExporter();
-    this.showProgress("progress-pane-exporting2");
+    this.showProgress(
+      "progress-pane-exporting2",
+      "progress-pane-exporting-time-left"
+    );
     exporter.onProgress = (current, total) => {
       this.updateProgress(current / total);
     };

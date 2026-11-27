@@ -229,6 +229,15 @@ progress-pane-importing2 = Importing… { $progressPercent }
 # $progressPercent (string) - percent formatted progress (for example "10%")
 progress-pane-exporting2 = Exporting… { $progressPercent }
 
+# $progressPercent (string) - percent formatted progress (for example "10%")
+# $minutesLeft (number) - estimated minutes left, 0 when less than a minute is left
+# $timeLeft (string) - estimated time left, formatted as a duration (for example "5 minutes" or "1 hour, 20 minutes")
+progress-pane-exporting-time-left =
+    { $minutesLeft ->
+        [0] Exporting… { $progressPercent }, less than a minute left
+       *[other] Exporting… { $progressPercent }, about { $timeLeft } left
+    }
+
 progress-pane-finished-desc2 = Complete.
 
 error-pane-title = Error
