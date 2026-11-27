@@ -70,10 +70,14 @@ export const ZipArchive = {
    * @param {ZipEntryFile[]} entries - Names for the entries, and the paths of
    *   the files to read them from.
    * @param {ZipProgressCallback} [onProgress]
-   * @returns {Promise} Rejects if any file could not be added.
+   * @param {object} [options]
+   * @param {AbortSignal} [options.signal] - Stops creating the archive when
+   *   aborted. The partial archive is left for the caller to remove.
+   * @returns {Promise} Rejects if any file could not be added, or with an
+   *   AbortError if stopped.
    */
-  create(archivePath, entries, onProgress) {
-    return run("create", { archivePath, entries }, onProgress);
+  create(archivePath, entries, onProgress, { signal } = {}) {
+    return run("create", { archivePath, entries }, onProgress, signal);
   },
 };
 
@@ -83,10 +87,16 @@ export const ZipArchive = {
  * @param {string} operation - The name of a function in the worker.
  * @param {object} args - Arguments for the function.
  * @param {ZipProgressCallback} [onProgress]
+ * @param {AbortSignal} [signal] - Asks the worker to stop when aborted. The
+ *   promise settles once the worker has stopped, so that it is no longer
+ *   writing to any file.
  * @returns {Promise<any>} The result of the function.
  */
-function run(operation, args, onProgress) {
+async function run(operation, args, onProgress, signal) {
+  signal?.throwIfAborted();
   const worker = new ChromeWorker(WORKER_URL, { type: "module" });
+  const abort = () => worker.postMessage({ abort: true });
+  signal?.addEventListener("abort", abort, { once: true });
   return new Promise((resolve, reject) => {
     worker.addEventListener("error", event => {
       reject(new Error(`ZipArchive worker failed: ${event.message}`));
@@ -103,5 +113,8 @@ function run(operation, args, onProgress) {
       }
     });
     worker.postMessage({ operation, args });
-  }).finally(() => worker.terminate());
+  }).finally(() => {
+    signal?.removeEventListener("abort", abort);
+    worker.terminate();
+  });
 }

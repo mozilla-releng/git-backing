@@ -74,6 +74,9 @@ add_task(async function testExportRoundTrip() {
   registerCleanupFunction(() =>
     IOUtils.remove(zip.path, { ignoreAbsent: true })
   );
+  // Left behind by an export that never finished, as when Thunderbird quits
+  // while exporting.
+  await IOUtils.writeUTF8(profilePath("export.zip.part"), "partial");
   const exporter = new ProfileExporter();
   const progress = [];
   exporter.onProgress = (current, total) => progress.push([current, total]);
@@ -125,6 +128,14 @@ add_task(async function testExportRoundTrip() {
     !names.includes(`${profileName}/export.zip`),
     "Archive should not contain itself"
   );
+  Assert.ok(
+    !names.includes(`${profileName}/export.zip.part`),
+    "Archive should not contain a partial archive"
+  );
+  Assert.ok(
+    !(await IOUtils.exists(profilePath("export.zip.part"))),
+    "Partial archive should have been renamed to the backup"
+  );
   for (const name of ["Mail/Local Folders/Inbox", "prefs.js"]) {
     Assert.ok(
       names.includes(`${profileName}/${name}`),
@@ -137,6 +148,30 @@ add_task(async function testExportRoundTrip() {
   ]);
   Assert.deepEqual(failures, [], "Large file should have been extracted");
   Assert.equal(out.fileSize, LARGE_SIZE, "Large file should come back whole");
+});
+
+add_task(async function testCancelExport() {
+  const zip = tmpZip("export-cancelled.zip");
+  // The user chose to replace an older backup.
+  await IOUtils.writeUTF8(zip.path, "older backup");
+  const exporter = new ProfileExporter();
+  const controller = new AbortController();
+  // Cancel once the large file is under way.
+  exporter.onProgress = () => controller.abort();
+  await Assert.rejects(
+    exporter.startExport(zip, { signal: controller.signal }),
+    e => e.name == "AbortError",
+    "Cancelled export should reject with an AbortError"
+  );
+  Assert.ok(
+    !(await IOUtils.exists(`${zip.path}.part`)),
+    "Partial backup should have been removed"
+  );
+  Assert.equal(
+    await IOUtils.readUTF8(zip.path),
+    "older backup",
+    "Older backup should be left as it was"
+  );
 });
 
 add_task(async function testUnreadableFileFailsExport() {
@@ -157,4 +192,8 @@ add_task(async function testUnreadableFileFailsExport() {
     "Export should report the file it could not add"
   );
   Assert.ok(!zip.exists(), "Should not have left incomplete backup behind");
+  Assert.ok(
+    !(await IOUtils.exists(`${zip.path}.part`)),
+    "Should not have left partial backup behind"
+  );
 });

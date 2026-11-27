@@ -38,6 +38,8 @@ button-export = Export
 
 button-finish = Finish
 
+button-cancel = Cancel
+
 ## Import from app steps
 
 app-name-thunderbird = Thunderbird

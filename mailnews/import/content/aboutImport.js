@@ -1615,6 +1615,12 @@ class CalendarImporterController extends ImporterController {
 class ExportController extends ImporterController {
   constructor() {
     super("tabPane-export", "");
+    // The export runs in a worker that outlives this page, so closing the tab
+    // or the window would leave it running, with nowhere to report to.
+    window.addEventListener("pagehide", () => {
+      this._pageHidden = true;
+      this._abortController?.abort();
+    });
   }
 
   back() {
@@ -1646,6 +1652,8 @@ class ExportController extends ImporterController {
     }
 
     const exporter = new ProfileExporter();
+    this._abortController = new AbortController();
+    this._el.querySelector(".progressCancel").disabled = false;
     this.showProgress(
       "progress-pane-exporting2",
       "progress-pane-exporting-time-left"
@@ -1654,12 +1662,32 @@ class ExportController extends ImporterController {
       this.updateProgress(current / total);
     };
     try {
-      await exporter.startExport(filePicker.file);
+      await exporter.startExport(filePicker.file, {
+        signal: this._abortController.signal,
+      });
       this.finish();
     } catch (e) {
+      if (this._abortController.signal.aborted) {
+        if (!this._pageHidden) {
+          this._inProgress = false;
+          this.reset();
+        }
+        return;
+      }
       this.showError("error-export-failed");
       throw e;
+    } finally {
+      this._abortController = null;
     }
+  }
+
+  /**
+   * Stop the export in progress. The partial backup is removed, and the pane
+   * goes back to where it was before exporting.
+   */
+  cancel() {
+    this._el.querySelector(".progressCancel").disabled = true;
+    this._abortController?.abort();
   }
 
   openProfileFolder() {

@@ -323,6 +323,7 @@ calendar-item-summary {
 
 /* Conditionally visible elements */
 .restart-only,
+.progressCancel,
 .progressFinish,
 .progressPane {
   display: none;
@@ -346,7 +347,8 @@ calendar-item-summary {
   display: none;
 }
 
-.complete .progressFinish.center-button {
+.complete .progressFinish.center-button,
+.progress:not(.complete) .progressCancel.center-button {
   display: block;
 }
 

@@ -8,6 +8,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ZipArchive: "resource:///modules/ZipArchive.sys.mjs",
 });
 
+// The backup is written under its name with this added, and renamed when it is
+// complete, so that an export that does not finish never leaves a file
+// looking like a usable backup.
+const PARTIAL_SUFFIX = ".part";
+
 // No need to backup those paths, they are not used when importing.
 const IGNORE_PATHS = [
   ".startup-incomplete",
@@ -49,31 +54,44 @@ export class ProfileExporter {
    * Export the current profile to the specified target zip file.
    *
    * @param {nsIFile} targetFile - A target zip file to write to.
+   * @param {object} [options]
+   * @param {AbortSignal} [options.signal] - Cancels the export when aborted.
+   *   The partial archive is removed, any file already at `targetFile` is
+   *   left as it was, and the export rejects with an AbortError.
    */
-  async startExport(targetFile) {
+  async startExport(targetFile, { signal } = {}) {
     const profileDir = Services.dirsvc.get("ProfD", Ci.nsIFile);
     const rootPathCount = PathUtils.split(profileDir.parent.path).length;
     const zipEntryMap = await this.#collectFilesToZip(
       rootPathCount,
       profileDir
     );
+    const partialPath = targetFile.path + PARTIAL_SUFFIX;
     const entries = [];
     for (const [name, file] of zipEntryMap) {
       // The backup may be saved inside the profile. Adding the archive to
       // itself would never finish, because it grows as fast as it is read.
-      if (!file.equals(targetFile)) {
+      // A partial archive can be there too, if Thunderbird quit while
+      // exporting.
+      if (!file.equals(targetFile) && file.path != partialPath) {
         entries.push({ name, path: file.path });
       }
     }
 
     lazy.MailTelemetry.recordProfileExport("started");
     try {
-      await lazy.ZipArchive.create(targetFile.path, entries, (done, total) =>
-        this.onProgress(done, total)
+      await lazy.ZipArchive.create(
+        partialPath,
+        entries,
+        (done, total) => this.onProgress(done, total),
+        { signal }
       );
+      await IOUtils.move(partialPath, targetFile.path);
     } catch (e) {
-      // Do not leave a partial archive behind looking like a usable backup.
-      await IOUtils.remove(targetFile.path, { ignoreAbsent: true });
+      await IOUtils.remove(partialPath, { ignoreAbsent: true });
+      if (signal?.aborted) {
+        throw e;
+      }
       throw new Error(`Profile export failed: ${e.message}`, { cause: e });
     }
     lazy.MailTelemetry.recordProfileExport("completed", "complete");

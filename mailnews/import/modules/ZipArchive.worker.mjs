@@ -5,7 +5,8 @@
 /**
  * Reads and writes zip archives off the main thread, for ZipArchive.sys.mjs.
  * Each worker runs one operation, posting progress messages followed by a
- * result or an error.
+ * result or an error. Creating an archive stops with an AbortError if an
+ * abort message arrives while it runs.
  */
 
 import {
@@ -319,8 +320,9 @@ async function extract({ archivePath, entries }) {
  *   Any existing file is replaced.
  * @param {{name: string, path: string}[]} args.entries - Names for the
  *   entries, and absolute paths of the files to read each one from.
+ * @param {AbortSignal} signal - Stops the archive part way when aborted.
  */
-async function create({ archivePath, entries }) {
+async function create({ archivePath, entries }, signal) {
   const sources = [];
   let totalBytes = 0;
   for (const { name: entryName, path } of entries) {
@@ -350,6 +352,7 @@ async function create({ archivePath, entries }) {
   // Entries are added one at a time. Added together, zip.js would hold all
   // but one of them in memory until its turn to be written.
   for (const { entryName, path, size, lastModified } of sources) {
+    signal.throwIfAborted();
     const reader = new DiskFileReader(path);
     try {
       try {
@@ -364,8 +367,10 @@ async function create({ archivePath, entries }) {
       await zipWriter.add(entryName, reader, {
         lastModDate: new Date(lastModified),
         onprogress: progress.forEntry(),
+        signal,
       });
     } catch (e) {
+      signal.throwIfAborted();
       throw new Error(`Failed to add ${entryName}: ${e}`, { cause: e });
     } finally {
       reader.close();
@@ -377,9 +382,15 @@ async function create({ archivePath, entries }) {
 
 const OPERATIONS = { listEntries, extract, create };
 
-self.onmessage = async ({ data: { operation, args } }) => {
+const abortController = new AbortController();
+
+self.onmessage = async ({ data: { operation, args, abort } }) => {
+  if (abort) {
+    abortController.abort();
+    return;
+  }
   try {
-    const result = await OPERATIONS[operation](args);
+    const result = await OPERATIONS[operation](args, abortController.signal);
     self.postMessage({ result });
   } catch (e) {
     self.postMessage({ error: e.message ?? String(e), errorName: e.name });

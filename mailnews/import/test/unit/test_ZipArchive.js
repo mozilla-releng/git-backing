@@ -265,6 +265,30 @@ add_task(async function testRemovedSourceIsLeftOut() {
   );
 });
 
+add_task(async function testAbortCreate() {
+  const sources = await writeSourceFiles();
+  const archivePath = PathUtils.join(tmpDir, "aborted.zip");
+
+  const controller = new AbortController();
+  const creating = ZipArchive.create(archivePath, sources, null, {
+    signal: controller.signal,
+  });
+  controller.abort();
+  await Assert.rejects(
+    creating,
+    e => e.name == "AbortError",
+    "Aborting while the archive is being created should stop it"
+  );
+
+  await Assert.rejects(
+    ZipArchive.create(archivePath, sources, null, {
+      signal: controller.signal,
+    }),
+    e => e.name == "AbortError",
+    "Already aborted signal should stop the archive before it starts"
+  );
+});
+
 add_task(async function testTruncatedArchive() {
   const archivePath = PathUtils.join(tmpDir, "truncated.zip");
   await writeTruncatedZip(archivePath, "prefs.js");
