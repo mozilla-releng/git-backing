@@ -744,11 +744,12 @@ nsresult nsBaseClipboard::GetDataImpl(
 
   // A kept copy has to be served from the cache even when a threshold is
   // given.
+  // XXX should we also ignore the threshold if the data the from the cache for
+  // system clipboard?
   if (auto cachedData =
-          GetClipboardCacheForReading(aWhichClipboard, aWindowContext);
-      cachedData && (!aThreshold || cachedData->mIsKeptCopy)) {
-    if (NS_SUCCEEDED(ClipboardCache::GetData(cachedData->mTransferable,
-                                             aTransferable))) {
+          GetCachedDataForReading(aWhichClipboard, aWindowContext);
+      cachedData && (!aThreshold || cachedData->IsFromKeptCopy())) {
+    if (NS_SUCCEEDED(cachedData->GetData(*aTransferable))) {
       if (aThreshold &&
           TransferableExceedsThreshold(aTransferable, aThreshold)) {
         aTransferable->ClearAllData();
@@ -758,7 +759,7 @@ nsresult nsBaseClipboard::GetDataImpl(
     }
     // The native clipboard holds something other than what this requester
     // last copied, so don't fill flavors the kept copy lacks from it.
-    if (cachedData->mIsKeptCopy) {
+    if (cachedData->IsFromKeptCopy()) {
       return NS_OK;
     }
   }
@@ -920,14 +921,13 @@ NS_IMETHODIMP nsBaseClipboard::GetDataSnapshot(
   // last ones to put something on the native clipboard, then check if the data
   // is from the same-origin page,
   nsCOMPtr<nsIPrincipal> principal;
-  if (PendingCopy* keptCopy =
-          GetKeptCopyForReading(aWhichClipboard, aRequestingWindowContext)) {
-    principal = keptCopy->GetSourcePrincipal();
-  } else if (auto* clipboardCache = GetClipboardCacheIfValid(aWhichClipboard)) {
-    nsCOMPtr<nsITransferable> trans = clipboardCache->GetTransferable();
+  if (auto cachedData =
+          GetCachedDataForReading(aWhichClipboard, aRequestingWindowContext)) {
+    nsCOMPtr<nsITransferable> trans = cachedData->Transferable();
     MOZ_ASSERT(trans);
     principal = trans->GetDataPrincipal();
   }
+
   if (principal && aRequestingPrincipal->Subsumes(principal)) {
     MOZ_CLIPBOARD_LOG("%s: clipboard data is from same-origin page.",
                       __FUNCTION__);
@@ -953,12 +953,12 @@ nsBaseClipboard::MaybeCreateGetRequestFromClipboardCache(
   // If we were the last ones to put something on the native clipboard (or
   // kept a copy for this requester), then just use the cached transferable.
   auto cachedData =
-      GetClipboardCacheForReading(aClipboardType, aRequestingWindowContext);
+      GetCachedDataForReading(aClipboardType, aRequestingWindowContext);
   if (!cachedData) {
     return nullptr;
   }
 
-  nsITransferable* cachedTransferable = cachedData->mTransferable;
+  nsITransferable* cachedTransferable = cachedData->Transferable();
   MOZ_ASSERT(cachedTransferable);
 
   nsTArray<nsCString> transferableFlavors;
@@ -1007,7 +1007,7 @@ nsBaseClipboard::MaybeCreateGetRequestFromClipboardCache(
   // XXX Do we need to check system clipboard for the flavors that cannot
   // be found in cache?
   return mozilla::MakeAndAddRef<ClipboardDataSnapshot>(
-      aClipboardType, cachedData->mSequenceNumber, std::move(results),
+      aClipboardType, cachedData->SequenceNumber(), std::move(results),
       true /* aFromCache */, this, aRequestingWindowContext);
 }
 
@@ -1561,16 +1561,15 @@ NS_IMETHODIMP nsBaseClipboard::ClipboardDataSnapshot::GetData(
           });
 
   if (mFromCache) {
-    auto cachedData = mClipboard->GetClipboardCacheForReading(
+    auto cachedData = mClipboard->GetCachedDataForReading(
         mClipboardType, mRequestingWindowContext);
     // `IsValid()` above ensures we should get a valid cache and matched
     // sequence number here.
     MOZ_DIAGNOSTIC_ASSERT(cachedData);
-    MOZ_DIAGNOSTIC_ASSERT(cachedData->mSequenceNumber == mSequenceNumber);
+    MOZ_DIAGNOSTIC_ASSERT(cachedData->SequenceNumber() == mSequenceNumber);
     // Never fall back to the native clipboard for a kept copy.
-    if (NS_SUCCEEDED(ClipboardCache::GetData(cachedData->mTransferable,
-                                             aTransferable)) ||
-        cachedData->mIsKeptCopy) {
+    if (NS_SUCCEEDED(cachedData->GetData(*aTransferable)) ||
+        cachedData->IsFromKeptCopy()) {
       mozilla::contentanalysis::ContentAnalysis::CheckClipboardContentAnalysis(
           mClipboard,
           mRequestingWindowContext ? mRequestingWindowContext->Canonical()
@@ -1640,16 +1639,15 @@ NS_IMETHODIMP nsBaseClipboard::ClipboardDataSnapshot::GetDataSync(
   MOZ_ASSERT(mClipboard);
 
   if (mFromCache) {
-    auto cachedData = mClipboard->GetClipboardCacheForReading(
+    auto cachedData = mClipboard->GetCachedDataForReading(
         mClipboardType, mRequestingWindowContext);
     // `IsValid()` above ensures we should get a valid cache and matched
     // sequence number here.
     MOZ_DIAGNOSTIC_ASSERT(cachedData);
-    MOZ_DIAGNOSTIC_ASSERT(cachedData->mSequenceNumber == mSequenceNumber);
+    MOZ_DIAGNOSTIC_ASSERT(cachedData->SequenceNumber() == mSequenceNumber);
     // Never fall back to the native clipboard for a kept copy.
-    if (NS_SUCCEEDED(ClipboardCache::GetData(cachedData->mTransferable,
-                                             aTransferable)) ||
-        cachedData->mIsKeptCopy) {
+    if (NS_SUCCEEDED(cachedData->GetData(*aTransferable)) ||
+        cachedData->IsFromKeptCopy()) {
       bool shouldAllowContent = mozilla::contentanalysis::ContentAnalysis::
           CheckClipboardContentAnalysisSync(
               mClipboard,
@@ -1702,14 +1700,14 @@ bool nsBaseClipboard::ClipboardDataSnapshot::IsValid() {
   // If the data should from cache, check if cache is still valid or the
   // sequence numbers are matched.
   if (mFromCache) {
-    auto cachedData = mClipboard->GetClipboardCacheForReading(
+    auto cachedData = mClipboard->GetCachedDataForReading(
         mClipboardType, mRequestingWindowContext);
     if (!cachedData) {
       mClipboard = nullptr;
       return false;
     }
 
-    return mSequenceNumber == cachedData->mSequenceNumber;
+    return mSequenceNumber == cachedData->SequenceNumber();
   }
 
   auto resultOrError =
@@ -1851,13 +1849,10 @@ NS_IMETHODIMP nsBaseClipboard::ClipboardPopulatedDataSnapshot::GetDataSync(
 mozilla::Maybe<uint64_t> nsBaseClipboard::GetClipboardCacheInnerWindowId(
     ClipboardType aClipboardType,
     mozilla::dom::WindowContext* aRequestingWindowContext) {
-  if (PendingCopy* keptCopy =
-          GetKeptCopyForReading(aClipboardType, aRequestingWindowContext)) {
-    return mozilla::Some(keptCopy->mWindowContext->InnerWindowId());
-  }
-  auto* clipboardCache = GetClipboardCacheIfValid(aClipboardType);
-  return clipboardCache ? clipboardCache->GetInnerWindowId()
-                        : mozilla::Nothing();
+  // XXX should we use GetCachedDataForReading() which takes
+  // widget.clipboard.use-cached-data.enabled into consideration?
+  auto cacheData = GetCachedData(aClipboardType, aRequestingWindowContext);
+  return cacheData ? cacheData->InnerWindowId() : mozilla::Nothing();
 }
 
 nsBaseClipboard::ClipboardCache* nsBaseClipboard::GetClipboardCacheIfValid(
@@ -1915,57 +1910,55 @@ bool nsBaseClipboard::CanReadWebCustomFormats(
   return dataPrincipal && aRequestingPrincipal->Subsumes(dataPrincipal);
 }
 
-nsBaseClipboard::PendingCopy* nsBaseClipboard::GetKeptCopyIfValid(
-    ClipboardType aClipboardType) {
+mozilla::Maybe<nsBaseClipboard::CachedDataForReading>
+nsBaseClipboard::GetCachedData(
+    ClipboardType aClipboardType,
+    mozilla::dom::WindowContext* aRequestingWindowContext) {
   MOZ_ASSERT(nsIClipboard::IsClipboardTypeSupported(aClipboardType));
 
   const mozilla::UniquePtr<ClipboardCache>& cache = mCaches[aClipboardType];
+  MOZ_ASSERT(cache);
+
+  auto sequenceNumberOrError = GetNativeClipboardSequenceNumber(aClipboardType);
+  if (sequenceNumberOrError.isErr()) {
+    return mozilla::Nothing();
+  }
+
+  if (sequenceNumberOrError.unwrap() != cache->GetSequenceNumber()) {
+    // Clipboard cache is invalid, clear it.
+    cache->Clear();
+    return mozilla::Nothing();
+  }
+
   PendingCopy* keptCopy = cache->GetKeptCopy();
-  if (!keptCopy) {
-    return nullptr;
+  if (keptCopy && keptCopy->MayBeReadBy(aRequestingWindowContext)) {
+    return mozilla::Some(
+        CachedDataForReading(keptCopy, cache->GetSequenceNumber()));
   }
 
-  auto changeCountOrError = GetNativeClipboardSequenceNumber(aClipboardType);
-  if (changeCountOrError.isErr()) {
-    return nullptr;
+  if (!cache->GetTransferable()) {
+    MOZ_ASSERT_UNREACHABLE("How this can happen?");
+    return mozilla::Nothing();
   }
 
-  if (changeCountOrError.unwrap() != cache->GetKeptCopySequenceNumber() ||
-      keptCopy->mWindowContext->TopWindowContext()->IsDiscarded()) {
-    cache->DropKeptCopy();
-    return nullptr;
-  }
-
-  return keptCopy;
-}
-
-nsBaseClipboard::PendingCopy* nsBaseClipboard::GetKeptCopyForReading(
-    ClipboardType aClipboardType,
-    mozilla::dom::WindowContext* aRequestingWindowContext) {
-  PendingCopy* keptCopy = GetKeptCopyIfValid(aClipboardType);
-  return keptCopy && keptCopy->MayBeReadBy(aRequestingWindowContext) ? keptCopy
-                                                                     : nullptr;
+  return mozilla::Some(CachedDataForReading{cache->GetTransferable(),
+                                            cache->GetSequenceNumber(),
+                                            cache->GetInnerWindowId(), false});
 }
 
 mozilla::Maybe<nsBaseClipboard::CachedDataForReading>
-nsBaseClipboard::GetClipboardCacheForReading(
+nsBaseClipboard::GetCachedDataForReading(
     ClipboardType aClipboardType,
     mozilla::dom::WindowContext* aRequestingWindowContext) {
-  if (PendingCopy* keptCopy =
-          GetKeptCopyForReading(aClipboardType, aRequestingWindowContext)) {
-    return mozilla::Some(CachedDataForReading{
-        keptCopy->mTransferable,
-        mCaches[aClipboardType]->GetKeptCopySequenceNumber(), true});
+  if (auto cachedData =
+          GetCachedData(aClipboardType, aRequestingWindowContext)) {
+    if (cachedData->IsFromKeptCopy() ||
+        mozilla::StaticPrefs::widget_clipboard_use_cached_data_enabled()) {
+      return cachedData;
+    }
   }
-  if (!mozilla::StaticPrefs::widget_clipboard_use_cached_data_enabled()) {
-    return mozilla::Nothing();
-  }
-  const auto* cache = GetClipboardCacheIfValid(aClipboardType);
-  if (!cache) {
-    return mozilla::Nothing();
-  }
-  return mozilla::Some(CachedDataForReading{cache->GetTransferable(),
-                                            cache->GetSequenceNumber(), false});
+
+  return mozilla::Nothing();
 }
 
 /* static */
@@ -2001,37 +1994,45 @@ void nsBaseClipboard::ClipboardCache::Clear() {
   mSequenceNumber = -1;
 }
 
-bool nsBaseClipboard::ClipboardCache::SetKeptCopy(PendingCopy* aPendingCopy,
-                                                  int32_t aSequenceNumber) {
+void nsBaseClipboard::ClipboardCache::Update(PendingCopy* aPendingCopy,
+                                             int32_t aSequenceNumber) {
   MOZ_ASSERT(aPendingCopy);
   MOZ_ASSERT(aPendingCopy->mWindowContext);
   MOZ_ASSERT(!mKeptCopy);
   if (nsCOMPtr<nsIPrincipal> principal = aPendingCopy->GetSourcePrincipal();
       !principal) {
-    return false;
+    return;
+  }
+
+  if (mSequenceNumber != aSequenceNumber) {
+    MOZ_ASSERT(aSequenceNumber > mSequenceNumber);
+    // Drop old stale data.
+    Clear();
   }
 
   MOZ_CLIPBOARD_LOG("%s: keeping a copy for sequence number %d", __FUNCTION__,
                     aSequenceNumber);
   mKeptCopy = aPendingCopy;
-  mKeptCopySequenceNumber = aSequenceNumber;
-  return true;
+  mSequenceNumber = aSequenceNumber;
 }
 
-void nsBaseClipboard::ClipboardCache::RekeyKeptCopy(int32_t aSequenceNumber) {
-  MOZ_ASSERT(mKeptCopy);
-  MOZ_CLIPBOARD_LOG("%s: sequence number %d -> %d", __FUNCTION__,
-                    mKeptCopySequenceNumber, aSequenceNumber);
-  mKeptCopySequenceNumber = aSequenceNumber;
-}
-
-RefPtr<nsBaseClipboard::PendingCopy>
-nsBaseClipboard::ClipboardCache::DropKeptCopy() {
-  if (mKeptCopy) {
+void nsBaseClipboard::ClipboardCache::DropKeptCopyIfMatch(
+    PendingCopy* aPendingCopy) {
+  MOZ_ASSERT(aPendingCopy);
+  if (mKeptCopy == aPendingCopy) {
+    MOZ_ASSERT(mSequenceNumber >= 0, "Should have valid sequence number");
     MOZ_CLIPBOARD_LOG("%s: dropped kept copy", __FUNCTION__);
+    mKeptCopy = nullptr;
   }
-  mKeptCopySequenceNumber = -1;
-  return std::move(mKeptCopy);
+}
+
+void nsBaseClipboard::ClipboardCache::BindKeptCopyToCurrentSequenceNumber(
+    PendingCopy* aPendingCopy) {
+  MOZ_ASSERT(mSequenceNumber >= 0, "Should have valid sequence number");
+  MOZ_ASSERT(mTransferable, "Should have valid cached transferable");
+  MOZ_CLIPBOARD_LOG("%s: bind kept copy to sequence number %d", __FUNCTION__,
+                    mSequenceNumber);
+  mKeptCopy = aPendingCopy;
 }
 
 already_AddRefed<nsIPrincipal>
@@ -2057,19 +2058,17 @@ bool nsBaseClipboard::PendingCopy::MayBeReadBy(
   return true;
 }
 
-/* static */
-nsresult nsBaseClipboard::ClipboardCache::GetData(
-    nsITransferable* aCachedTransferable, nsITransferable* aTransferable) {
-  MOZ_ASSERT(aTransferable);
+nsresult nsBaseClipboard::CachedDataForReading::GetData(
+    nsITransferable& aTransferable) const {
+  MOZ_ASSERT(mTransferable);
 
   // get flavor list that includes all acceptable flavors (including ones
   // obtained through conversion)
   nsTArray<nsCString> flavors;
-  if (NS_FAILED(aTransferable->FlavorsTransferableCanImport(flavors))) {
+  if (NS_FAILED(aTransferable.FlavorsTransferableCanImport(flavors))) {
     return NS_ERROR_FAILURE;
   }
 
-  MOZ_ASSERT(aCachedTransferable);
   for (const auto& flavor : flavors) {
     nsCOMPtr<nsISupports> dataSupports;
     // Get web custom format map data from ClipboardCache::mTransferable.
@@ -2079,7 +2078,7 @@ nsresult nsBaseClipboard::ClipboardCache::GetData(
     // custom format map querying.
     if (flavor.EqualsLiteral(kWebCustomFormatMapType)) {
       nsTArray<nsCString> transferableFlavors;
-      if (NS_FAILED(aCachedTransferable->FlavorsTransferableCanExport(
+      if (NS_FAILED(mTransferable->FlavorsTransferableCanExport(
               transferableFlavors))) {
         return NS_ERROR_FAILURE;
       }
@@ -2103,7 +2102,7 @@ nsresult nsBaseClipboard::ClipboardCache::GetData(
           customFormats->AppendElement(customFormat);
         }
       }
-      aTransferable->SetTransferData(flavor.get(), customFormats);
+      aTransferable.SetTransferData(flavor.get(), customFormats);
       return NS_OK;
     }
 
@@ -2118,11 +2117,11 @@ nsresult nsBaseClipboard::ClipboardCache::GetData(
 
     // XXX Maybe we need special check for image as we always put the image as
     // "native" on the clipboard.
-    if (NS_SUCCEEDED(aCachedTransferable->GetTransferData(
+    if (NS_SUCCEEDED(mTransferable->GetTransferData(
             flavor.get(), getter_AddRefs(dataSupports)))) {
       MOZ_CLIPBOARD_LOG("%s: getting %s from cache.", __FUNCTION__,
                         flavor.get());
-      aTransferable->SetTransferData(flavor.get(), dataSupports);
+      aTransferable.SetTransferData(flavor.get(), dataSupports);
       // XXX we only read the first available type from native clipboard, so
       // make cache behave the same.
       return NS_OK;
