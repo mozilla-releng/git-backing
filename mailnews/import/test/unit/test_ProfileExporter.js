@@ -4,7 +4,8 @@
 
 /* Tests for ProfileExporter: that it produces a readable archive, reports
  * progress in bytes, keeps the main thread free while a large file is being
- * added, and fails rather than producing an incomplete backup.
+ * added, and fails rather than producing an incomplete backup, also when
+ * Thunderbird quits part way through.
  */
 
 var { ProfileExporter } = ChromeUtils.importESModule(
@@ -15,6 +16,9 @@ var { ZipArchive } = ChromeUtils.importESModule(
 );
 var { AppConstants } = ChromeUtils.importESModule(
   "resource://gre/modules/AppConstants.sys.mjs"
+);
+var { AsyncShutdown } = ChromeUtils.importESModule(
+  "resource://gre/modules/AsyncShutdown.sys.mjs"
 );
 
 // Big enough that a synchronous copy would hold the main thread for a
@@ -77,6 +81,9 @@ add_task(async function testExportRoundTrip() {
   // Left behind by an export that never finished, as when Thunderbird quits
   // while exporting.
   await IOUtils.writeUTF8(profilePath("export.zip.part"), "partial");
+  // Left behind by an earlier export to another name.
+  await IOUtils.writeUTF8(profilePath("older.zip.part"), "partial");
+  registerCleanupFunction(() => IOUtils.remove(profilePath("older.zip.part")));
   const exporter = new ProfileExporter();
   const progress = [];
   exporter.onProgress = (current, total) => progress.push([current, total]);
@@ -131,6 +138,10 @@ add_task(async function testExportRoundTrip() {
   Assert.ok(
     !names.includes(`${profileName}/export.zip.part`),
     "Archive should not contain a partial archive"
+  );
+  Assert.ok(
+    !names.includes(`${profileName}/older.zip.part`),
+    "Archive should not contain a partial archive of an earlier export"
   );
   Assert.ok(
     !(await IOUtils.exists(profilePath("export.zip.part"))),
@@ -196,4 +207,38 @@ add_task(async function testUnreadableFileFailsExport() {
     !(await IOUtils.exists(`${zip.path}.part`)),
     "Should not have left partial backup behind"
   );
+});
+
+// Last, because the shutdown phase it triggers stays triggered for anything
+// else that uses it.
+add_task(async function testQuitCancelsExport() {
+  Services.prefs.setBoolPref("toolkit.asyncshutdown.testing", true);
+  const zip = tmpZip("export-quit.zip");
+  const exporter = new ProfileExporter();
+  // Quit once the large file is well under way.
+  const { promise: underWay, resolve: onUnderWay } = Promise.withResolvers();
+  exporter.onProgress = (current, total) => {
+    if (current > total * 0.1) {
+      onUnderWay();
+    }
+  };
+  const exported = exporter.startExport(zip);
+  await underWay;
+  Assert.ok(
+    await IOUtils.exists(`${zip.path}.part`),
+    "Partial backup should be written while exporting"
+  );
+
+  // Returns once the blockers have finished, as quitting would go on then.
+  AsyncShutdown.appShutdownConfirmed._trigger();
+  Assert.ok(
+    !(await IOUtils.exists(`${zip.path}.part`)),
+    "Partial backup should have been removed before quitting went on"
+  );
+  await Assert.rejects(
+    exported,
+    e => e.name == "AbortError",
+    "Quitting should cancel the export"
+  );
+  Assert.ok(!zip.exists(), "Should not have left a backup behind");
 });

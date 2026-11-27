@@ -4,6 +4,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   MailTelemetry: "moz-src:///comm/mail/modules/MailTelemetry.sys.mjs",
   ZipArchive: "resource:///modules/ZipArchive.sys.mjs",
 });
@@ -12,6 +13,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // complete, so that an export that does not finish never leaves a file
 // looking like a usable backup.
 const PARTIAL_SUFFIX = ".part";
+
+// A partial backup left by an export that never finished, such as one cut
+// short by a crash. Never part of the profile, so it is not backed up.
+const STALE_PARTIAL_SUFFIX = ".zip" + PARTIAL_SUFFIX;
 
 // No need to backup those paths, they are not used when importing.
 const IGNORE_PATHS = [
@@ -57,7 +62,9 @@ export class ProfileExporter {
    * @param {object} [options]
    * @param {AbortSignal} [options.signal] - Cancels the export when aborted.
    *   The partial archive is removed, any file already at `targetFile` is
-   *   left as it was, and the export rejects with an AbortError.
+   *   left as it was, and the export rejects with an AbortError. Quitting
+   *   Thunderbird cancels the export the same way, and waits until the
+   *   partial archive is removed.
    */
   async startExport(targetFile, { signal } = {}) {
     const profileDir = Services.dirsvc.get("ProfD", Ci.nsIFile);
@@ -71,13 +78,49 @@ export class ProfileExporter {
     for (const [name, file] of zipEntryMap) {
       // The backup may be saved inside the profile. Adding the archive to
       // itself would never finish, because it grows as fast as it is read.
-      // A partial archive can be there too, if Thunderbird quit while
-      // exporting.
+      // So can the partial archive of an earlier export to the same name
+      // that never finished.
       if (!file.equals(targetFile) && file.path != partialPath) {
         entries.push({ name, path: file.path });
       }
     }
 
+    // Quitting would otherwise kill the worker part way through, and leave
+    // the partial archive behind with nothing to remove it.
+    const quitController = new AbortController();
+    const exportSignal = signal
+      ? AbortSignal.any([signal, quitController.signal])
+      : quitController.signal;
+    const exported = this.#writeArchive(
+      partialPath,
+      targetFile.path,
+      entries,
+      exportSignal
+    );
+    const shutdownBlocker = async () => {
+      quitController.abort();
+      await exported.catch(() => {});
+    };
+    lazy.AsyncShutdown.appShutdownConfirmed.addBlocker(
+      "ProfileExporter: cancelling the export and removing the partial backup",
+      shutdownBlocker
+    );
+    try {
+      await exported;
+    } finally {
+      lazy.AsyncShutdown.appShutdownConfirmed.removeBlocker(shutdownBlocker);
+    }
+  }
+
+  /**
+   * Write the archive under a temporary name, then rename it.
+   *
+   * @param {string} partialPath - Where to write the archive until complete.
+   * @param {string} targetPath - Where the complete archive goes.
+   * @param {{name: string, path: string}[]} entries - The files to add.
+   * @param {AbortSignal} signal - Cancels writing when aborted.
+   */
+  async #writeArchive(partialPath, targetPath, entries, signal) {
     lazy.MailTelemetry.recordProfileExport("started");
     try {
       await lazy.ZipArchive.create(
@@ -86,10 +129,10 @@ export class ProfileExporter {
         (done, total) => this.onProgress(done, total),
         { signal }
       );
-      await IOUtils.move(partialPath, targetFile.path);
+      await IOUtils.move(partialPath, targetPath);
     } catch (e) {
       await IOUtils.remove(partialPath, { ignoreAbsent: true });
-      if (signal?.aborted) {
+      if (signal.aborted) {
         throw e;
       }
       throw new Error(`Profile export failed: ${e.message}`, { cause: e });
@@ -121,7 +164,10 @@ export class ProfileExporter {
         // We don't want to include the rootPath part in the zip file.
         const parts = PathUtils.split(file.path).slice(rootPathCount);
         // Parts look like this: ["profile-default", "lock"].
-        if (IGNORE_PATHS.includes(parts[1])) {
+        if (
+          IGNORE_PATHS.includes(parts[1]) ||
+          file.leafName.endsWith(STALE_PARTIAL_SUFFIX)
+        ) {
           continue;
         }
         // Path separator inside a zip file is always "/".

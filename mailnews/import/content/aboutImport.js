@@ -1667,8 +1667,10 @@ class ExportController extends ImporterController {
       });
       this.finish();
     } catch (e) {
-      if (this._abortController.signal.aborted) {
-        if (!this._pageHidden) {
+      if (e.name == "AbortError") {
+        // Cancelled with the button, by closing the page, or by quitting.
+        // Only the button leaves a page to go back to.
+        if (this._abortController.signal.aborted && !this._pageHidden) {
           this._inProgress = false;
           this.reset();
         }
