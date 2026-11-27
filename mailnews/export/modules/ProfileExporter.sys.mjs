@@ -2,11 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { FileUtils } from "resource://gre/modules/FileUtils.sys.mjs";
+
+const { MODE_WRONLY, MODE_CREATE } = FileUtils;
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   MailTelemetry: "moz-src:///comm/mail/modules/MailTelemetry.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
+
+// Report progress, and let other events run, after this many files.
+const FILES_PER_PROGRESS_UPDATE = 10;
 
 // No need to backup those paths, they are not used when importing.
 const IGNORE_PATHS = [
@@ -52,8 +59,7 @@ export class ProfileExporter {
       "@mozilla.org/zipwriter;1",
       "nsIZipWriter"
     )();
-    // MODE_WRONLY (0x02) and MODE_CREATE (0x08)
-    zipW.open(targetFile, 0x02 | 0x08);
+    zipW.open(targetFile, MODE_WRONLY | MODE_CREATE);
     lazy.MailTelemetry.recordProfileExport("started");
     const profileDir = Services.dirsvc.get("ProfD", Ci.nsIFile);
     const rootPathCount = PathUtils.split(profileDir.parent.path).length;
@@ -63,30 +69,36 @@ export class ProfileExporter {
     );
 
     let i = 0;
-    let failedFiles = 0;
-    for (const [path, file] of zipEntryMap) {
+    try {
+      for (const [path, file] of zipEntryMap) {
+        try {
+          zipW.addEntryFile(
+            path,
+            Ci.nsIZipWriter.COMPRESSION_NONE, // bigger file but much faster
+            file,
+            false
+          );
+        } catch (e) {
+          throw new Error(`Profile export failed adding ${path}`, { cause: e });
+        }
+        if (++i % FILES_PER_PROGRESS_UPDATE === 0) {
+          this.onProgress(i, zipEntryMap.size);
+          await new Promise(resolve => lazy.setTimeout(resolve));
+        }
+      }
+      this.onProgress(zipEntryMap.size, zipEntryMap.size);
+      zipW.close();
+    } catch (e) {
       try {
-        zipW.addEntryFile(
-          path,
-          0, // no compression, bigger file but much faster
-          file,
-          false
-        );
-      } catch (e) {
-        failedFiles++;
-        this._logger.error(`Failed to add ${path}`, e);
+        zipW.close();
+      } catch (closeError) {
+        this._logger.error("Failed to close the zip writer", closeError);
       }
-      if (++i % 10 === 0) {
-        this.onProgress(i, zipEntryMap.size);
-        await new Promise(resolve => lazy.setTimeout(resolve));
-      }
+      // Do not leave a partial archive behind looking like a usable backup.
+      await IOUtils.remove(targetFile.path, { ignoreAbsent: true });
+      throw e;
     }
-    this.onProgress(zipEntryMap.size, zipEntryMap.size);
-    zipW.close();
-    lazy.MailTelemetry.recordProfileExport(
-      "completed",
-      failedFiles ? "partial" : "complete"
-    );
+    lazy.MailTelemetry.recordProfileExport("completed", "complete");
   }
 
   /**
