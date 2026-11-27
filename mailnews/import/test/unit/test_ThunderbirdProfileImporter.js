@@ -202,6 +202,29 @@ add_task(async function test_validateSourceZipAtLevel1() {
 });
 
 /**
+ * Test that a zip file too damaged to import is reported as such, rather
+ * than as not being a profile.
+ */
+add_task(async function test_validateSourceTruncatedZip() {
+  const { writeTruncatedZip } = ChromeUtils.importESModule(
+    "resource://testing-common/TruncatedZip.sys.mjs"
+  );
+  const { ZipArchive } = ChromeUtils.importESModule(
+    "resource:///modules/ZipArchive.sys.mjs"
+  );
+  const zipPath = PathUtils.join(PathUtils.tempDir, "truncated.zip");
+  await writeTruncatedZip(zipPath, "prefs.js");
+  registerCleanupFunction(() => IOUtils.remove(zipPath));
+
+  const importer = new ThunderbirdProfileImporter();
+  await Assert.rejects(
+    importer.validateSource(await IOUtils.getFile(zipPath)),
+    e => e.name == ZipArchive.TRUNCATED_ERROR,
+    "Zip file with truncated offsets should be reported as damaged"
+  );
+});
+
+/**
  * Construct a temporary profile dir with prefs, import into the current
  * profile, then check the values of prefs related to mail accounts.
  */

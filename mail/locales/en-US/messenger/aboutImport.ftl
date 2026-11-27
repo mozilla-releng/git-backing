@@ -237,6 +237,8 @@ error-pane-title = Error
 
 error-message-extract-zip-file-failed2 = Failed to extract the ZIP file. Please extract it manually, then import from the extracted folder instead.
 
+error-message-zip-file-truncated = This ZIP file is damaged. It is larger than 4 GB, but was saved without the extensions needed for files of that size, which older versions of { -brand-product-name } did not use. Import from the original profile folder instead.
+
 error-message-failed = Import failed unexpectedly, more information may be available in the Error Console.
 
 error-failed-to-parse-ics-file = No importable items found in the file.

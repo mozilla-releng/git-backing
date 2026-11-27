@@ -11,6 +11,7 @@
 import {
   configure,
   Reader,
+  WARNING_MISMATCHED_CENTRAL_DIRECTORY_OFFSET,
   Writer,
   ZipReader,
   ZipWriter,
@@ -25,11 +26,48 @@ const WRITE_BUFFER_SIZE = 16 * 1024 * 1024;
 // The shortest time between two progress messages.
 const PROGRESS_INTERVAL_MS = 250;
 
+// The largest offset a zip file can record without ZIP64.
+const MAX_32_BIT_OFFSET = 0xffffffff;
+
+// Must match ZipArchive.TRUNCATED_ERROR.
+const TRUNCATED_ERROR = "ZipTruncatedError";
+
 // Entries are compressed and decompressed on this worker's own thread, by
 // Gecko's CompressionStream and DecompressionStream. The vendored zip.js has
 // no codec of its own, so it is never given a compression level: it only
 // uses CompressionStream for the default level.
 configure({ chunkSize: CHUNK_SIZE, useWebWorkers: false });
+
+/**
+ * Read the entries of an archive, refusing one that was cut short.
+ *
+ * Writers without ZIP64 support, including older versions of Thunderbird,
+ * record offsets past 4 GB modulo 4 GB. Most entries of such an archive
+ * point at the wrong data, so none of it can be trusted. The end record of
+ * the archive then points below the central directory it describes, which
+ * zip.js reports as a mismatched offset while still finding the first
+ * entries where they claim to be.
+ *
+ * @param {ZipReader} zipReader
+ * @param {DiskFileReader} reader - The reader zipReader was made from.
+ * @returns {Promise<Entry[]>}
+ */
+async function getEntries(zipReader, reader) {
+  const entries = await zipReader.getEntries();
+  if (
+    reader.size > MAX_32_BIT_OFFSET &&
+    zipReader.warnings.some(
+      w => w.reason == WARNING_MISMATCHED_CENTRAL_DIRECTORY_OFFSET
+    )
+  ) {
+    const error = new Error(
+      "The archive is larger than 4 GB but was written without ZIP64, so its offsets are truncated"
+    );
+    error.name = TRUNCATED_ERROR;
+    throw error;
+  }
+  return entries;
+}
 
 /**
  * Reads a file at any offset, without reading it all into memory.
@@ -206,7 +244,7 @@ async function listEntries({ archivePath }) {
   const reader = new DiskFileReader(archivePath);
   const zipReader = new ZipReader(reader);
   try {
-    const entries = await zipReader.getEntries();
+    const entries = await getEntries(zipReader, reader);
     return entries.map(entry => ({
       name: entry.filename,
       directory: entry.directory,
@@ -238,7 +276,7 @@ async function extract({ archivePath, entries }) {
   const failures = [];
   try {
     const entriesByName = new Map();
-    for (const entry of await zipReader.getEntries()) {
+    for (const entry of await getEntries(zipReader, reader)) {
       entriesByName.set(entry.filename, entry);
     }
     const items = entries.map(({ name: entryName, path }) => ({
@@ -344,6 +382,6 @@ self.onmessage = async ({ data: { operation, args } }) => {
     const result = await OPERATIONS[operation](args);
     self.postMessage({ result });
   } catch (e) {
-    self.postMessage({ error: e.message ?? String(e) });
+    self.postMessage({ error: e.message ?? String(e), errorName: e.name });
   }
 };

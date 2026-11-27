@@ -4,4 +4,8 @@
 
 BROWSER_CHROME_MANIFESTS += ["browser/browser.toml"]
 
+TESTING_JS_MODULES += [
+    "TruncatedZip.sys.mjs",
+]
+
 XPCSHELL_TESTS_MANIFESTS += ["unit/xpcshell.toml"]

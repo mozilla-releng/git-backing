@@ -5,6 +5,9 @@
 var { BaseProfileImporter } = ChromeUtils.importESModule(
   "resource:///modules/BaseProfileImporter.sys.mjs"
 );
+var { ZipArchive } = ChromeUtils.importESModule(
+  "resource:///modules/ZipArchive.sys.mjs"
+);
 
 function createZipProfile(entries) {
   const tmpZipFile = Services.dirsvc.get("TmpD", Ci.nsIFile);
@@ -34,6 +37,15 @@ function createZipProfile(entries) {
   zipWriter.close();
 
   return tmpZipFile;
+}
+
+/**
+ * Count the temporary directories extractZipFile has made and left behind.
+ */
+async function countTmpProfiles() {
+  return (await IOUtils.getChildren(PathUtils.tempDir)).filter(path =>
+    PathUtils.filename(path).startsWith("tmp-profile")
+  ).length;
 }
 
 /**
@@ -201,5 +213,63 @@ add_task(async function testExtractUnsafeNames() {
       !(await IOUtils.exists("/escaped.txt")),
       "Nothing should have been written at the root of the file system"
     );
+  }
+});
+
+/**
+ * Tests that a file which cannot be extracted stops the import, rather than
+ * importing the rest without it.
+ */
+add_task(async function testExtractFailureStopsImport() {
+  const zipFile = createZipProfile(["foo.txt", "bar.txt"]);
+  // Damage the stored content of the first file, so its CRC-32 is wrong.
+  const archive = await IOUtils.read(zipFile.path);
+  const content = new TextEncoder().encode("this content doesn't matter");
+  const offset = archive.findIndex((_, i) =>
+    content.every((byte, j) => archive[i + j] == byte)
+  );
+  Assert.greater(offset, 0, "Should find the stored content");
+  archive[offset] ^= 0xff;
+  await IOUtils.write(zipFile.path, archive);
+
+  const before = await countTmpProfiles();
+  const importer = new BaseProfileImporter();
+  await Assert.rejects(
+    importer.extractZipFile(zipFile, () => {}),
+    /Failed to extract 1 of 2 files/,
+    "Import should stop"
+  );
+  Assert.equal(
+    await countTmpProfiles(),
+    before,
+    "Should not leave a partly extracted profile behind"
+  );
+});
+
+/**
+ * Tests that the temporary directory is removed if extracting throws, not
+ * only when individual files fail.
+ */
+add_task(async function testExtractThrowCleansUp() {
+  const zipFile = createZipProfile(["foo.txt", "bar.txt"]);
+  const originalExtract = ZipArchive.extract;
+  ZipArchive.extract = async () => {
+    throw new Error("Simulated extraction error");
+  };
+  try {
+    const before = await countTmpProfiles();
+    const importer = new BaseProfileImporter();
+    await Assert.rejects(
+      importer.extractZipFile(zipFile, () => {}),
+      /Simulated extraction error/,
+      "Error from ZipArchive.extract should be passed on"
+    );
+    Assert.equal(
+      await countTmpProfiles(),
+      before,
+      "Should not leave a temporary directory behind"
+    );
+  } finally {
+    ZipArchive.extract = originalExtract;
   }
 });

@@ -110,7 +110,8 @@ export class ThunderbirdProfileImporter extends BaseProfileImporter {
    * @param {nsIFile} sourceProfileDir - A directory or file (likely but not
    *   necessarily a zip file) to be imported.
    * @returns {Promise<boolean>} false if importing this source should not
-   *   continue.
+   *   continue. Rejects with ZipArchive.TRUNCATED_ERROR as the error name for
+   *   a zip file too damaged to import.
    */
   async validateSource(sourceProfileDir) {
     this._logger.debug(
@@ -126,6 +127,9 @@ export class ThunderbirdProfileImporter extends BaseProfileImporter {
         await ZipArchive.listEntries(sourceProfileDir.path)
       );
     } catch (e) {
+      if (e.name == ZipArchive.TRUNCATED_ERROR) {
+        throw e;
+      }
       this._logger.debug(
         `${sourceProfileDir.leafName} is not a zip file or is corrupt: ${e}`
       );

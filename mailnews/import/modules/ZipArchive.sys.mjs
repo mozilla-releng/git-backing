@@ -30,10 +30,18 @@ const WORKER_URL = "resource:///modules/ZipArchive.worker.mjs";
  */
 export const ZipArchive = {
   /**
+   * The name of the error thrown for an archive larger than 4 GB that was
+   * written without ZIP64, and so has truncated offsets. Older versions of
+   * Thunderbird made profile backups like this.
+   */
+  TRUNCATED_ERROR: "ZipTruncatedError",
+
+  /**
    * List the entries of an archive.
    *
    * @param {string} archivePath - Absolute path of the archive.
-   * @returns {Promise<ZipArchiveEntry[]>}
+   * @returns {Promise<ZipArchiveEntry[]>} Rejects with TRUNCATED_ERROR as the
+   *   error name if the archive's offsets are truncated.
    */
   listEntries(archivePath) {
     return run("listEntries", { archivePath });
@@ -87,7 +95,9 @@ function run(operation, args, onProgress) {
       if (data.progress) {
         onProgress?.(...data.progress);
       } else if (data.error) {
-        reject(new Error(data.error));
+        const error = new Error(data.error);
+        error.name = data.errorName;
+        reject(error);
       } else {
         resolve(data.result);
       }

@@ -13,6 +13,9 @@ var { AppConstants } = ChromeUtils.importESModule(
 var { ZipArchive } = ChromeUtils.importESModule(
   "resource:///modules/ZipArchive.sys.mjs"
 );
+var { writeTruncatedZip } = ChromeUtils.importESModule(
+  "resource://testing-common/TruncatedZip.sys.mjs"
+);
 
 // Several of zip.js's chunks, so that data crosses chunk boundaries.
 const LARGE_SIZE = 9 * 1024 * 1024 + 7;
@@ -259,5 +262,28 @@ add_task(async function testRemovedSourceIsLeftOut() {
     names,
     others.map(e => e.name),
     "Files removed before their turn should be left out, and the rest added"
+  );
+});
+
+add_task(async function testTruncatedArchive() {
+  const archivePath = PathUtils.join(tmpDir, "truncated.zip");
+  await writeTruncatedZip(archivePath, "prefs.js");
+  registerCleanupFunction(() => IOUtils.remove(archivePath));
+
+  await Assert.rejects(
+    ZipArchive.listEntries(archivePath),
+    e => e.name == ZipArchive.TRUNCATED_ERROR,
+    "Listing an archive with truncated offsets should fail"
+  );
+  await Assert.rejects(
+    ZipArchive.extract(archivePath, [
+      { name: "prefs.js", path: PathUtils.join(tmpDir, "prefs.js") },
+    ]),
+    e => e.name == ZipArchive.TRUNCATED_ERROR,
+    "Extracting from an archive with truncated offsets should fail"
+  );
+  Assert.ok(
+    !(await IOUtils.exists(PathUtils.join(tmpDir, "prefs.js"))),
+    "Nothing should have been extracted"
   );
 });

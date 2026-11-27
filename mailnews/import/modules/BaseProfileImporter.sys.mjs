@@ -116,6 +116,8 @@ export class BaseProfileImporter {
    * @param {nsIFile} sourceFile
    * @param {ProgressCallback} progressCallback
    * @returns {nsIFile}
+   * @throws {Error} If the archive could not be read, or any file could not
+   *   be extracted. Nothing is left in the temporary directory.
    */
   async extractZipFile(sourceFile, progressCallback) {
     const entries = await ZipArchive.listEntries(sourceFile.path);
@@ -170,17 +172,28 @@ export class BaseProfileImporter {
       toExtract.push({ name, path: target.path });
     }
 
-    const failures = await ZipArchive.extract(
-      sourceFile.path,
-      toExtract,
-      (doneBytes, totalBytes) => {
-        if (totalBytes) {
-          progressCallback(doneBytes / totalBytes);
+    try {
+      const failures = await ZipArchive.extract(
+        sourceFile.path,
+        toExtract,
+        (doneBytes, totalBytes) => {
+          if (totalBytes) {
+            progressCallback(doneBytes / totalBytes);
+          }
         }
+      );
+      if (failures.length) {
+        for (const { name, message } of failures) {
+          this._logger.error(`Failed to extract ${name}: ${message}`);
+        }
+        throw new Error(
+          `Failed to extract ${failures.length} of ${toExtract.length} files from ${sourceFile.leafName}`
+        );
       }
-    );
-    for (const { name, message } of failures) {
-      this._logger.error(`Failed to extract ${name}: ${message}`);
+    } catch (e) {
+      // Importing what did extract would quietly leave mail behind.
+      await IOUtils.remove(targetDir.path, { recursive: true });
+      throw e;
     }
     progressCallback(1);
     return targetDir;

@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(this, {
   MailServices: "resource:///modules/MailServices.sys.mjs",
   MailUtils: "resource:///modules/MailUtils.sys.mjs",
   ProfileExporter: "resource:///modules/ProfileExporter.sys.mjs",
+  ZipArchive: "resource:///modules/ZipArchive.sys.mjs",
   cal: "resource:///modules/calendar/calUtils.sys.mjs",
 });
 
@@ -546,7 +547,17 @@ class ProfileImporterController extends ImporterController {
         this._sourceProfile.name;
     }
 
-    if (await this._importer.validateSource(this._sourceProfile.dir)) {
+    let valid;
+    try {
+      valid = await this._importer.validateSource(this._sourceProfile.dir);
+    } catch (e) {
+      if (e.name == ZipArchive.TRUNCATED_ERROR) {
+        this.showError("error-message-zip-file-truncated");
+        return;
+      }
+      throw e;
+    }
+    if (valid) {
       this._setItemsChecked(this._importer.SUPPORTED_ITEMS);
     } else {
       this._setItemsChecked({});

@@ -512,3 +512,75 @@ add_task(async function testImportModules() {
 
   document.getElementById("tabmail").closeTab(tab);
 });
+
+add_task(async function testTruncatedZIPIsRefused() {
+  const { writeTruncatedZip } = ChromeUtils.importESModule(
+    "resource://testing-common/TruncatedZip.sys.mjs"
+  );
+  const profileDir = await IOUtils.createUniqueDirectory(
+    PathUtils.tempDir,
+    "profile-tmp"
+  );
+  registerCleanupFunction(async () => {
+    await IOUtils.remove(profileDir, {
+      recursive: true,
+    });
+  });
+  // Older versions of Thunderbird saved backups over 4 GB without ZIP64, so
+  // most of their entries point at the wrong data. Such a file should be
+  // refused with an explanation, before anything is imported from it.
+  const profileZip = PathUtils.join(profileDir, "profile.zip");
+  await writeTruncatedZip(profileZip, "prefs.js");
+  MockFilePicker.setFiles([await IOUtils.getFile(profileZip)]);
+
+  const tab = await new Promise(resolve => {
+    const newTab = window.openTab("contentTab", {
+      url: "about:import",
+      onLoad() {
+        resolve(newTab);
+      },
+    });
+  });
+  const importDocument = tab.browser.contentDocument;
+
+  importDocument
+    .querySelector("#tabPane-start .continue")
+    .scrollIntoView({ block: "end", behavior: "instant" });
+  importDocument.querySelector("#tabPane-start .continue").click();
+  const appPane = importDocument.getElementById("tabPane-app");
+  await BrowserTestUtils.waitForMutationCondition(
+    appPane,
+    {
+      attributes: true,
+    },
+    () => BrowserTestUtils.isVisible(appPane)
+  );
+  importDocument
+    .getElementById("appFilePickerZip")
+    .scrollIntoView({ block: "end", behavior: "instant" });
+  importDocument.getElementById("appFilePickerZip").click();
+  importDocument
+    .getElementById("profileNextButton")
+    .scrollIntoView({ block: "end", behavior: "instant" });
+  importDocument.getElementById("profileNextButton").click();
+
+  const notificationBox = importDocument.getElementById("errorNotifications");
+  await BrowserTestUtils.waitForMutationCondition(
+    notificationBox,
+    {
+      childList: true,
+    },
+    () => notificationBox.childElementCount > 0
+  );
+  Assert.equal(
+    notificationBox.querySelector("notification-message").messageL10nId,
+    "error-message-zip-file-truncated",
+    "The file should be refused as damaged"
+  );
+  Assert.ok(
+    BrowserTestUtils.isHidden(importDocument.getElementById("app-items")),
+    "Nothing should be offered for import"
+  );
+
+  document.getElementById("tabmail").closeTab(tab);
+});
